@@ -1,0 +1,202 @@
+/**
+ * Hand-checkable edge cases (SPEC §4–§8). The exhaustive comparison with the spreadsheet
+ * lives in tests/unit/engine.golden.test.ts.
+ */
+import { describe, expect, it } from "vitest";
+import { compareActual, latestActual, statusFor } from "./actuals";
+import { computePriorities, simulatePlan } from "./simulate";
+import type { BudgetParams, LoanInput, PlanMonth } from "./types";
+
+function budget(overrides: Partial<BudgetParams> = {}): BudgetParams {
+  return {
+    income: 200_000,
+    fixedCosts: 100_000,
+    variableExpenses: 50_000,
+    startMonth: "2027-01",
+    movingGoal: 0,
+    movingDeadlineMonth: "2027-06",
+    movingAlreadySaved: 0,
+    emergencyTarget: 0,
+    emergencyExisting: 0,
+    riskFreeRate: 0.02,
+    earlyRepaymentPct: 0.5,
+    ...overrides,
+  };
+}
+
+function loan(id: string, principal: number, apr: number, monthlyPayment: number): LoanInput {
+  return { id, name: null, principal, apr, monthlyPayment };
+}
+
+const at = (months: PlanMonth[], index: number) => months[index - 1] as PlanMonth;
+
+describe("simulatePlan", () => {
+  it("is deterministic and does not mutate its input", () => {
+    const input = { budget: budget(), loans: [loan("a", 100_000, 0.05, 20_000)] };
+    const frozen = structuredClone(input);
+    expect(simulatePlan(input)).toEqual(simulatePlan(input));
+    expect(input).toEqual(frozen);
+  });
+
+  it("with no loans: no debt, every early-repayment euro falls back to free savings", () => {
+    const { months, kpis } = simulatePlan({ budget: budget(), loans: [] });
+    const m1 = at(months, 1);
+    expect(m1.available).toBe(50_000);
+    expect(m1.toEarlyRepayment).toBe(25_000);
+    expect(m1.unusedEarlyRepayment).toBe(25_000);
+    expect(m1.toFreeSavings).toBe(50_000);
+    expect(kpis.hasDebt).toBe(false);
+    expect(kpis.debtFreeMonth).toBeNull();
+    expect(kpis.debtRatio).toBe(0);
+  });
+
+  it("pays a loan off mid-month (capped last payment) and frees its payment the month after", () => {
+    // 100.00 € at 12 %: m1 interest 1.00, pays 60.00 → 41.00; m2 interest 0.41, pays 41.41 → 0.
+    const { months, loans } = simulatePlan({
+      budget: budget({ earlyRepaymentPct: 0 }),
+      loans: [loan("a", 10_000, 0.12, 6_000)],
+    });
+    expect(at(months, 1).loans[0]).toMatchObject({ interest: 100, paymentPaid: 6_000, endBalance: 4_100 });
+    expect(at(months, 2).loans[0]).toMatchObject({ interest: 41, paymentPaid: 4_141, balanceAfterPayment: 0 });
+    expect(at(months, 3).loans[0]?.paymentPaid).toBe(0);
+    expect(at(months, 3).available - at(months, 1).available).toBe(6_000);
+    expect(loans[0]?.payoffMonthWithoutPlan).toBe("2027-02");
+  });
+
+  it("keeps a negative month out of the savings (nothing allocated, nothing withdrawn)", () => {
+    const { months, kpis } = simulatePlan({
+      budget: budget({ income: 140_000, emergencyTarget: 100_000, emergencyExisting: 30_000 }),
+      loans: [],
+    });
+    const m1 = at(months, 1);
+    expect(m1.available).toBe(-10_000);
+    expect(m1.negativeBudget).toBe(true);
+    expect([m1.toMoving, m1.toEmergency, m1.remainder, m1.toFreeSavings]).toEqual([0, 0, 0, 0]);
+    expect(m1.emergencyCumulative).toBe(30_000);
+    expect(kpis.negativeBudgetMonths).toBe(300);
+  });
+
+  it("fills the moving fund only up to the deadline month (inclusive), then the emergency fund", () => {
+    const { months, kpis } = simulatePlan({
+      budget: budget({ movingGoal: 400_000, movingDeadlineMonth: "2027-02", emergencyTarget: 100_000 }),
+      loans: [],
+    });
+    expect(at(months, 2).toMoving).toBe(50_000);
+    expect(at(months, 3).toMoving).toBe(0);
+    expect(at(months, 3).toEmergency).toBe(50_000);
+    expect(kpis.movingAmountAtDeadline).toBe(100_000);
+    expect(kpis.movingMonthlyNeeded).toBe(200_000);
+    expect(kpis.movingGoalMet).toBe(false);
+  });
+
+  it("handles a deadline already passed", () => {
+    const { months, kpis } = simulatePlan({
+      budget: budget({ movingGoal: 100_000, movingAlreadySaved: 20_000, movingDeadlineMonth: "2026-10" }),
+      loans: [],
+    });
+    expect(months.every((m) => m.toMoving === 0)).toBe(true);
+    expect(kpis.deadlineBeforeStart).toBe(true);
+    expect(kpis.movingMonthlyNeeded).toBe(0);
+    expect(kpis.movingAmountAtDeadline).toBe(20_000);
+  });
+
+  it("lets the balance grow when the payment is below the interest", () => {
+    const { months, loans } = simulatePlan({
+      budget: budget({ earlyRepaymentPct: 0 }),
+      loans: [loan("a", 185_000, 0.189, 2_000)],
+    });
+    expect(at(months, 2).loans[0]!.startBalance).toBeGreaterThan(185_000);
+    expect(loans[0]?.paymentBelowInterest).toBe(true);
+    expect(loans[0]?.payoffMonthWithoutPlan).toBeNull();
+  });
+
+  it("repays nothing early when every loan is at or below the threshold", () => {
+    const loans = [loan("a", 100_000, 0.02, 10_000), loan("b", 50_000, 0, 5_000)];
+    expect(computePriorities(loans, 0.02)).toEqual([null, null]);
+    const { months, kpis } = simulatePlan({ budget: budget(), loans });
+    expect(months.every((m) => m.totalEarlyRepayment === 0)).toBe(true);
+    expect(at(months, 1).unusedEarlyRepayment).toBe(at(months, 1).toEarlyRepayment);
+    expect(kpis.interestSaved).toBe(0);
+  });
+
+  it("with earlyRepaymentPct = 0 %, everything left goes to free savings", () => {
+    const { months } = simulatePlan({ budget: budget({ earlyRepaymentPct: 0 }), loans: [loan("a", 100_000, 0.1, 10_000)] });
+    expect(months.every((m) => m.toEarlyRepayment === 0 && m.toFreeSavings === m.remainder)).toBe(true);
+  });
+
+  it("with earlyRepaymentPct = 100 %, free savings only get what the loans cannot absorb", () => {
+    const { months } = simulatePlan({ budget: budget({ earlyRepaymentPct: 1 }), loans: [loan("a", 100_000, 0.1, 10_000)] });
+    expect(months.every((m) => m.toFreeSavings === m.unusedEarlyRepayment)).toBe(true);
+    expect(at(months, 1).totalEarlyRepayment).toBe(40_000);
+  });
+
+  it("pours early repayment by priority and overflows to the next loan (avalanche)", () => {
+    const loans = [loan("low", 100_000, 0.05, 10_000), loan("high", 20_000, 0.15, 5_000)];
+    const { months, loans: summary } = simulatePlan({ budget: budget({ earlyRepaymentPct: 1 }), loans });
+    expect(summary.map((l) => l.priority)).toEqual([2, 1]);
+    // m1: available 350.00; "high" after payment = 152.50 → cleared; 197.50 overflows to "low".
+    const m1 = at(months, 1);
+    expect(m1.loans[1]).toMatchObject({ earlyRepayment: 15_250, endBalance: 0 });
+    expect(m1.loans[0]?.earlyRepayment).toBe(35_000 - 15_250);
+  });
+
+  it("breaks APR ties by entry order", () => {
+    const loans = [loan("a", 1_000, 0.08, 100), loan("b", 1_000, 0.12, 100), loan("c", 1_000, 0.08, 100)];
+    expect(computePriorities(loans, 0.02)).toEqual([2, 1, 3]);
+  });
+
+  it("names unnamed loans by position and flags high-rate loans", () => {
+    const { loans } = simulatePlan({
+      budget: budget(),
+      loans: [{ ...loan("a", 1_000, 0.21, 100), name: "  " }, { ...loan("b", 1_000, 0.05, 100), name: "Auto" }],
+    });
+    expect(loans.map((l) => [l.displayName, l.advice])).toEqual([
+      ["Crédit 1", "highRate"],
+      ["Auto", "worthIt"],
+    ]);
+  });
+});
+
+describe("actuals", () => {
+  const input = { budget: budget({ emergencyTarget: 1_000_000 }), loans: [loan("a", 100_000, 0.05, 10_000)] };
+  const plan = simulatePlan(input);
+
+  it("uses inclusive ±10 € boundaries for the status", () => {
+    expect(statusFor(1_000, -1_000)).toBe("onTrack");
+    expect(statusFor(1_001, -1_001)).toBe("late");
+    expect(statusFor(1_001, 0)).toBe("mixed");
+    expect(statusFor(0, -1_001)).toBe("mixed");
+  });
+
+  it("compares a month with the plan, including information-only income/expense gaps", () => {
+    const m1 = at(plan.months, 1);
+    const c = compareActual(
+      {
+        month: "2027-01",
+        income: 210_000,
+        expenses: null,
+        movingSavings: 0,
+        emergencySavings: m1.emergencyCumulative,
+        freeSavings: 0,
+        loanBalances: [m1.remainingDebt + 500],
+      },
+      plan,
+      input.budget,
+    );
+    expect(c).toMatchObject({ planIndex: 1, debtGap: 500, savingsGap: 0, status: "onTrack", incomeGap: 10_000, expensesGap: null });
+  });
+
+  it("returns no plan comparison for a month outside the horizon", () => {
+    const c = compareActual(
+      { month: "2026-12", income: null, expenses: null, movingSavings: 0, emergencySavings: 0, freeSavings: 0, loanBalances: [] },
+      plan,
+      input.budget,
+    );
+    expect(c).toMatchObject({ planIndex: null, plannedDebt: null, status: null });
+  });
+
+  it("picks the most recent month as the latest entry, whatever the order", () => {
+    expect(latestActual([{ month: "2027-03" }, { month: "2027-05" }, { month: "2027-04" }])?.month).toBe("2027-05");
+    expect(latestActual([])).toBeNull();
+  });
+});
