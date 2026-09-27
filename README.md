@@ -10,7 +10,8 @@ Where the app deliberately differs from the spreadsheet, the decision is recorde
 [SPEC §2](docs/SPEC.md#2-v1-decisions-owner-validated-2026-09-27) (D1–D14).
 
 **V1 stack:** Next.js 16 (App Router, React 19, TypeScript) · Tailwind CSS 4 + shadcn/ui ·
-Recharts · Supabase (Postgres + Auth magic link + RLS) · Vitest · target hosting: Vercel.
+Recharts · Supabase (Postgres + Auth magic link + RLS) · Vitest + Testing Library · static export hosted on
+GitHub Pages.
 
 ## Quick start
 
@@ -40,6 +41,7 @@ npm run dev                    # http://localhost:3000
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | App | Supabase API URL (local: `http://127.0.0.1:55321`) |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | App | Publishable key (`sb_publishable_…`) |
+| `NEXT_PUBLIC_BASE_PATH` | App build | Path on GitHub Pages (`/finance`); empty locally |
 | `SUPABASE_URL` | Integration tests only | Local API URL |
 | `SUPABASE_PUBLISHABLE_KEY` | Integration tests only | Local publishable key |
 | `SUPABASE_SECRET_KEY` | Integration tests only | Local secret key, used to create/delete test users |
@@ -48,18 +50,21 @@ The three `SUPABASE_*` variables are optional locally (the tests read `supabase 
 automatically in CI. The tests refuse to run against anything but `127.0.0.1`/`localhost`.
 
 > **No service-role / secret key is ever used by the app or shipped to the browser.** The app only
-> has the publishable key; every row is protected by Row Level Security in Postgres.
+> has the publishable key; every row is protected by Row Level Security in Postgres, and signed-in
+> users only hold select/insert/update/delete on their own rows (Supabase security advisor clean).
 
 ## Scripts
 
 | Command | What it does |
 |---|---|
 | `npm run dev` | Dev server |
-| `npm run build` / `npm start` | Production build / serve it |
+| `npm run build` | Static export into `out/` |
+| `npm run build:pages` | Static export + GitHub Pages post-processing (used by CI) |
 | `npm run lint` | ESLint (includes the engine purity guard) |
 | `npm run typecheck` | `next typegen && tsc --noEmit` |
 | `npm test` | All Vitest projects (unit + integration) |
 | `npm run test:unit` | Unit tests (engine golden + edge cases, validation) |
+| `npm run test:components` | Rendered form tests (Testing Library + jsdom) |
 | `npm run test:integration` | Integration tests against the local Supabase |
 | `npm run test:watch` | Unit tests in watch mode |
 | `npm run verify` | lint + typecheck + all tests |
@@ -70,13 +75,15 @@ automatically in CI. The tests refuse to run against anything but `127.0.0.1`/`l
 |---|---|
 | `lib/engine/` | Pure simulation engine (money, months, simulate, projection of a principal to the plan start, normal payment rule, actuals). No framework, I/O, clock or randomness: enforced by an ESLint rule in `eslint.config.mjs` |
 | `lib/domain/` | Domain types, plan assembly, input validation |
-| `lib/data/` | `FinanceRepository` interface + Supabase implementation. Pages and server actions only use this interface, so the V2 import can reuse it |
-| `lib/supabase/`, `proxy.ts` | Server Supabase client; `proxy.ts` refreshes the session cookie and redirects signed-out visitors to `/login` |
+| `lib/data/` | `FinanceRepository` interface + Supabase implementation; `client-store.ts` gives the browser's repository and the "data changed" signal. Forms only use this interface, so the V2 import can reuse it |
+| `lib/supabase/` | Browser Supabase client (PKCE magic link, session kept in the browser) |
+| `components/app/finance-provider.tsx` | Session guard for the app pages (redirects to `/login`), loads the data and the plan, reloads after writes |
 | `lib/labels.ts`, `lib/format.ts` | French UI labels; `fr-FR` formatting |
-| `app/(app)/` | Pages: `/` dashboard, `/budget`, `/credits`, `/plan`, `/suivi` |
-| `app/login/`, `app/auth/` | Magic-link login and `/auth/confirm` callback |
+| `app/(app)/` | Pages: `/` dashboard, `/budget`, `/credits`, `/plan`, `/suivi` (static `page.tsx` + client `view.tsx`; form actions run in the browser) |
+| `app/login/`, `app/auth/confirm/` | Magic-link login and the page that completes it |
 | `supabase/migrations/` | Schema (7 tables: `profiles`, `budget_settings`, `budget_lines`, `budget_exceptions`, `loans`, `monthly_actuals`, `monthly_actual_loan_balances`); RLS on every table (`user_id = auth.uid()`) |
 | `tests/unit/` | Engine vs Excel golden data, edge cases, validation |
+| `tests/components/` | Rendered form tests with a mocked repository |
 | `tests/integration/` | RLS isolation and repository tests |
 | `scripts/` | Phase 0 tooling (Python/PowerShell): template, Excel recalculation, golden export |
 | `docs/SPEC.md` | Functional spec, the engine's contract |
@@ -111,9 +118,8 @@ automatically in CI. The tests refuse to run against anything but `127.0.0.1`/`l
 ## CI
 
 [.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every pull request and on pushes to
-`main`: lint, typecheck and unit tests, then (only if those pass) a local Supabase in the runner,
-`supabase db lint` and the integration tests. It becomes active once the repository is pushed to
-GitHub.
+`main`: lint, typecheck, unit and component tests, then (only if those pass) a local Supabase in the
+runner, `supabase db lint` and the integration tests, then (on `main` only) the Pages deployment.
 
 ## Data & privacy
 
@@ -122,18 +128,30 @@ GitHub.
 - No IBANs, account numbers or bank credentials are stored: only balances and amounts.
 - Every table has RLS; each user only sees their own rows.
 
-## Deploying to Vercel
+## Deploying (GitHub Pages)
 
-Not deployed yet. Steps:
+The app is a **static export** (`output: "export"`): there is no Node server. The browser talks to
+Supabase directly with the publishable key; Row Level Security protects every row.
 
-1. Create a Supabase project.
-2. Apply the migrations: `supabase link --project-ref <ref>` then `supabase db push`
-   (do not run the seed on production).
-3. In Supabase → Authentication → URL Configuration: Site URL `https://<domain>` and redirect URL
-   `https://<domain>/auth/confirm`.
-4. In Vercel, import the repository and set `NEXT_PUBLIC_SUPABASE_URL` and
-   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (from the Supabase project's API settings).
-5. Deploy.
+Live: <https://ghassenazzouz.github.io/finance/> (hosted Supabase project `finance-plan`, region
+eu-west-3).
+
+How it deploys: the `deploy` job of [.github/workflows/ci.yml](.github/workflows/ci.yml) runs on
+every push to `main` **after** the checks and integration tests pass. It runs `npm run build:pages`
+(`next build` + [scripts/prepare-pages.mjs](scripts/prepare-pages.mjs): `.nojekyll` and flattened
+segment-prefetch files) with the base path `/<repository name>`, then publishes `out/`.
+
+One-time setup (already done for this repository):
+
+1. Supabase project: apply `supabase/migrations/` in order (never the seed). Authentication → URL
+   configuration: Site URL `https://<user>.github.io/<repo>/`, redirect URL
+   `https://<user>.github.io/<repo>/**`.
+2. GitHub → Settings → Pages → Source: **GitHub Actions**. Free Pages requires a public repository.
+3. GitHub → Settings → Secrets and variables → Actions → **Variables**:
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public values, not secrets).
+
+Preview the static build locally: `NEXT_PUBLIC_BASE_PATH=/finance npm run build:pages`, then serve
+`out/` under `/finance/` with any static server.
 
 ## Roadmap (V2, not implemented)
 

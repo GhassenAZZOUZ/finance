@@ -30,6 +30,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:unit
+      - run: npm run test:components
 
   integration:
     name: Integration tests (local Supabase)
@@ -75,3 +76,54 @@ jobs:
           ' "$RUNNER_TEMP/supabase-status.txt"
 
       - run: npm run test:integration
+
+  deploy:
+    name: Deploy to GitHub Pages
+    # Static export (docs: README "Deploying"); only from main, only when every check passed.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [checks, integration]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    # Never cancel a deployment half-way (the workflow-level group cancels older runs).
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Check repository variables
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::error::Set the repository variables NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - uses: actions/configure-pages@v6
+
+      # next build (output: export) + .nojekyll + flattened prefetch files, into ./out
+      - run: npm run build:pages
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: out
+
+      - id: deployment
+        uses: actions/deploy-pages@v5
