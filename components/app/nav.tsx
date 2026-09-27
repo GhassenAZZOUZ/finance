@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarCheck, CreditCard, LayoutDashboard, Table2, Wallet } from "lucide-react";
+import { CalendarCheck, CreditCard, FlaskConical, LayoutDashboard, Table2, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -10,6 +10,7 @@ export const NAV_ITEMS = [
   { href: "/credits", label: "Crédits", short: "Crédits", icon: CreditCard },
   { href: "/plan", label: "Plan", short: "Plan", icon: Table2 },
   { href: "/suivi", label: "Suivi", short: "Suivi", icon: CalendarCheck },
+  { href: "/simuler", label: "Et si… ?", short: "Simuler", icon: FlaskConical },
 ] as const;
 
 function isActive(pathname: string, href: string) {
@@ -51,7 +52,7 @@ export function MobileNav() {
       aria-label="Navigation principale"
       className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
     >
-      <ul className="grid grid-cols-5">
+      <ul className="grid grid-cols-6">
         {NAV_ITEMS.map(({ href, short, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (

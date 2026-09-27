@@ -3,11 +3,12 @@
 Private, French-language personal-finance web app that reproduces the owner's spreadsheet
 (`plan_financier`): a monthly **budget** with one-off exceptions (e.g. a bonus in December), up to 6
 **loans** (crédits), a **month-by-month plan over 300 months** (emergency fund, moving fund, avalanche
-early repayments) and **monthly check-ins** (suivi réel) compared to the plan.
+early repayments), **monthly check-ins** (suivi réel) compared to the plan, and an **"Et si… ?"
+simulator** that compares changes with the saved plan without saving anything.
 
 The business rules are specified in [docs/SPEC.md](docs/SPEC.md) and validated against Excel.
 Where the app deliberately differs from the spreadsheet, the decision is recorded in
-[SPEC §2](docs/SPEC.md#2-v1-decisions-owner-validated-2026-09-27) (D1–D14).
+[SPEC §2](docs/SPEC.md#2-v1-decisions-owner-validated-2026-09-27) (D1–D17).
 
 **V1 stack:** Next.js 16 (App Router, React 19, TypeScript) · Tailwind CSS 4 + shadcn/ui ·
 Recharts · Supabase (Postgres + Auth magic link + RLS) · Vitest + Testing Library · static export hosted on
@@ -79,7 +80,7 @@ automatically in CI. The tests refuse to run against anything but `127.0.0.1`/`l
 | `lib/supabase/` | Browser Supabase client (PKCE magic link, session kept in the browser) |
 | `components/app/finance-provider.tsx` | Session guard for the app pages (redirects to `/login`), loads the data and the plan, reloads after writes |
 | `lib/labels.ts`, `lib/format.ts` | French UI labels; `fr-FR` formatting |
-| `app/(app)/` | Pages: `/` dashboard, `/budget`, `/credits`, `/plan`, `/suivi` (static `page.tsx` + client `view.tsx`; form actions run in the browser) |
+| `app/(app)/` | Pages: `/` dashboard, `/budget`, `/credits`, `/plan`, `/suivi`, `/simuler` (static `page.tsx` + client `view.tsx`; form actions run in the browser) |
 | `app/login/`, `app/auth/confirm/` | Magic-link login and the page that completes it |
 | `supabase/migrations/` | Schema (7 tables: `profiles`, `budget_settings`, `budget_lines`, `budget_exceptions`, `loans`, `monthly_actuals`, `monthly_actual_loan_balances`); RLS on every table (`user_id = auth.uid()`) |
 | `tests/unit/` | Engine vs Excel golden data, edge cases, validation |
