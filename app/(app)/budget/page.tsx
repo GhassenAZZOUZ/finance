@@ -1,6 +1,22 @@
 import { PageHeader } from "@/components/app/page-header";
+import { loadPageData } from "@/lib/data/session";
+import { currentYearMonth } from "@/lib/format";
+import { BudgetForm } from "./budget-form";
 
-// Placeholder: replaced by the page implementation.
-export default function BudgetPage() {
-  return <PageHeader title="Budget" description="Page en cours de construction." />;
+export default async function BudgetPage() {
+  const { snapshot } = await loadPageData();
+  return (
+    <>
+      <PageHeader
+        title="Budget"
+        description="Revenus, charges et paramètres du plan. L’aperçu se met à jour pendant la saisie."
+      />
+      <BudgetForm
+        settings={snapshot.settings}
+        lines={snapshot.lines}
+        loans={snapshot.loans}
+        currentMonth={currentYearMonth()}
+      />
+    </>
+  );
 }
