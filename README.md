@@ -120,7 +120,8 @@ automatically in CI. The tests refuse to run against anything but `127.0.0.1`/`l
 
 [.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every pull request and on pushes to
 `main`: lint, typecheck, unit and component tests, then (only if those pass) a local Supabase in the
-runner, `supabase db lint` and the integration tests, then (on `main` only) the Pages deployment.
+runner, `supabase db lint` and the integration tests, then (on `main` only) the hosted database
+migrations and the Pages deployment.
 
 ## Data & privacy
 
@@ -137,19 +138,26 @@ Supabase directly with the publishable key; Row Level Security protects every ro
 Live: <https://ghassenazzouz.github.io/finance/> (hosted Supabase project `finance-plan`, region
 eu-west-3).
 
-How it deploys: the `deploy` job of [.github/workflows/ci.yml](.github/workflows/ci.yml) runs on
-every push to `main` **after** the checks and integration tests pass. It runs `npm run build:pages`
+How it deploys, on every push to `main` once the checks and integration tests pass:
+
+1. The `migrate` job links the hosted project and runs `supabase db push`: only the migrations missing
+   from the remote history are applied, never the seed. A failed migration stops the deployment.
+   **Migrations reach the hosted database only this way**: do not apply them by hand (a different
+   version number in the remote history would make the next push re-run them).
+2. The `deploy` job runs `npm run build:pages`
 (`next build` + [scripts/prepare-pages.mjs](scripts/prepare-pages.mjs): `.nojekyll` and flattened
 segment-prefetch files) with the base path `/<repository name>`, then publishes `out/`.
 
 One-time setup (already done for this repository):
 
-1. Supabase project: apply `supabase/migrations/` in order (never the seed). Authentication → URL
+1. Supabase project: Authentication → URL
    configuration: Site URL `https://<user>.github.io/<repo>/`, redirect URL
    `https://<user>.github.io/<repo>/**`.
 2. GitHub → Settings → Pages → Source: **GitHub Actions**. Free Pages requires a public repository.
 3. GitHub → Settings → Secrets and variables → Actions → **Variables**:
-   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public values, not secrets).
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public values, not secrets);
+   **Secrets**: `SUPABASE_ACCESS_TOKEN` (Supabase account → Access tokens) and `SUPABASE_DB_PASSWORD`
+   (the project's database password), used only by the `migrate` job.
 
 Preview the static build locally: `NEXT_PUBLIC_BASE_PATH=/finance npm run build:pages`, then serve
 `out/` under `/finance/` with any static server.
