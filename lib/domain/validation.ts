@@ -79,7 +79,8 @@ export interface BudgetForm {
   emergencyExisting: string;
   riskFreeRate: string;
   earlyRepaymentPct: string;
-  lines: { id?: string; category: string; label: string; amount: string }[];
+  /** startMonth / endMonth: optional YYYY-MM period of the line (SPEC D15). */
+  lines: { id?: string; category: string; label: string; amount: string; startMonth?: string; endMonth?: string }[];
 }
 
 export function validateBudget(form: BudgetForm): Validated<{ settings: BudgetSettings; lines: BudgetLineDraft[] }> {
@@ -106,7 +107,22 @@ export function validateBudget(form: BudgetForm): Validated<{ settings: BudgetSe
     if (label === "") c.fail(`lines.${i}.label`, "Libellé requis");
     else if (label.length > 100) c.fail(`lines.${i}.label`, "100 caractères maximum");
     const amount = c.take(`lines.${i}.amount`, parseAmount(line.amount)) as Cents;
-    lines.push({ ...(line.id ? { id: line.id } : {}), category, label, amount, position: positions[category]++ });
+    const startText = (line.startMonth ?? "").trim();
+    const endText = (line.endMonth ?? "").trim();
+    const startMonth = startText === "" ? null : (c.take(`lines.${i}.startMonth`, parseMonth(startText)) ?? null);
+    const endMonth = endText === "" ? null : (c.take(`lines.${i}.endMonth`, parseMonth(endText)) ?? null);
+    if (startMonth && endMonth && compareMonths(endMonth, startMonth) < 0) {
+      c.fail(`lines.${i}.endMonth`, "La fin doit être après le début");
+    }
+    lines.push({
+      ...(line.id ? { id: line.id } : {}),
+      category,
+      label,
+      amount,
+      position: positions[category]++,
+      startMonth,
+      endMonth,
+    });
   });
   return c.result({ settings, lines });
 }

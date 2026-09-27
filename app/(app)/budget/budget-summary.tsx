@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { formatEuros, formatPercent } from "@/lib/format";
+import { formatEuros, formatMonthLong, formatMonthShort, formatPercent } from "@/lib/format";
 import { DEBT_ALERT_LABEL, debtFreeText, emergencyReachedText, movingReachedText, movingStatusText } from "@/lib/labels";
 import { type BudgetPreview, type ParamField } from "./budget-form-state";
 
@@ -42,6 +42,9 @@ export function BudgetSummary({
 }) {
   const k = preview.plan?.kpis;
   const firstMonth = preview.plan?.months[0];
+  const month = preview.referenceMonth;
+  // The regular-month figures describe the reference month (SPEC D15).
+  const monthTag = month ? formatMonthShort(month) : "mois normal";
   return (
     <Card>
       <CardHeader>
@@ -50,12 +53,17 @@ export function BudgetSummary({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 text-sm">
+        {month ? (
+          <p className="text-muted-foreground">
+            Mois de référence : <span className="font-medium text-foreground">{formatMonthLong(month)}</span>
+          </p>
+        ) : null}
         <dl>
           <Row label="Revenus">{formatEuros(preview.income)}</Row>
           <Row label="Charges fixes">{formatEuros(preview.fixed)}</Row>
           <Row label="Dépenses variables">{formatEuros(preview.variable)}</Row>
           <Row label="Mensualités de crédit">{formatEuros(preview.loanPayments)}</Row>
-          <Row label="Marge mensuelle (mois normal)" className={preview.margin < 0 ? NEGATIVE : "font-semibold"}>
+          <Row label={`Marge mensuelle (${monthTag})`} className={preview.margin < 0 ? NEGATIVE : "font-semibold"}>
             {preview.margin < 0 ? (
               <span className="inline-flex items-center gap-1">
                 <AlertTriangle aria-hidden className="size-4" />
@@ -69,10 +77,16 @@ export function BudgetSummary({
             {preview.debtRatio === null ? "—" : `${formatPercent(preview.debtRatio, 1)} · ${DEBT_ALERT_LABEL[preview.debtAlert]}`}
           </Row>
         </dl>
+        {preview.hasPeriods ? (
+          <p className="text-muted-foreground">
+            Certaines lignes changent au fil du temps : le plan en tient compte mois par mois.
+          </p>
+        ) : null}
         {preview.exceptionMonths > 0 ? (
           <p className="text-muted-foreground">
             Exceptions : {preview.exceptionMonths} mois concerné{preview.exceptionMonths > 1 ? "s" : ""}. Les montants
-            ci-dessus décrivent un mois normal ; le plan ci-dessous inclut les exceptions.
+            ci-dessus décrivent {month ? `${formatMonthShort(month)} hors exceptions` : "un mois normal"} ; le plan
+            ci-dessous inclut les exceptions.
           </p>
         ) : null}
         {preview.invalidAmounts > 0 ? (

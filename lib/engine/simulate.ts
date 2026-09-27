@@ -3,6 +3,7 @@ import { addMonths, compareMonths, monthsBetween, type YearMonth } from "./month
 import { normalPayment } from "./payment";
 import {
   HORIZON_MONTHS,
+  type DatedBudgetLineInput,
   type DebtAlert,
   type LoanAdvice,
   type LoanInput,
@@ -13,6 +14,14 @@ import {
   type PlanMonth,
   type PlanResult,
 } from "./types";
+
+/** Whether a dated budget line applies in `month` (bounds inclusive; null = open). SPEC D15. */
+export function isLineActive(line: Pick<DatedBudgetLineInput, "startMonth" | "endMonth">, month: YearMonth): boolean {
+  return (
+    (line.startMonth === null || compareMonths(line.startMonth, month) <= 0) &&
+    (line.endMonth === null || compareMonths(month, line.endMonth) <= 0)
+  );
+}
 
 /** A balance at or below this is considered repaid (spreadsheet: `<= 0.01`). */
 const PAID_OFF_THRESHOLD: Cents = 1;
@@ -62,6 +71,18 @@ export function simulatePlan(input: PlanInput): PlanResult {
 
   const baseIncome = budget.income;
   const baseExpenses = budget.fixedCosts + budget.variableExpenses;
+  // Regular budget of a month: constant, or the dated lines active that month (SPEC D15).
+  const regularBudget = (month: YearMonth): { income: Cents; expenses: Cents } => {
+    if (!budget.lines) return { income: baseIncome, expenses: baseExpenses };
+    let income = 0;
+    let expenses = 0;
+    for (const line of budget.lines) {
+      if (!isLineActive(line, month)) continue;
+      if (line.category === "income") income += line.amount;
+      else expenses += line.amount;
+    }
+    return { income, expenses };
+  };
   // One-off exceptions summed per month (SPEC D14).
   const extras = new Map<YearMonth, { income: Cents; expenses: Cents }>();
   for (const e of budget.exceptions ?? []) {
@@ -83,8 +104,9 @@ export function simulatePlan(input: PlanInput): PlanResult {
     const extra = extras.get(month);
     const extraIncome = extra?.income ?? 0;
     const extraExpenses = extra?.expenses ?? 0;
-    const income = baseIncome + extraIncome;
-    const expenses = baseExpenses + extraExpenses;
+    const regular = regularBudget(month);
+    const income = regular.income + extraIncome;
+    const expenses = regular.expenses + extraExpenses;
 
     // Calcul, plan scenario: interest, normal payment (last one capped; residual < 1 € absorbed).
     const loanMonths: LoanMonth[] = loans.map((loan, i) => {

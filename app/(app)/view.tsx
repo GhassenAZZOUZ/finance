@@ -9,8 +9,8 @@ import { GAP_TONE, PLAN_GROUP } from "@/components/app/tones";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFinance } from "@/components/app/finance-provider";
-import { type ActualComparison, type PlanKpis, type PlanMonth, latestActual } from "@/lib/engine";
-import { formatEuros, formatMonthLong, formatPercent } from "@/lib/format";
+import { type ActualComparison, type PlanKpis, type PlanMonth, type YearMonth, latestActual } from "@/lib/engine";
+import { formatEuros, formatMonthLong, formatMonthShort, formatPercent } from "@/lib/format";
 import { debtAlertText, debtFreeText, emergencyReachedText, movingReachedText, movingStatusText } from "@/lib/labels";
 import { KpiCard, KpiRow, type Tone, ToneText } from "./_dashboard/kpi";
 import {
@@ -48,7 +48,7 @@ export function DashboardView() {
       <NegativeBudgetNotice count={kpis.negativeBudgetMonths} />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <SituationCard kpis={kpis} />
+        <SituationCard kpis={kpis} month={plan.referenceMonth} />
         <MovingCard kpis={kpis} />
         <LatestActualCard latest={latestActual(plan.comparisons)} />
         <DebtCard kpis={kpis} />
@@ -127,11 +127,12 @@ function NegativeBudgetNotice({ count }: { count: number }) {
   );
 }
 
-function SituationCard({ kpis }: { kpis: PlanKpis }) {
+/** Budget figures of the reference month (SPEC D15): budget lines may change over time. */
+function SituationCard({ kpis, month }: { kpis: PlanKpis; month: YearMonth }) {
   const noIncome = kpis.monthlyIncome === 0;
   const negativeMargin = kpis.margin < 0;
   return (
-    <KpiCard title="Situation mensuelle" icon={Wallet}>
+    <KpiCard title={`Situation mensuelle (${formatMonthShort(month)})`} icon={Wallet}>
       <KpiRow label="Revenus" value={formatEuros(kpis.monthlyIncome)} />
       <KpiRow label="Dépenses" value={formatEuros(kpis.monthlyExpenses)} />
       <KpiRow label="Mensualités de crédit" value={formatEuros(kpis.monthlyLoanPayments)} />

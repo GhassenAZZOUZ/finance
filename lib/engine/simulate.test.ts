@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { compareActual, latestActual, statusFor } from "./actuals";
-import { computePriorities, simulatePlan } from "./simulate";
+import { computePriorities, isLineActive, simulatePlan } from "./simulate";
 import type { BudgetParams, LoanInput, PlanMonth } from "./types";
 
 function budget(overrides: Partial<BudgetParams> = {}): BudgetParams {
@@ -258,5 +258,48 @@ describe("one-off budget exceptions (SPEC D14)", () => {
       input.budget,
     );
     expect(c).toMatchObject({ incomeGap: 0, expensesGap: 0 });
+  });
+});
+
+describe("budget lines with a period (SPEC D15)", () => {
+  const base = budget({ emergencyTarget: 10_000_000, earlyRepaymentPct: 0 });
+  const lines = [
+    { category: "income" as const, amount: 200_000, startMonth: null, endMonth: null },
+    { category: "fixed" as const, amount: 85_000, startMonth: null, endMonth: "2027-06" },
+    { category: "fixed" as const, amount: 110_000, startMonth: "2027-07", endMonth: null },
+    { category: "variable" as const, amount: 50_000, startMonth: null, endMonth: null },
+  ];
+
+  it("uses, each month, only the lines active that month (bounds inclusive)", () => {
+    const { months } = simulatePlan({ budget: { ...base, lines }, loans: [] });
+    expect(at(months, 6)).toMatchObject({ month: "2027-06", income: 200_000, expenses: 135_000, available: 65_000 });
+    expect(at(months, 7)).toMatchObject({ month: "2027-07", income: 200_000, expenses: 160_000, available: 40_000 });
+  });
+
+  it("adds one-off exceptions on top of the dated lines", () => {
+    const { months } = simulatePlan({
+      budget: { ...base, lines, exceptions: [{ month: "2027-07", kind: "expense", amount: 10_000 }] },
+      loans: [],
+    });
+    expect(at(months, 7)).toMatchObject({ expenses: 170_000, extraExpenses: 10_000 });
+  });
+
+  it("keeps the KPIs on the reference-month sums given by the caller", () => {
+    const { kpis } = simulatePlan({ budget: { ...base, fixedCosts: 110_000, lines }, loans: [] });
+    expect(kpis).toMatchObject({ monthlyIncome: 200_000, monthlyExpenses: 160_000, margin: 40_000 });
+  });
+
+  it("gives the same plan as constant sums when no line has a period", () => {
+    const undated = lines.filter((l) => l.startMonth === null && l.endMonth === null);
+    const withLines = simulatePlan({ budget: { ...base, fixedCosts: 0, lines: undated }, loans: [] });
+    const constant = simulatePlan({ budget: { ...base, fixedCosts: 0 }, loans: [] });
+    expect(withLines.months).toEqual(constant.months);
+  });
+
+  it("isLineActive handles open and closed bounds", () => {
+    expect(isLineActive({ startMonth: null, endMonth: null }, "2030-01")).toBe(true);
+    expect(isLineActive({ startMonth: "2027-07", endMonth: null }, "2027-06")).toBe(false);
+    expect(isLineActive({ startMonth: "2027-07", endMonth: "2027-07" }, "2027-07")).toBe(true);
+    expect(isLineActive({ startMonth: null, endMonth: "2027-06" }, "2027-07")).toBe(false);
   });
 });

@@ -1,24 +1,29 @@
 "use client";
 
 import { type ReactNode, useActionState, useMemo, useRef, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, CalendarRange, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { BudgetCategory, BudgetException, BudgetLine, BudgetSettings, Loan } from "@/lib/domain/types";
 import type { YearMonth } from "@/lib/engine";
-import { amountInputValue, formatEuros } from "@/lib/format";
+import { amountInputValue, formatEuros, formatMonthShort } from "@/lib/format";
 import { type BudgetActionState, saveBudgetAction } from "./actions";
 import {
   type BudgetFormState,
   type LineState,
   type ParamField,
   computePreview,
+  formPlanStart,
   formSignature,
+  hasPeriod,
   initialFormState,
   invalidParams,
+  isOutsidePlan,
+  linePeriod,
   parseSettings,
+  periodText,
   sectionTotal,
   toPayload,
 } from "./budget-form-state";
@@ -36,7 +41,9 @@ const FORM_ID = "budget-form";
 
 const INITIAL_ACTION_STATE: BudgetActionState = { status: "idle", errors: {}, lineKeys: [] };
 
-type LineErrors = Map<string, { label?: string; amount?: string }>;
+type LineFieldErrors = { label?: string; amount?: string; startMonth?: string; endMonth?: string };
+type LineErrors = Map<string, LineFieldErrors>;
+type LinePatch = Partial<Pick<LineState, "label" | "amount" | "startMonth" | "endMonth">>;
 
 export function BudgetForm({
   settings,
@@ -64,17 +71,25 @@ export function BudgetForm({
 
   const [actionState, formAction, pending] = useActionState(saveBudgetAction, INITIAL_ACTION_STATE);
   const dirty = formSignature(form) !== savedSignature;
-  const preview = useMemo(() => computePreview(form, loans, exceptions), [form, loans, exceptions]);
+  const savedStart = settings?.startMonth ?? null;
+  const preview = useMemo(
+    () => computePreview(form, loans, exceptions, { currentMonth, savedStartMonth: savedStart }),
+    [form, loans, exceptions, currentMonth, savedStart],
+  );
   const missingParams = useMemo(() => invalidParams(form.params), [form.params]);
   // Plan start for the exceptions' "outside the plan" notes: the live value when valid, else the saved one.
   const planStart = useMemo(() => parseSettings(form.params)?.startMonth ?? settings?.startMonth ?? null, [form.params, settings]);
+  // Plan start for the lines' "outside the plan" notes: the typed month as soon as it is valid.
+  const linePlanStart = formPlanStart(form.params, savedStart);
 
   const errors = actionState.errors;
   const lineErrors: LineErrors = new Map();
   actionState.lineKeys.forEach((key, i) => {
     const label = errors[`lines.${i}.label`];
     const amount = errors[`lines.${i}.amount`];
-    if (label || amount) lineErrors.set(key, { label, amount });
+    const startMonth = errors[`lines.${i}.startMonth`];
+    const endMonth = errors[`lines.${i}.endMonth`];
+    if (label || amount || startMonth || endMonth) lineErrors.set(key, { label, amount, startMonth, endMonth });
   });
   const errorCount = Object.keys(errors).length;
 
@@ -83,12 +98,12 @@ export function BudgetForm({
   const addButtons = useRef<Partial<Record<BudgetCategory, HTMLButtonElement | null>>>({});
 
   const setParam = (field: ParamField, value: string) => setForm((f) => ({ ...f, params: { ...f.params, [field]: value } }));
-  const updateLine = (key: string, patch: Partial<Pick<LineState, "label" | "amount">>) =>
+  const updateLine = (key: string, patch: LinePatch) =>
     setForm((f) => ({ ...f, lines: f.lines.map((l) => (l.key === key ? { ...l, ...patch } : l)) }));
   const addLine = (category: BudgetCategory) => {
     const key = `new-${++nextKey.current}`;
     focusKey.current = key;
-    setForm((f) => ({ ...f, lines: [...f.lines, { key, category, label: "", amount: "0" }] }));
+    setForm((f) => ({ ...f, lines: [...f.lines, { key, category, label: "", amount: "0", startMonth: "", endMonth: "" }] }));
   };
   const removeLine = (line: LineState) => {
     setForm((f) => ({ ...f, lines: f.lines.filter((l) => l.key !== line.key) }));
@@ -119,6 +134,8 @@ export function BudgetForm({
           {SECTIONS.map((section) => {
             const sectionLines = form.lines.filter((l) => l.category === section.category);
             const headingId = `section-${section.category}`;
+            // With dated lines the total depends on the month: say which one it describes.
+            const totalMonth = sectionLines.some(hasPeriod) ? preview.referenceMonth : null;
             return (
               <Card key={section.category} role="group" aria-labelledby={headingId}>
                 <CardHeader>
@@ -135,6 +152,7 @@ export function BudgetForm({
                         line={line}
                         name={`${section.lineName} ${i + 1}`}
                         errors={lineErrors.get(line.key)}
+                        planStart={linePlanStart}
                         inputRef={focusNewLine(line.key)}
                         onChange={(patch) => updateLine(line.key, patch)}
                         onRemove={() => removeLine(line)}
@@ -156,7 +174,10 @@ export function BudgetForm({
                       Ajouter une ligne
                     </Button>
                     <p className="text-sm">
-                      Total : <span className="font-semibold tabular-nums">{formatEuros(sectionTotal(form.lines, section.category))}</span>
+                      {totalMonth ? `Total (${formatMonthShort(totalMonth)}) : ` : "Total : "}
+                      <span className="font-semibold tabular-nums">
+                        {formatEuros(sectionTotal(form.lines, section.category, preview.referenceMonth))}
+                      </span>
                     </p>
                   </div>
                 </CardContent>
@@ -253,19 +274,36 @@ function LineRow({
   line,
   name,
   errors,
+  planStart,
   inputRef,
   onChange,
   onRemove,
 }: {
   line: LineState;
   name: string;
-  errors?: { label?: string; amount?: string };
+  errors?: LineFieldErrors;
+  /** Plan start, to flag a period that never meets the simulated months (null: unknown). */
+  planStart: string | null;
   inputRef: (el: HTMLInputElement | null) => void;
-  onChange: (patch: Partial<Pick<LineState, "label" | "amount">>) => void;
+  onChange: (patch: LinePatch) => void;
   onRemove: () => void;
 }) {
   const id = `line-${line.key}`;
   const shown = line.label.trim() || name;
+  const [open, setOpen] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const periodErrors = Boolean(errors?.startMonth || errors?.endMonth);
+  // A period error keeps the fields visible so the message sits next to its input.
+  const expanded = open || periodErrors;
+  const period = linePeriod(line);
+  const summary = periodText(period);
+  const outside = isOutsidePlan(period, planStart);
+  const periodId = `${id}-period`;
+  const clearPeriod = () => {
+    onChange({ startMonth: "", endMonth: "" });
+    setOpen(false);
+    toggleRef.current?.focus();
+  };
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1 sm:grid-cols-[minmax(0,1fr)_9rem_auto] sm:items-start">
       <div className="col-span-2 flex flex-col gap-1 sm:col-span-1">
@@ -303,7 +341,7 @@ function LineRow({
             onChange={(e) => onChange({ amount: e.target.value })}
             className="h-10 pr-7 text-right tabular-nums"
             aria-invalid={errors?.amount ? true : undefined}
-            aria-describedby={errors?.amount ? `${id}-amount-error` : undefined}
+            aria-describedby={[errors?.amount ? `${id}-amount-error` : null, summary ? `${periodId}-summary` : null].filter(Boolean).join(" ") || undefined}
           />
           <span aria-hidden className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-sm text-muted-foreground">
             €
@@ -315,10 +353,109 @@ function LineRow({
           </p>
         ) : null}
       </div>
-      <Button type="button" variant="ghost" size="icon" className="size-10" onClick={onRemove} aria-label={`Supprimer ${shown}`}>
-        <Trash2 aria-hidden />
-      </Button>
+      <div className="flex">
+        <Button
+          ref={toggleRef}
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={`size-10 ${summary ? "text-primary" : "text-muted-foreground"}`}
+          onClick={() => setOpen(!expanded)}
+          aria-expanded={expanded}
+          aria-controls={periodId}
+          aria-label={`Période (${shown})`}
+          title="Période"
+        >
+          <CalendarRange aria-hidden />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="size-10" onClick={onRemove} aria-label={`Supprimer ${shown}`}>
+          <Trash2 aria-hidden />
+        </Button>
+      </div>
+      {summary && (!expanded || outside) ? (
+        <p id={`${periodId}-summary`} className="col-span-full flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          {expanded ? null : (
+            <span className="inline-flex items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-xs font-medium">
+              <CalendarRange aria-hidden className="size-3" />
+              <span className="sr-only">Période : </span>
+              {summary}
+            </span>
+          )}
+          {outside ? (
+            <span className="inline-flex items-center gap-1 text-amber-900">
+              <AlertTriangle aria-hidden className="size-3.5" />
+              hors de la période du plan : sans effet
+            </span>
+          ) : null}
+        </p>
+      ) : null}
+      <div
+        id={periodId}
+        role="group"
+        aria-label={`Période de ${shown}`}
+        hidden={!expanded}
+        className="col-span-full rounded-md border bg-muted/30 p-3"
+      >
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-start">
+          <PeriodInput
+            id={`${id}-start`}
+            label="Début (inclus)"
+            value={line.startMonth}
+            error={errors?.startMonth}
+            onChange={(startMonth) => onChange({ startMonth })}
+          />
+          <PeriodInput
+            id={`${id}-end`}
+            label="Fin (incluse)"
+            value={line.endMonth}
+            error={errors?.endMonth}
+            onChange={(endMonth) => onChange({ endMonth })}
+          />
+          <Button type="button" variant="outline" className="min-h-10 sm:mt-6" onClick={clearPeriod} disabled={!line.startMonth && !line.endMonth}>
+            Retirer la période
+          </Button>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {summary ? `Ligne prise en compte ${summary}.` : "Vide = sans limite : la ligne s’applique à tous les mois."}
+        </p>
+      </div>
     </li>
+  );
+}
+
+function PeriodInput({
+  id,
+  label,
+  value,
+  error,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  error?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        type="month"
+        autoComplete="off"
+        value={value}
+        placeholder="AAAA-MM"
+        onChange={(e) => onChange(e.target.value)}
+        className="h-10"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+      />
+      {error ? (
+        <p id={`${id}-error`} className="text-sm text-red-700">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

@@ -36,9 +36,9 @@ describe("SupabaseFinanceRepository", () => {
     const { lines } = await repo.load();
     const salary = lines.find((l) => l.category === "income" && l.position === 0)!;
     await repo.saveBudget(settings, [
-      { id: salary.id, category: "income", label: "Salaire", amount: 280000, position: 0 },
-      { category: "fixed", label: "Loyer", amount: 85000, position: 0 },
-      { category: "variable", label: "Courses", amount: 35012, position: 0 },
+      { id: salary.id, category: "income", label: "Salaire", amount: 280000, position: 0, startMonth: null, endMonth: null },
+      { category: "fixed", label: "Loyer", amount: 85000, position: 0, startMonth: "2027-02", endMonth: "2027-06" },
+      { category: "variable", label: "Courses", amount: 35012, position: 0, startMonth: null, endMonth: null },
     ]);
     const snap = await repo.load();
     expect(snap.settings).toEqual(settings);
@@ -49,6 +49,7 @@ describe("SupabaseFinanceRepository", () => {
       ["variable", "Courses", 35012],
     ]);
     expect(snap.lines.find((l) => l.label === "Salaire")?.id).toBe(salary.id);
+    expect(snap.lines.find((l) => l.label === "Loyer")).toMatchObject({ startMonth: "2027-02", endMonth: "2027-06" });
   });
 
   it("adds, lists (by month) and deletes one-off exceptions", async () => {

@@ -114,8 +114,8 @@ describe("computePreview with exceptions", () => {
     earlyRepaymentPct: 0,
   };
   const lines: BudgetLine[] = [
-    { id: "i", category: "income", label: "Salaire", amount: 200000, position: 0 },
-    { id: "f", category: "fixed", label: "Loyer", amount: 80000, position: 0 },
+    { id: "i", category: "income", label: "Salaire", amount: 200000, position: 0, startMonth: null, endMonth: null },
+    { id: "f", category: "fixed", label: "Loyer", amount: 80000, position: 0, startMonth: null, endMonth: null },
   ];
   const state: BudgetFormState = initialFormState(settings, lines, "2027-01");
 

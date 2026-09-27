@@ -2,8 +2,19 @@
  * Budget form state and the live preview (pure, shared by the client form and the server action).
  * Amounts stay as typed strings; the preview skips invalid values, the server re-validates everything.
  */
-import { type Cents, type PlanResult, type YearMonth, simulatePlan, sumCents } from "@/lib/engine";
-import { buildPlanInput } from "@/lib/domain/plan";
+import {
+  type Cents,
+  HORIZON_MONTHS,
+  type PlanResult,
+  type YearMonth,
+  addMonths,
+  compareMonths,
+  isLineActive,
+  isYearMonth,
+  simulatePlan,
+  sumCents,
+} from "@/lib/engine";
+import { buildPlanInput, referenceMonth } from "@/lib/domain/plan";
 import {
   BUDGET_CATEGORIES,
   type BudgetCategory,
@@ -13,7 +24,7 @@ import {
   type Loan,
 } from "@/lib/domain/types";
 import { type BudgetForm, parseAmount, validateBudget } from "@/lib/domain/validation";
-import { amountInputValue, percentInputValue } from "@/lib/format";
+import { amountInputValue, formatMonthShort, percentInputValue } from "@/lib/format";
 import { affectedMonthCount } from "./exceptions-view";
 
 export const PARAM_FIELDS = [
@@ -36,6 +47,9 @@ export interface LineState {
   category: BudgetCategory;
   label: string;
   amount: string;
+  /** Optional period (SPEC D15), YYYY-MM or "" for no limit; both bounds inclusive. */
+  startMonth: string;
+  endMonth: string;
 }
 
 export interface BudgetFormState {
@@ -77,7 +91,15 @@ export function initialFormState(settings: BudgetSettings | null, lines: readonl
   );
   return {
     params,
-    lines: sorted.map((l) => ({ key: l.id, id: l.id, category: l.category, label: l.label, amount: amountInputValue(l.amount) })),
+    lines: sorted.map((l) => ({
+      key: l.id,
+      id: l.id,
+      category: l.category,
+      label: l.label,
+      amount: amountInputValue(l.amount),
+      startMonth: l.startMonth ?? "",
+      endMonth: l.endMonth ?? "",
+    })),
   };
 }
 
@@ -91,7 +113,14 @@ export function toPayload(state: BudgetFormState): BudgetPayload {
   return {
     form: {
       ...state.params,
-      lines: lines.map((l) => ({ ...(l.id ? { id: l.id } : {}), category: l.category, label: l.label, amount: l.amount })),
+      lines: lines.map((l) => ({
+        ...(l.id ? { id: l.id } : {}),
+        category: l.category,
+        label: l.label,
+        amount: l.amount,
+        startMonth: l.startMonth,
+        endMonth: l.endMonth,
+      })),
     },
     keys: lines.map((l) => l.key),
   };
@@ -116,6 +145,8 @@ export function parsePayload(raw: unknown, maxLines = 200): BudgetPayload | null
   const rawLines = form.lines as unknown[];
   if (rawLines.length > maxLines) return null;
   const text = (v: unknown) => (typeof v === "string" ? v : "");
+  // Months: strings only, capped (anything longer than "YYYY-MM" plus spaces is rejected by validateBudget).
+  const month = (v: unknown) => text(v).slice(0, MAX_MONTH_LENGTH);
   const keys = Array.isArray(data.keys) ? data.keys : [];
   return {
     form: {
@@ -130,12 +161,21 @@ export function parsePayload(raw: unknown, maxLines = 200): BudgetPayload | null
       lines: rawLines.map((l) => {
         const line = isRecord(l) ? l : {};
         const id = text(line.id);
-        return { ...(id ? { id } : {}), category: text(line.category), label: text(line.label), amount: text(line.amount) };
+        return {
+          ...(id ? { id } : {}),
+          category: text(line.category),
+          label: text(line.label),
+          amount: text(line.amount),
+          startMonth: month(line.startMonth),
+          endMonth: month(line.endMonth),
+        };
       }),
     },
     keys: rawLines.map((_, i) => String(keys[i] ?? i).slice(0, 100)),
   };
 }
+
+const MAX_MONTH_LENGTH = 20;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -153,9 +193,69 @@ export function invalidParams(params: ParamValues): ParamField[] {
   return result.ok ? [] : PARAM_FIELDS.filter((f) => f in result.errors);
 }
 
+/** A typed month, or null when empty or malformed (validateBudget reports the malformed ones on save). */
+function monthOrNull(raw: string): YearMonth | null {
+  const text = raw.trim();
+  return isYearMonth(text) ? text : null;
+}
+
+export interface LinePeriod {
+  startMonth: YearMonth | null;
+  endMonth: YearMonth | null;
+}
+
+/** The line's period as months (malformed bounds count as "no limit" in the live preview). */
+export function linePeriod(line: Pick<LineState, "startMonth" | "endMonth">): LinePeriod {
+  return { startMonth: monthOrNull(line.startMonth), endMonth: monthOrNull(line.endMonth) };
+}
+
+export function hasPeriod(line: Pick<LineState, "startMonth" | "endMonth">): boolean {
+  const p = linePeriod(line);
+  return p.startMonth !== null || p.endMonth !== null;
+}
+
+/** "jusqu’à juin 2027", "à partir de juil. 2027", "de juil. 2027 à déc. 2027"; null without a period. */
+export function periodText({ startMonth, endMonth }: LinePeriod): string | null {
+  if (startMonth && endMonth) {
+    return startMonth === endMonth
+      ? `en ${formatMonthShort(startMonth)} uniquement`
+      : `de ${formatMonthShort(startMonth)} à ${formatMonthShort(endMonth)}`;
+  }
+  if (startMonth) return `à partir de ${formatMonthShort(startMonth)}`;
+  if (endMonth) return `jusqu’à ${formatMonthShort(endMonth)}`;
+  return null;
+}
+
+/**
+ * True when the period never meets the simulated months [planStart, planStart + HORIZON_MONTHS):
+ * it ends before the plan starts or starts after its last month (the line has no effect).
+ */
+export function isOutsidePlan({ startMonth, endMonth }: LinePeriod, planStart: YearMonth | null): boolean {
+  if (!planStart) return false;
+  const last = addMonths(planStart, HORIZON_MONTHS - 1);
+  return (endMonth !== null && compareMonths(endMonth, planStart) < 0) || (startMonth !== null && compareMonths(startMonth, last) > 0);
+}
+
+/** Plan start typed in the form when valid, else the saved one (null on a first visit with a bad month). */
+export function formPlanStart(params: ParamValues, savedStartMonth: YearMonth | null): YearMonth | null {
+  return monthOrNull(params.startMonth) ?? savedStartMonth;
+}
+
+/**
+ * Month the totals and KPIs describe (SPEC D15): the current month kept within the plan period.
+ * Without a plan start, the current month.
+ */
+export function previewMonth(planStart: YearMonth | null, currentMonth: YearMonth): YearMonth {
+  return planStart ? referenceMonth(planStart, currentMonth) : currentMonth;
+}
+
 export type DebtAlertLevel = "ok" | "warning" | "alert";
 
 export interface BudgetPreview {
+  /** Month described by the totals and KPIs below (SPEC D15); null when unknown (all lines summed). */
+  referenceMonth: YearMonth | null;
+  /** Some line has a start or end month: the budget changes over the plan. */
+  hasPeriods: boolean;
   income: Cents;
   fixed: Cents;
   variable: Cents;
@@ -174,23 +274,35 @@ export interface BudgetPreview {
   plan: PlanResult | null;
 }
 
+export interface PreviewOptions {
+  /** Today's month; the reference month is derived from it (defaults to the plan start). */
+  currentMonth?: YearMonth;
+  /** Saved plan start, used while the typed one is invalid. */
+  savedStartMonth?: YearMonth | null;
+}
+
 /**
- * Totals of a regular month from the valid amounts, and the simulated plan (saved one-off exceptions
- * included) when every parameter is valid.
+ * Totals of the reference month from the valid amounts (only the lines active that month), and the
+ * simulated plan (line periods and saved one-off exceptions included) when every parameter is valid.
  */
 export function computePreview(
   state: BudgetFormState,
   loans: readonly Loan[],
   exceptions: readonly BudgetException[] = [],
+  { currentMonth, savedStartMonth = null }: PreviewOptions = {},
 ): BudgetPreview {
   let invalidAmounts = 0;
-  const validLines: { category: BudgetCategory; amount: Cents }[] = [];
+  const validLines: ({ category: BudgetCategory; amount: Cents } & LinePeriod)[] = [];
   for (const line of state.lines) {
     const parsed = parseAmount(line.amount);
-    if (parsed.ok && parsed.value !== null) validLines.push({ category: line.category, amount: parsed.value });
+    if (parsed.ok && parsed.value !== null) validLines.push({ category: line.category, amount: parsed.value, ...linePeriod(line) });
     else invalidAmounts++;
   }
-  const total = (category: BudgetCategory) => sumCents(validLines.filter((l) => l.category === category).map((l) => l.amount));
+  const settings = parseSettings(state.params);
+  const planStart = formPlanStart(state.params, savedStartMonth);
+  const month = planStart ? previewMonth(planStart, currentMonth ?? planStart) : (currentMonth ?? null);
+  const total = (category: BudgetCategory) =>
+    sumCents(validLines.filter((l) => l.category === category && (!month || isLineActive(l, month))).map((l) => l.amount));
   const income = total("income");
   const fixed = total("fixed");
   const variable = total("variable");
@@ -198,8 +310,9 @@ export function computePreview(
   // Same rules as the engine KPIs (SPEC §7 B7–B9), available even before the parameters are valid.
   const debtRatio = income === 0 ? null : loanPayments / income;
   const ratio = debtRatio ?? 0;
-  const settings = parseSettings(state.params);
   return {
+    referenceMonth: month,
+    hasPeriods: validLines.some((l) => l.startMonth !== null || l.endMonth !== null),
     income,
     fixed,
     variable,
@@ -210,15 +323,16 @@ export function computePreview(
     invalidAmounts,
     suggestedEmergencyTarget: 3 * (fixed + variable + loanPayments),
     exceptionMonths: affectedMonthCount(exceptions, settings?.startMonth ?? null),
-    plan: settings ? simulatePlan(buildPlanInput(settings, validLines, loans, exceptions)) : null,
+    // With valid settings, `month` is the reference month of the typed plan start.
+    plan: settings ? simulatePlan(buildPlanInput(settings, validLines, loans, exceptions, month ?? settings.startMonth)) : null,
   };
 }
 
-/** Sum of the valid amounts of one section. */
-export function sectionTotal(lines: readonly LineState[], category: BudgetCategory): Cents {
+/** Sum of the valid amounts of one section; with `month`, only the lines active that month. */
+export function sectionTotal(lines: readonly LineState[], category: BudgetCategory, month?: YearMonth | null): Cents {
   return sumCents(
     lines
-      .filter((l) => l.category === category)
+      .filter((l) => l.category === category && (!month || isLineActive(linePeriod(l), month)))
       .map((l) => parseAmount(l.amount))
       .flatMap((p) => (p.ok && p.value !== null ? [p.value] : [])),
   );
