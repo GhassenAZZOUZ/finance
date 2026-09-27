@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Connexion · Plan financier" };
 
-export default async function LoginPage({ searchParams }: PageProps<"/login">) {
-  const { error } = await searchParams;
+export default function LoginPage() {
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 px-4 py-12">
       <div>
@@ -13,12 +13,10 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           Budget, crédits, épargne et suivi mensuel. Connectez-vous avec un lien reçu par e-mail, sans mot de passe.
         </p>
       </div>
-      {error ? (
-        <p role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-          Ce lien de connexion est invalide ou a expiré. Demandez-en un nouveau.
-        </p>
-      ) : null}
-      <LoginForm />
+      {/* useSearchParams (the ?error flag) needs a Suspense boundary in a static export. */}
+      <Suspense>
+        <LoginForm />
+      </Suspense>
     </main>
   );
 }

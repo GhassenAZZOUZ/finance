@@ -6,6 +6,12 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    // A forgotten `await` on a write reports success before it happens (caught once in review).
+    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.ts"],
+    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } },
+    rules: { "@typescript-eslint/no-floating-promises": "error" },
+  },
+  {
     // The engine must stay pure: no framework, no I/O, no clock, no randomness (docs/SPEC.md).
     files: ["lib/engine/**/*.ts"],
     ignores: ["lib/engine/**/*.test.ts"],

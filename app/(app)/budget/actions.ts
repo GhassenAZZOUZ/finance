@@ -1,10 +1,11 @@
-"use server";
-
-import { refresh } from "next/cache";
+/**
+ * Form actions, run in the browser (static app). Validation happens here for the UI; the
+ * database constraints and RLS remain the real safeguards.
+ */
 import { RepositoryError } from "@/lib/data/repository";
-import { getRepository } from "@/lib/data/session";
+import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
 import { type Errors, type ExceptionForm, validateBudget, validateException } from "@/lib/domain/validation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseBrowser } from "@/lib/supabase/client";
 import { parsePayload } from "./budget-form-state";
 import { EMPTY_EXCEPTION_FORM, readExceptionForm, readExceptionId } from "./exceptions-view";
 
@@ -19,9 +20,8 @@ export interface BudgetActionState {
 
 /** Saves the parameters and all budget lines. The whole form arrives as one JSON field. */
 export async function saveBudgetAction(_prev: BudgetActionState, formData: FormData): Promise<BudgetActionState> {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) return { status: "error", message: "Session expirée : reconnectez-vous.", errors: {}, lineKeys: [] };
+  const { data } = await supabaseBrowser().auth.getSession();
+  if (!data.session) return { status: "error", message: "Session expirée : reconnectez-vous.", errors: {}, lineKeys: [] };
 
   const payload = parsePayload(formData.get("payload"));
   if (!payload) return { status: "error", message: "Formulaire invalide. Rechargez la page.", errors: {}, lineKeys: [] };
@@ -37,11 +37,11 @@ export async function saveBudgetAction(_prev: BudgetActionState, formData: FormD
   }
 
   try {
-    await (await getRepository()).saveBudget(result.value.settings, result.value.lines);
+    await getRepository().saveBudget(result.value.settings, result.value.lines);
   } catch {
     return { status: "error", message: "Enregistrement impossible pour le moment. Réessayez.", errors: {}, lineKeys: payload.keys };
   }
-  refresh();
+  notifyDataChanged();
   return { status: "success", message: "Budget enregistré.", errors: {}, lineKeys: payload.keys };
 }
 
@@ -62,11 +62,11 @@ export async function addExceptionAction(_prev: ExceptionFormState, formData: Fo
     return { status: "error", message: "Certains champs sont à corriger.", errors: validated.errors, values };
   }
   try {
-    await (await getRepository()).addException(validated.value);
+    await getRepository().addException(validated.value);
   } catch {
     return { status: "error", message: "Ajout impossible pour le moment. Réessayez dans un instant.", errors: {}, values };
   }
-  refresh();
+  notifyDataChanged();
   return { status: "success", message: `« ${validated.value.label} » a été ajouté.`, values: EMPTY_EXCEPTION_FORM };
 }
 
@@ -75,11 +75,11 @@ export async function deleteExceptionAction(_prev: DeleteExceptionState, formDat
   const id = readExceptionId(formData);
   if (!id) return { status: "error", message: EXCEPTION_NOT_FOUND };
   try {
-    await (await getRepository()).deleteException(id);
+    await getRepository().deleteException(id);
   } catch (error) {
     const notFound = error instanceof RepositoryError && error.code === "not_found";
     return { status: "error", message: notFound ? EXCEPTION_NOT_FOUND : "Suppression impossible pour le moment. Réessayez dans un instant." };
   }
-  refresh();
+  notifyDataChanged();
   return { status: "success" };
 }

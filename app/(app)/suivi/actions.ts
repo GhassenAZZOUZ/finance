@@ -1,7 +1,8 @@
-"use server";
-
-import { refresh } from "next/cache";
-import { getRepository } from "@/lib/data/session";
+/**
+ * Form actions, run in the browser (static app). Validation happens here for the UI; the
+ * database constraints and RLS remain the real safeguards.
+ */
+import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
 import { computePlan, toActualInput } from "@/lib/domain/plan";
 import { type ActualForm, type Errors, parseMonth, validateActual } from "@/lib/domain/validation";
 import { type ActualStatus, type YearMonth, compareActual } from "@/lib/engine";
@@ -17,7 +18,7 @@ const text = (formData: FormData, name: string) => String(formData.get(name) ?? 
 /** Creates or replaces a monthly check-in (SPEC §8.1). Context is read on the server, never trusted from the client. */
 export async function saveActualAction(_prev: SaveActualState, formData: FormData): Promise<SaveActualState> {
   try {
-    const repo = await getRepository();
+    const repo = getRepository();
     const snapshot = await repo.load();
     if (!snapshot.settings) {
       return { status: "error", message: "Renseignez d’abord votre budget.", errors: {} };
@@ -47,7 +48,7 @@ export async function saveActualAction(_prev: SaveActualState, formData: FormDat
     const comparison = plan
       ? compareActual(toActualInput({ id: "", ...validated.value }), plan.result, plan.input.budget)
       : null;
-    refresh();
+    notifyDataChanged();
     return { status: "saved", month: validated.value.month, result: comparison?.status ?? null };
   } catch {
     return { status: "error", message: "Enregistrement impossible pour le moment. Réessayez dans un instant.", errors: {} };
@@ -60,10 +61,10 @@ export async function deleteActualAction(month: string): Promise<DeleteActualRes
   const parsed = parseMonth(month);
   if (!parsed.ok) return { ok: false, message: parsed.error };
   try {
-    await (await getRepository()).deleteActual(parsed.value);
+    await getRepository().deleteActual(parsed.value);
   } catch {
     return { ok: false, message: "Suppression impossible pour le moment. Réessayez dans un instant." };
   }
-  refresh();
+  notifyDataChanged();
   return { ok: true };
 }

@@ -1,23 +1,9 @@
-import { PageHeader } from "@/components/app/page-header";
-import { loadPageData } from "@/lib/data/session";
-import { currentYearMonth } from "@/lib/format";
-import { BudgetForm } from "./budget-form";
+import type { Metadata } from "next";
+import { BudgetView } from "./view";
 
-export default async function BudgetPage() {
-  const { snapshot } = await loadPageData();
-  return (
-    <>
-      <PageHeader
-        title="Budget"
-        description="Revenus, charges et paramètres du plan. L’aperçu se met à jour pendant la saisie."
-      />
-      <BudgetForm
-        settings={snapshot.settings}
-        lines={snapshot.lines}
-        loans={snapshot.loans}
-        exceptions={snapshot.exceptions}
-        currentMonth={currentYearMonth()}
-      />
-    </>
-  );
+export const metadata: Metadata = { title: "Budget · Plan financier" };
+
+/** Static shell; the user's data is loaded in the browser (FinanceProvider). */
+export default function Page() {
+  return <BudgetView />;
 }

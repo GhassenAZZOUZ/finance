@@ -1,8 +1,9 @@
-"use server";
-
-import { refresh } from "next/cache";
+/**
+ * Form actions, run in the browser (static app). Validation happens here for the UI; the
+ * database constraints and RLS remain the real safeguards.
+ */
 import { RepositoryError } from "@/lib/data/repository";
-import { getRepository } from "@/lib/data/session";
+import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
 import { type Errors, type LoanForm, validateLoan } from "@/lib/domain/validation";
 import { EMPTY_LOAN_FORM, loanDisplayName, readLoanForm, readLoanId } from "./loan-view";
 
@@ -24,7 +25,7 @@ export async function saveLoan(_prev: LoanFormState, formData: FormData): Promis
   const values = readLoanForm(formData);
   const id = readLoanId(formData);
   try {
-    const repo = await getRepository();
+    const repo = getRepository();
     const { loans } = await repo.load();
     if (id && !loans.some((l) => l.id === id)) {
       return { status: "error", errors: { form: NOT_FOUND }, values };
@@ -34,7 +35,7 @@ export async function saveLoan(_prev: LoanFormState, formData: FormData): Promis
 
     if (id) await repo.updateLoan(id, validated.value);
     else await repo.createLoan(validated.value);
-    refresh();
+    notifyDataChanged();
     const index = id ? loans.findIndex((l) => l.id === id) : loans.length;
     const name = loanDisplayName(validated.value, index);
     return {
@@ -53,14 +54,14 @@ export async function deleteLoan(_prev: DeleteLoanState, formData: FormData): Pr
   const id = readLoanId(formData);
   if (!id) return { status: "error", message: NOT_FOUND };
   try {
-    const repo = await getRepository();
+    const repo = getRepository();
     const { loans } = await repo.load();
     const index = loans.findIndex((l) => l.id === id);
     const loan = loans[index];
     if (!loan) return { status: "error", message: NOT_FOUND };
     const name = loanDisplayName(loan, index);
     const outcome = await repo.removeLoan(id);
-    refresh();
+    notifyDataChanged();
     return {
       status: "success",
       message:
