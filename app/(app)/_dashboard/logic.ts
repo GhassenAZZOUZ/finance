@@ -1,5 +1,14 @@
 /** Pure helpers for the dashboard: chart series (cents → euros), summaries and gap tones. */
-import { type Cents, type PlanMonth, GAP_TOLERANCE, centsToEuros } from "@/lib/engine";
+import {
+  type ActualComparison,
+  type Cents,
+  type PlanMonth,
+  GAP_TOLERANCE,
+  addMonths,
+  centsToEuros,
+  compareMonths,
+  latestActual,
+} from "@/lib/engine";
 import { formatEuros, formatEurosWhole, formatMonthLong, formatMonthShort } from "@/lib/format";
 
 export type DebtSavingsPoint = {
@@ -93,4 +102,51 @@ export function savingsGapTone(gap: Cents | null): GapTone | null {
 /** "+12,00 €" / "-3,50 €" / "0,00 €". */
 export function formatSignedEuros(cents: Cents): string {
   return cents > 0 ? `+${formatEuros(cents)}` : formatEuros(cents);
+}
+
+export type ActualVsPlannedPoint = {
+  month: string;
+  label: string;
+  plannedDebt: number | null;
+  actualDebt: number | null;
+  plannedSavings: number | null;
+  actualSavings: number | null;
+};
+
+/**
+ * Issue #4: every month from the first to the last check-in, in euros. Months without a check-in
+ * (or outside the plan) are null so the lines break instead of dropping to 0.
+ */
+export function actualVsPlannedSeries(comparisons: readonly ActualComparison[]): ActualVsPlannedPoint[] {
+  const byMonth = new Map(comparisons.map((c) => [c.month, c]));
+  const sorted = [...byMonth.keys()].sort((a, b) => compareMonths(a, b));
+  const first = sorted[0];
+  const last = sorted.at(-1);
+  if (!first || !last) return [];
+  const toEuros = (v: Cents | null | undefined) => (v === null || v === undefined ? null : centsToEuros(v));
+  const points: ActualVsPlannedPoint[] = [];
+  for (let month = first; compareMonths(month, last) <= 0; month = addMonths(month, 1)) {
+    const c = byMonth.get(month);
+    points.push({
+      month,
+      label: formatMonthShort(month),
+      plannedDebt: toEuros(c?.plannedDebt),
+      actualDebt: c ? centsToEuros(c.actualDebt) : null,
+      plannedSavings: toEuros(c?.plannedSavings),
+      actualSavings: c ? centsToEuros(c.actualSavings) : null,
+    });
+  }
+  return points;
+}
+
+/** Text alternative for the actual-vs-planned charts (issue #4). */
+export function actualVsPlannedSummary(comparisons: readonly ActualComparison[], what: "debt" | "savings"): string {
+  const latest = latestActual(comparisons);
+  if (!latest) return "Aucun mois de suivi saisi.";
+  const actual = what === "debt" ? latest.actualDebt : latest.actualSavings;
+  const planned = what === "debt" ? latest.plannedDebt : latest.plannedSavings;
+  const noun = what === "debt" ? "Dettes" : "Épargne";
+  const count = comparisons.length;
+  const plannedText = planned === null ? "hors période du plan" : `prévu ${formatEuros(planned)}`;
+  return `${noun} réelles et prévues sur ${count} mois de suivi. Dernier mois, ${formatMonthLong(latest.month)} : réel ${formatEuros(actual)}, ${plannedText}.`;
 }

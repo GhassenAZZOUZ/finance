@@ -1,6 +1,8 @@
 /** Dashboard helpers: chart series in euros, text alternatives, latest-actuals gap tones (SPEC §7, §8). */
 import { describe, expect, it } from "vitest";
 import {
+  actualVsPlannedSeries,
+  actualVsPlannedSummary,
   debtGapTone,
   debtSavingsSeries,
   debtSavingsSummary,
@@ -96,5 +98,30 @@ describe("formatSignedEuros", () => {
     expect(formatSignedEuros(1234)).toBe(`+${formatEuros(1234)}`);
     expect(formatSignedEuros(0)).toBe(formatEuros(0));
     expect(formatSignedEuros(-350)).toBe(formatEuros(-350));
+  });
+});
+
+describe("actual vs planned (issue #4)", () => {
+  const c = (month: string, actualDebt: number, plannedDebt: number | null, actualSavings: number, plannedSavings: number | null) =>
+    ({ month, planIndex: 1, actualDebt, plannedDebt, debtGap: null, actualSavings, plannedSavings, savingsGap: null,
+       movingGoalPct: 0, debtRepaidPct: 0, status: null, incomeGap: null, expensesGap: null }) as const;
+
+  it("covers every month between the first and last check-in, with gaps as null", () => {
+    const points = actualVsPlannedSeries([c("2027-03", 900_000, 890_000, 50_000, 60_000), c("2027-01", 1_000_000, 1_000_000, 20_000, 20_000)]);
+    expect(points.map((p) => p.month)).toEqual(["2027-01", "2027-02", "2027-03"]);
+    expect(points[1]).toMatchObject({ plannedDebt: null, actualDebt: null, plannedSavings: null, actualSavings: null });
+    expect(points[2]).toMatchObject({ plannedDebt: 8_900, actualDebt: 9_000, plannedSavings: 600, actualSavings: 500 });
+  });
+
+  it("keeps a check-in outside the plan as actual only, and handles no check-in", () => {
+    expect(actualVsPlannedSeries([c("2027-01", 100, null, 200, null)])[0]).toMatchObject({ plannedDebt: null, actualDebt: 1 });
+    expect(actualVsPlannedSeries([])).toEqual([]);
+  });
+
+  it("summarises the latest month in words", () => {
+    const s = actualVsPlannedSummary([c("2027-01", 100_000, 90_000, 0, 0), c("2027-02", 80_000, 85_000, 0, 0)], "debt");
+    expect(s).toContain("2 mois de suivi");
+    expect(s).toContain("février 2027");
+    expect(actualVsPlannedSummary([], "savings")).toBe("Aucun mois de suivi saisi.");
   });
 });
