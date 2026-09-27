@@ -15,6 +15,8 @@ import { debtAlertText, debtFreeText, emergencyReachedText, movingReachedText, m
 import { KpiCard, KpiRow, type Tone, ToneText } from "./_dashboard/kpi";
 import {
   type GapTone,
+  actualVsPlannedSeries,
+  actualVsPlannedSummary,
   debtGapTone,
   debtSavingsSeries,
   debtSavingsSummary,
@@ -98,7 +100,83 @@ export function DashboardView() {
           </CardContent>
         </Card>
       </div>
+
+      <ActualVsPlannedCard comparisons={plan.comparisons} />
     </>
+  );
+}
+
+/** Issue #4: real debt and savings (check-ins) against the plan, month by month. */
+function ActualVsPlannedCard({ comparisons }: { comparisons: readonly ActualComparison[] }) {
+  const points = actualVsPlannedSeries(comparisons);
+  const newestFirst = [...comparisons].sort((a, b) => b.month.localeCompare(a.month));
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <h2>Réel et prévu, mois après mois</h2>
+        </CardTitle>
+        <CardDescription>
+          Vos soldes saisis dans le suivi (traits pleins, points pleins) face au plan (pointillés, points creux). Un mois sans saisie laisse un trou dans la ligne réelle.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-6">
+        {points.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Aucun mois de suivi pour l’instant.{" "}
+            <Link href="/suivi" className={LINK_CLASS}>
+              Saisir le mois
+            </Link>
+          </p>
+        ) : (
+          <>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <section aria-labelledby="avp-debt-title" className="flex flex-col gap-2">
+                <h3 id="avp-debt-title" className="text-sm font-medium">
+                  Dettes restantes
+                </h3>
+                <PlanLineChart
+                  data={points}
+                  summary={actualVsPlannedSummary(comparisons, "debt")}
+                  tableCaption="Dettes réelles et prévues, par mois de suivi"
+                  series={[
+                    { key: "actualDebt", name: "Dettes réelles", color: PLAN_GROUP.debts.stroke, marker: "circle" },
+                    { key: "plannedDebt", name: "Dettes prévues", color: PLAN_GROUP.debts.stroke, dashed: true, marker: "ring", connectGaps: true },
+                  ]}
+                />
+              </section>
+              <section aria-labelledby="avp-savings-title" className="flex flex-col gap-2">
+                <h3 id="avp-savings-title" className="text-sm font-medium">
+                  Épargne totale (déménagement + urgence + libre)
+                </h3>
+                <PlanLineChart
+                  data={points}
+                  summary={actualVsPlannedSummary(comparisons, "savings")}
+                  tableCaption="Épargne réelle et prévue, par mois de suivi"
+                  series={[
+                    { key: "actualSavings", name: "Épargne réelle", color: PLAN_GROUP.remainder.stroke, marker: "square" },
+                    { key: "plannedSavings", name: "Épargne prévue", color: PLAN_GROUP.remainder.stroke, dashed: true, marker: "ring", connectGaps: true },
+                  ]}
+                />
+              </section>
+            </div>
+            <section aria-labelledby="avp-status-title">
+              <h3 id="avp-status-title" className="mb-2 text-sm font-medium">
+                Statut de chaque mois
+              </h3>
+              <ul className="flex flex-wrap gap-2">
+                {newestFirst.map((c) => (
+                  <li key={c.month} className="flex items-center gap-1.5 rounded-md border px-2 py-1 text-sm">
+                    <span className="text-muted-foreground">{formatMonthShort(c.month)}</span>
+                    <StatusBadge status={c.status} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

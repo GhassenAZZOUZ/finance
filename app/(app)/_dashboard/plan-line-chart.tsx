@@ -3,7 +3,8 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipContentProps } from "recharts";
 import { formatEuros, formatEurosWhole } from "@/lib/format";
 
-export type Marker = "none" | "circle" | "square";
+/** "ring" = hollow circle, for planned values next to filled actual markers. */
+export type Marker = "none" | "circle" | "square" | "ring";
 
 export interface ChartSeries {
   key: string;
@@ -12,15 +13,21 @@ export interface ChartSeries {
   dashed?: boolean;
   /** Secondary encoding where two hues are too close for colour-blind readers. */
   marker?: Marker;
+  /** Draw the line across null values (e.g. a plan that continues through months without data). */
+  connectGaps?: boolean;
 }
 
-type Row = { label: string } & Record<string, number | string>;
+/** A null value is a gap (e.g. a month without check-in): the line breaks there. */
+type Row = { label: string } & Record<string, number | string | null>;
 
 const MUTED = "var(--muted-foreground)";
 const eurosToCents = (euros: number) => Math.round(euros * 100);
 
 function MarkerShape({ marker, color, cx, cy, size = 4 }: { marker: Marker; color: string; cx: number; cy: number; size?: number }) {
   // 2px ring in the surface colour keeps markers legible where lines cross.
+  if (marker === "ring") {
+    return <circle cx={cx} cy={cy} r={size} fill="var(--card)" stroke={color} strokeWidth={2} />;
+  }
   if (marker === "square") {
     return <rect x={cx - size} y={cy - size} width={size * 2} height={size * 2} fill={color} stroke="var(--card)" strokeWidth={2} />;
   }
@@ -130,6 +137,7 @@ export function PlanLineChart({
                 strokeDasharray={s.dashed ? "6 4" : undefined}
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                connectNulls={s.connectGaps ?? false}
                 isAnimationActive={false}
                 dot={
                   s.marker && s.marker !== "none"
@@ -173,7 +181,7 @@ export function PlanLineChart({
                   </th>
                   {series.map((s) => (
                     <td key={s.key} className="px-2 py-1 text-right tabular-nums whitespace-nowrap">
-                      {formatEuros(eurosToCents(Number(row[s.key])))}
+                      {typeof row[s.key] === "number" ? formatEuros(eurosToCents(row[s.key] as number)) : "—"}
                     </td>
                   ))}
                 </tr>
