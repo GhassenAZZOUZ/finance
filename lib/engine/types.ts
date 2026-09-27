@@ -34,6 +34,8 @@ export interface BudgetParams {
   movingAlreadySaved: Cents;
   emergencyTarget: Cents;
   emergencyExisting: Cents;
+  /** Free savings already available at the plan start (SPEC D16); 0 when omitted. */
+  freeSavingsExisting?: Cents;
   /** Fraction, e.g. 0.024 for 2.4 %. A loan is eligible for early repayment if apr > riskFreeRate. */
   riskFreeRate: number;
   /** Fraction 0..1 of the monthly remainder sent to early repayment. */
@@ -178,6 +180,16 @@ export interface ActualInput {
   freeSavings: Cents;
   /** Remaining principal per loan, as entered for that month. */
   loanBalances: readonly Cents[];
+  /** Planned values frozen when the check-in was saved (SPEC D16); null = compare with the current plan. */
+  planned?: PlannedSnapshot | null;
+}
+
+/** What the plan expected for a month, frozen with a check-in (SPEC D16). */
+export interface PlannedSnapshot {
+  debt: Cents;
+  savings: Cents;
+  income: Cents;
+  expenses: Cents;
 }
 
 export type ActualStatus = "onTrack" | "late" | "mixed";

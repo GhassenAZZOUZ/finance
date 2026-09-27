@@ -109,7 +109,7 @@ describe("computePreview with exceptions", () => {
     movingDeadlineMonth: "2027-06",
     movingAlreadySaved: 0,
     emergencyTarget: 0,
-    emergencyExisting: 0,
+    emergencyExisting: 0, freeSavingsExisting: 0,
     riskFreeRate: 0.02,
     earlyRepaymentPct: 0,
   };

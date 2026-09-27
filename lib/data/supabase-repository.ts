@@ -8,6 +8,7 @@ import type {
   BudgetLineDraft,
   BudgetSettings,
   FinanceSnapshot,
+  FrozenPlan,
   Loan,
   LoanDraft,
   MonthlyActual,
@@ -23,6 +24,7 @@ interface SettingsRow {
   moving_already_saved: number;
   emergency_target: number;
   emergency_existing: number;
+  free_savings_existing: number;
   risk_free_rate: number;
   early_repayment_pct: number;
 }
@@ -70,10 +72,25 @@ interface ActualRow {
   moving_savings: number;
   emergency_savings: number;
   free_savings: number;
+  planned_debt: number | null;
+  planned_savings: number | null;
+  planned_income: number | null;
+  planned_expenses: number | null;
+  plan_start_month: string | null;
   monthly_actual_loan_balances: { loan_id: string; balance: number }[];
 }
 
 const cents = (euros: number) => eurosToCents(Number(euros));
+
+function frozenColumns(f: FrozenPlan) {
+  return {
+    planned_debt: centsToEuros(f.plannedDebt),
+    planned_savings: centsToEuros(f.plannedSavings),
+    planned_income: centsToEuros(f.plannedIncome),
+    planned_expenses: centsToEuros(f.plannedExpenses),
+    plan_start_month: f.planStartMonth,
+  };
+}
 const centsOrNull = (euros: number | null) => (euros === null ? null : cents(euros));
 const euros = (value: number) => centsToEuros(value);
 const eurosOrNull = (value: number | null) => (value === null ? null : euros(value));
@@ -140,7 +157,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       this.db
         .from("monthly_actuals")
         .select(
-          "id, month, income, expenses, moving_savings, emergency_savings, free_savings, monthly_actual_loan_balances(loan_id, balance)",
+          "id, month, income, expenses, moving_savings, emergency_savings, free_savings, planned_debt, planned_savings, planned_income, planned_expenses, plan_start_month, monthly_actual_loan_balances(loan_id, balance)",
         )
         .order("month")
         .returns<ActualRow[]>(),
@@ -161,6 +178,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         movingAlreadySaved: cents(s.moving_already_saved),
         emergencyTarget: cents(s.emergency_target),
         emergencyExisting: cents(s.emergency_existing),
+        freeSavingsExisting: cents(s.free_savings_existing),
         riskFreeRate: Number(s.risk_free_rate),
         earlyRepaymentPct: Number(s.early_repayment_pct),
       },
@@ -188,12 +206,22 @@ export class SupabaseFinanceRepository implements FinanceRepository {
           emergencySavings: cents(a.emergency_savings),
           freeSavings: cents(a.free_savings),
           loanBalances: a.monthly_actual_loan_balances.map((b) => ({ loanId: b.loan_id, balance: cents(b.balance) })),
+          frozen:
+            a.planned_debt === null || a.planned_savings === null || a.plan_start_month === null
+              ? null
+              : {
+                  plannedDebt: cents(a.planned_debt),
+                  plannedSavings: cents(a.planned_savings),
+                  plannedIncome: cents(a.planned_income ?? 0),
+                  plannedExpenses: cents(a.planned_expenses ?? 0),
+                  planStartMonth: a.plan_start_month,
+                },
         }),
       ),
     };
   }
 
-  async saveBudget(settings: BudgetSettings, lines: BudgetLineDraft[]): Promise<void> {
+  async saveSettings(settings: BudgetSettings): Promise<void> {
     checkMaybe(
       await this.db.from("budget_settings").upsert(
         {
@@ -203,12 +231,29 @@ export class SupabaseFinanceRepository implements FinanceRepository {
           moving_already_saved: euros(settings.movingAlreadySaved),
           emergency_target: euros(settings.emergencyTarget),
           emergency_existing: euros(settings.emergencyExisting),
+          free_savings_existing: euros(settings.freeSavingsExisting),
           risk_free_rate: settings.riskFreeRate,
           early_repayment_pct: settings.earlyRepaymentPct,
         },
         { onConflict: "user_id" },
       ),
     );
+  }
+
+  async freezeActuals(items: { month: string; frozen: FrozenPlan }[]): Promise<void> {
+    for (const { month, frozen } of items) {
+      checkMaybe(
+        await this.db
+          .from("monthly_actuals")
+          .update(frozenColumns(frozen))
+          .eq("month", month)
+          .is("planned_debt", null),
+      );
+    }
+  }
+
+  async saveBudget(settings: BudgetSettings, lines: BudgetLineDraft[]): Promise<void> {
+    await this.saveSettings(settings);
 
     const existing = check(await this.db.from("budget_lines").select("id").returns<{ id: string }[]>());
     const kept = new Set(lines.flatMap((l) => (l.id ? [l.id] : [])));
@@ -293,6 +338,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
             moving_savings: euros(draft.movingSavings),
             emergency_savings: euros(draft.emergencySavings),
             free_savings: euros(draft.freeSavings),
+            ...(draft.frozen ? frozenColumns(draft.frozen) : {}),
           },
           { onConflict: "user_id,month" },
         )

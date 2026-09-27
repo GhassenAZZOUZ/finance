@@ -12,6 +12,8 @@ export function createRepositoryMock(snapshot: FinanceSnapshot = makeSnapshot())
   return {
     load: vi.fn<FinanceRepository["load"]>(async () => snapshot),
     saveBudget: vi.fn<FinanceRepository["saveBudget"]>(async () => {}),
+    saveSettings: vi.fn<FinanceRepository["saveSettings"]>(async () => {}),
+    freezeActuals: vi.fn<FinanceRepository["freezeActuals"]>(async () => {}),
     addException: vi.fn<FinanceRepository["addException"]>(async (draft) => ({ id: "exc-new", ...draft })),
     deleteException: vi.fn<FinanceRepository["deleteException"]>(async () => {}),
     createLoan: vi.fn<FinanceRepository["createLoan"]>(async (draft) => ({
@@ -50,7 +52,7 @@ export function makeSettings(overrides: Partial<BudgetSettings> = {}): BudgetSet
     movingDeadlineMonth: "2026-12",
     movingAlreadySaved: 0,
     emergencyTarget: 600_000,
-    emergencyExisting: 100_000,
+    emergencyExisting: 100_000, freeSavingsExisting: 0,
     riskFreeRate: 0.03,
     earlyRepaymentPct: 0.5,
     ...overrides,

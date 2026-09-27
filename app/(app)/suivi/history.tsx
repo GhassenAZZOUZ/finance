@@ -4,7 +4,7 @@ import { GAP_TONE } from "@/components/app/tones";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Cents } from "@/lib/engine";
-import { formatEuros, formatMonthLong, formatPercent } from "@/lib/format";
+import { formatEuros, formatMonthLong, formatMonthShort, formatPercent } from "@/lib/format";
 import { DeleteActualButton } from "./delete-actual-button";
 import { type HistoryEntry, isDebtGapGood, isSavingsGapGood } from "./logic";
 
@@ -96,6 +96,13 @@ function BudgetInfo({ actual, comparison, stacked = false }: HistoryEntry & { st
   );
 }
 
+/** Plan version a frozen check-in was compared with (SPEC D16); nothing for entries saved before D16. */
+function PlanVersion({ entry, className }: { entry: HistoryEntry; className: string }) {
+  const planStart = entry.actual?.frozen?.planStartMonth;
+  if (!planStart) return null;
+  return <span className={`text-xs font-normal text-muted-foreground ${className}`}>Comparé au plan démarrant en {formatMonthShort(planStart)}</span>;
+}
+
 export function History({ entries }: { entries: HistoryEntry[] }) {
   if (entries.length === 0) {
     return <p className="text-sm text-muted-foreground">Aucune saisie pour l’instant. Enregistrez votre premier mois ci-dessus.</p>;
@@ -109,11 +116,14 @@ export function History({ entries }: { entries: HistoryEntry[] }) {
           return (
             <li key={c.month} className="rounded-lg border bg-card p-4">
               <article aria-labelledby={`suivi-card-${c.month}`} className="flex flex-col gap-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 id={`suivi-card-${c.month}`} className="font-semibold first-letter:uppercase">
-                    {formatMonthLong(c.month)}
-                  </h3>
-                  <StatusBadge status={c.status} />
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 id={`suivi-card-${c.month}`} className="font-semibold first-letter:uppercase">
+                      {formatMonthLong(c.month)}
+                    </h3>
+                    <StatusBadge status={c.status} />
+                  </div>
+                  <PlanVersion entry={entry} className="block" />
                 </div>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
                   <dt className="text-muted-foreground">Dettes réelles</dt>
@@ -173,8 +183,9 @@ export function History({ entries }: { entries: HistoryEntry[] }) {
               const c = entry.comparison;
               return (
                 <TableRow key={c.month} className="align-top">
-                  <TableHead scope="row" className="h-auto py-2 align-top font-medium first-letter:uppercase">
-                    {formatMonthLong(c.month)}
+                  <TableHead scope="row" className="h-auto py-2 align-top font-medium">
+                    <span className="block first-letter:uppercase">{formatMonthLong(c.month)}</span>
+                    <PlanVersion entry={entry} className="mt-0.5 block max-w-32 whitespace-normal" />
                   </TableHead>
                   <TableCell className="align-top text-right">
                     <Comparison

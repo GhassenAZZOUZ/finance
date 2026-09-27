@@ -22,6 +22,7 @@ const settings: BudgetSettings = {
   movingAlreadySaved: 50000,
   emergencyTarget: 600000,
   emergencyExisting: 100000,
+  freeSavingsExisting: 25000,
   riskFreeRate: 0.024,
   earlyRepaymentPct: 0.5,
 };
@@ -56,6 +57,7 @@ describe("initialFormState", () => {
       movingAlreadySaved: "500,00",
       emergencyTarget: "6000,00",
       emergencyExisting: "1000,00",
+      freeSavingsExisting: "250,00",
       riskFreeRate: "2,4",
       earlyRepaymentPct: "50",
     });
@@ -80,6 +82,7 @@ describe("initialFormState", () => {
       movingAlreadySaved: "0",
       emergencyTarget: "0",
       emergencyExisting: "0",
+      freeSavingsExisting: "0",
       riskFreeRate: "",
       earlyRepaymentPct: "",
     });
@@ -117,6 +120,22 @@ describe("toPayload", () => {
     const edited = { ...state, lines: state.lines.map((l, i) => (i === 0 ? { ...l, amount: "2500" } : l)) };
     expect(formSignature(state)).toBe(formSignature(initialFormState(settings, lines, "2026-09")));
     expect(formSignature(edited)).not.toBe(formSignature(state));
+    const freeEdited = { ...state, params: { ...state.params, freeSavingsExisting: "300" } };
+    expect(formSignature(freeEdited)).not.toBe(formSignature(state));
+  });
+
+  it("round-trips the existing free savings (SPEC D16) through the payload and validation", () => {
+    const state = initialFormState(settings, [], "2026-09");
+    const parsed = parsePayload(JSON.stringify(toPayload(state)));
+    expect(parsed?.form.freeSavingsExisting).toBe("250,00");
+    const result = validateBudget(parsed!.form);
+    expect(result.ok && result.value.settings).toEqual(settings);
+
+    // Empty = 0; a negative amount is reported on its own field.
+    const empty = validateBudget({ ...parsed!.form, freeSavingsExisting: "" });
+    expect(empty.ok && empty.value.settings.freeSavingsExisting).toBe(0);
+    state.params.freeSavingsExisting = "-5";
+    expect(invalidParams(state.params)).toEqual(["freeSavingsExisting"]);
   });
 });
 
@@ -126,8 +145,9 @@ describe("parsePayload", () => {
   });
 
   it("coerces unexpected field types to empty strings", () => {
-    const parsed = parsePayload(JSON.stringify({ form: { startMonth: 5, lines: [{ id: 3, category: "income", label: null, amount: "1" }, 7] } }));
+    const parsed = parsePayload(JSON.stringify({ form: { startMonth: 5, freeSavingsExisting: 12, lines: [{ id: 3, category: "income", label: null, amount: "1" }, 7] } }));
     expect(parsed?.form.startMonth).toBe("");
+    expect(parsed?.form.freeSavingsExisting).toBe("");
     expect(parsed?.form.lines).toEqual([
       { category: "income", label: "", amount: "1", startMonth: "", endMonth: "" },
       { category: "", label: "", amount: "", startMonth: "", endMonth: "" },
@@ -161,6 +181,16 @@ describe("computePreview", () => {
     expect(preview.plan?.months[0]?.available).toBe(120000);
     expect(preview.plan?.kpis.movingMonthlyNeeded).toBe(41667); // 2500 € / 6 months
     expect(sectionTotal(state.lines, "fixed")).toBe(80000);
+  });
+
+  it("starts the simulated free savings from the existing free savings (SPEC D16)", () => {
+    const state = initialFormState(settings, lines, "2026-09");
+    const base = computePreview(state, [loan]).plan!;
+    state.params.freeSavingsExisting = "1 000";
+    const more = computePreview(state, [loan]).plan!;
+    // 1 000 € instead of 250 €: every month's cumulative free savings is 750 € higher.
+    expect(more.months[0]!.freeSavingsCumulative - base.months[0]!.freeSavingsCumulative).toBe(75000);
+    expect(more.kpis.freeSavingsAt12 - base.kpis.freeSavingsAt12).toBe(75000);
   });
 
   it("has no plan while a parameter is invalid, but still shows the totals", () => {

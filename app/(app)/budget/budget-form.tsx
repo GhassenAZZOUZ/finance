@@ -218,6 +218,11 @@ export function BudgetForm({
               />
               <ParamInput {...paramProps("emergencyExisting")} kind="amount" />
               <ParamInput
+                {...paramProps("freeSavingsExisting")}
+                kind="amount"
+                hint="Épargne disponible hors déménagement et fonds d’urgence au début du plan (0 si aucune)."
+              />
+              <ParamInput
                 {...paramProps("riskFreeRate")}
                 kind="percent"
                 placeholder="Taux en %"

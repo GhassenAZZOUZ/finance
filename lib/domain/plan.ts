@@ -112,6 +112,14 @@ export function toActualInput(actual: MonthlyActual): ActualInput {
     emergencySavings: actual.emergencySavings,
     freeSavings: actual.freeSavings,
     loanBalances: actual.loanBalances.map((b) => b.balance),
+    planned: actual.frozen
+      ? {
+          debt: actual.frozen.plannedDebt,
+          savings: actual.frozen.plannedSavings,
+          income: actual.frozen.plannedIncome,
+          expenses: actual.frozen.plannedExpenses,
+        }
+      : null,
   };
 }
 
