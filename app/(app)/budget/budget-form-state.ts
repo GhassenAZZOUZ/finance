@@ -4,9 +4,17 @@
  */
 import { type Cents, type PlanResult, type YearMonth, simulatePlan, sumCents } from "@/lib/engine";
 import { buildPlanInput } from "@/lib/domain/plan";
-import { BUDGET_CATEGORIES, type BudgetCategory, type BudgetLine, type BudgetSettings, type Loan } from "@/lib/domain/types";
+import {
+  BUDGET_CATEGORIES,
+  type BudgetCategory,
+  type BudgetException,
+  type BudgetLine,
+  type BudgetSettings,
+  type Loan,
+} from "@/lib/domain/types";
 import { type BudgetForm, parseAmount, validateBudget } from "@/lib/domain/validation";
 import { amountInputValue, percentInputValue } from "@/lib/format";
+import { affectedMonthCount } from "./exceptions-view";
 
 export const PARAM_FIELDS = [
   "startMonth",
@@ -160,12 +168,21 @@ export interface BudgetPreview {
   invalidAmounts: number;
   /** 3 × (fixed + variable + Σ monthly payments), SPEC §3.1 (hint only). */
   suggestedEmergencyTarget: Cents;
+  /** Distinct months inside the plan period that carry a saved one-off exception (SPEC D14). */
+  exceptionMonths: number;
   /** Null while the parameters are incomplete. */
   plan: PlanResult | null;
 }
 
-/** Totals from the valid amounts, and the simulated plan when every parameter is valid. */
-export function computePreview(state: BudgetFormState, loans: readonly Loan[]): BudgetPreview {
+/**
+ * Totals of a regular month from the valid amounts, and the simulated plan (saved one-off exceptions
+ * included) when every parameter is valid.
+ */
+export function computePreview(
+  state: BudgetFormState,
+  loans: readonly Loan[],
+  exceptions: readonly BudgetException[] = [],
+): BudgetPreview {
   let invalidAmounts = 0;
   const validLines: { category: BudgetCategory; amount: Cents }[] = [];
   for (const line of state.lines) {
@@ -192,7 +209,8 @@ export function computePreview(state: BudgetFormState, loans: readonly Loan[]): 
     debtAlert: ratio > 0.35 ? "alert" : ratio > 0.3 ? "warning" : "ok",
     invalidAmounts,
     suggestedEmergencyTarget: 3 * (fixed + variable + loanPayments),
-    plan: settings ? simulatePlan(buildPlanInput(settings, validLines, loans)) : null,
+    exceptionMonths: affectedMonthCount(exceptions, settings?.startMonth ?? null),
+    plan: settings ? simulatePlan(buildPlanInput(settings, validLines, loans, exceptions)) : null,
   };
 }
 

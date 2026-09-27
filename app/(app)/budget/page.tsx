@@ -15,6 +15,7 @@ export default async function BudgetPage() {
         settings={snapshot.settings}
         lines={snapshot.lines}
         loans={snapshot.loans}
+        exceptions={snapshot.exceptions}
         currentMonth={currentYearMonth()}
       />
     </>

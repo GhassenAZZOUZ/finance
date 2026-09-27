@@ -55,7 +55,7 @@ export function BudgetSummary({
           <Row label="Charges fixes">{formatEuros(preview.fixed)}</Row>
           <Row label="Dépenses variables">{formatEuros(preview.variable)}</Row>
           <Row label="Mensualités de crédit">{formatEuros(preview.loanPayments)}</Row>
-          <Row label="Marge mensuelle" className={preview.margin < 0 ? NEGATIVE : "font-semibold"}>
+          <Row label="Marge mensuelle (mois normal)" className={preview.margin < 0 ? NEGATIVE : "font-semibold"}>
             {preview.margin < 0 ? (
               <span className="inline-flex items-center gap-1">
                 <AlertTriangle aria-hidden className="size-4" />
@@ -69,6 +69,12 @@ export function BudgetSummary({
             {preview.debtRatio === null ? "—" : `${formatPercent(preview.debtRatio, 1)} · ${DEBT_ALERT_LABEL[preview.debtAlert]}`}
           </Row>
         </dl>
+        {preview.exceptionMonths > 0 ? (
+          <p className="text-muted-foreground">
+            Exceptions : {preview.exceptionMonths} mois concerné{preview.exceptionMonths > 1 ? "s" : ""}. Les montants
+            ci-dessus décrivent un mois normal ; le plan ci-dessous inclut les exceptions.
+          </p>
+        ) : null}
         {preview.invalidAmounts > 0 ? (
           <p className="text-amber-900">
             {preview.invalidAmounts === 1
