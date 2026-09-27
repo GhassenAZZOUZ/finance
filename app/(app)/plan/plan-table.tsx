@@ -1,9 +1,10 @@
-import { CircleCheck, Flag, TriangleAlert } from "lucide-react";
+import { CircleCheck, Flag, PencilLine, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 import { PLAN_GROUP, type PlanGroup } from "@/components/app/tones";
 import type { Cents, PlanMonth } from "@/lib/engine";
 import { formatEuros, formatMonthShort } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import type { ExceptionMarker, MonthExceptions } from "./exceptions";
 import { type MilestoneState, type PlanMilestones, milestoneState } from "./milestones";
 
 /** Milestone highlights: strong = dark group shade (white text ≥ 4.5:1), light = tint. */
@@ -57,7 +58,20 @@ const MILESTONE_COLUMNS: Partial<
 const HEAD_ROW_1 = "sticky top-0 z-20 h-9";
 const HEAD_ROW_2 = "sticky top-9 z-20";
 
-export function PlanTable({ months, milestones, caption }: { months: PlanMonth[]; milestones: PlanMilestones; caption: ReactNode }) {
+const NO_EXCEPTIONS: MonthExceptions = { income: [], expense: [] };
+
+export function PlanTable({
+  months,
+  milestones,
+  exceptions,
+  caption,
+}: {
+  months: PlanMonth[];
+  milestones: PlanMilestones;
+  /** Plan month index → that month's one-off exceptions (SPEC D14), see `exceptionsByPlanIndex`. */
+  exceptions: ReadonlyMap<number, MonthExceptions>;
+  caption: ReactNode;
+}) {
   return (
     <div
       tabIndex={0}
@@ -108,7 +122,7 @@ export function PlanTable({ months, milestones, caption }: { months: PlanMonth[]
         </thead>
         <tbody>
           {months.map((m) => (
-            <PlanRow key={m.index} month={m} milestones={milestones} />
+            <PlanRow key={m.index} month={m} milestones={milestones} exceptions={exceptions.get(m.index) ?? NO_EXCEPTIONS} />
           ))}
         </tbody>
       </table>
@@ -116,7 +130,7 @@ export function PlanTable({ months, milestones, caption }: { months: PlanMonth[]
   );
 }
 
-function PlanRow({ month: m, milestones }: { month: PlanMonth; milestones: PlanMilestones }) {
+function PlanRow({ month: m, milestones, exceptions }: { month: PlanMonth; milestones: PlanMilestones; exceptions: MonthExceptions }) {
   const negative = m.negativeBudget;
   const isDeadline = milestones.deadlineIndex === m.index;
   const paidOff = milestones.loanPayoffs.get(m.index) ?? [];
@@ -157,6 +171,12 @@ function PlanRow({ month: m, milestones }: { month: PlanMonth; milestones: PlanM
                 <span className="sr-only"> : {milestoneCol.srText}</span>
               </Marker>
             ) : null}
+            {c.key === "income" && m.extraIncome > 0 ? (
+              <ExceptionNote amount={m.extraIncome} list={exceptions.income} kind="revenu" />
+            ) : null}
+            {c.key === "expenses" && m.extraExpenses > 0 ? (
+              <ExceptionNote amount={m.extraExpenses} list={exceptions.expense} kind="dépense" />
+            ) : null}
             {c.key === "available" && negative ? (
               <Marker icon={<TriangleAlert aria-hidden className="size-3.5" />} className="font-semibold text-red-800">
                 Budget négatif !
@@ -190,6 +210,38 @@ function Marker({ icon, className, children }: { icon: ReactNode; className?: st
     <span className={cn("mt-0.5 flex items-center justify-end gap-1 text-xs", className)}>
       {icon}
       <span>{children}</span>
+    </span>
+  );
+}
+
+/**
+ * One-off exception marker (SPEC D14) under the Revenus / Dépenses amount: a badge with the
+ * extra amount and, below it, the label(s) — truncated to keep the column narrow on phones,
+ * with the full text in `title` and in sr-only text.
+ */
+function ExceptionNote({ amount, list, kind }: { amount: Cents; list: readonly ExceptionMarker[]; kind: "revenu" | "dépense" }) {
+  const detail = list.map((e) => `${e.label} (+${formatEuros(e.amount)})`).join(", ");
+  const labels = list.length > 1 ? `${list.length} exceptions : ${list.map((e) => e.label).join(", ")}` : (list[0]?.label ?? "");
+  const srText =
+    list.length > 1
+      ? `dont ${list.length} exceptions ponctuelles (${kind}s en plus) : ${detail}`
+      : list.length === 1
+        ? `dont exception ponctuelle (${kind} en plus) : ${detail}`
+        : `dont +${formatEuros(amount)} d'exception ponctuelle (${kind} en plus)`;
+  return (
+    <span className="mt-1 flex flex-col items-end gap-0.5 text-xs" title={detail || undefined}>
+      <span className="sr-only">{srText}</span>
+      <span
+        aria-hidden
+        className="flex w-fit items-center gap-1 rounded-full border border-[#1F4E78] bg-white px-2 py-0.5 font-medium text-[#1F4E78]"
+      >
+        <PencilLine className="size-3.5" />+{formatEuros(amount)}
+      </span>
+      {labels ? (
+        <span aria-hidden className="max-w-40 truncate text-[#1F4E78]">
+          {labels}
+        </span>
+      ) : null}
     </span>
   );
 }

@@ -1,4 +1,4 @@
-import { CircleCheck, Flag, TriangleAlert } from "lucide-react";
+import { CircleCheck, Flag, PencilLine, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Onboarding } from "@/components/app/onboarding";
@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { loadPageData } from "@/lib/data/session";
 import { HORIZON_MONTHS } from "@/lib/engine";
 import { formatMonthLong } from "@/lib/format";
+import { exceptionsByPlanIndex } from "./exceptions";
 import { DEFAULT_ROW_COUNT, findMilestones, parseRowCount } from "./milestones";
 import { PlanTable } from "./plan-table";
 
@@ -25,6 +26,7 @@ export default async function PlanPage({ searchParams }: PageProps<"/plan">) {
   const rowCount = parseRowCount(query.mois);
   const showAll = rowCount === HORIZON_MONTHS;
   const months = plan.result.months.slice(0, rowCount);
+  const exceptions = exceptionsByPlanIndex(snapshot.exceptions, plan.input.budget.startMonth, plan.result.months.length);
 
   return (
     <>
@@ -63,6 +65,13 @@ export default async function PlanPage({ searchParams }: PageProps<"/plan">) {
           <LegendItem swatch="bg-red-100 text-red-800" icon={<TriangleAlert aria-hidden className="size-3.5" />}>
             Budget négatif : rien n&apos;est épargné ce mois-là
           </LegendItem>
+          <LegendItem swatch="border border-[#1F4E78] bg-white text-[#1F4E78]" icon={<PencilLine aria-hidden className="size-3.5" />}>
+            Mois avec une exception ponctuelle (revenu ou dépense en plus, voir{" "}
+            <Link href="/budget" className="underline underline-offset-2 hover:no-underline">
+              Budget
+            </Link>
+            )
+          </LegendItem>
         </ul>
       </section>
 
@@ -82,6 +91,7 @@ export default async function PlanPage({ searchParams }: PageProps<"/plan">) {
         <PlanTable
           months={months}
           milestones={milestones}
+          exceptions={exceptions}
           caption={`Plan mois par mois, ${months.length} mois à partir de ${formatMonthLong(plan.input.budget.startMonth)}`}
         />
       </div>
