@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { centsToEuros, eurosToCents } from "@/lib/engine";
 import type {
   BudgetCategory,
+  BudgetException,
+  BudgetExceptionDraft,
   BudgetLine,
   BudgetLineDraft,
   BudgetSettings,
@@ -43,6 +45,21 @@ interface LoanRow {
   position: number;
   archived_at: string | null;
 }
+interface ExceptionRow {
+  id: string;
+  month: string;
+  kind: "income" | "expense";
+  label: string;
+  amount: number;
+}
+const toException = (r: ExceptionRow): BudgetException => ({
+  id: r.id,
+  month: r.month,
+  kind: r.kind,
+  label: r.label,
+  amount: cents(r.amount),
+});
+
 interface ActualRow {
   id: string;
   month: string;
@@ -105,7 +122,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   async load(): Promise<FinanceSnapshot> {
-    const [settings, lines, loans, actuals] = await Promise.all([
+    const [settings, lines, loans, actuals, exceptions] = await Promise.all([
       this.db.from("budget_settings").select("*").maybeSingle<SettingsRow>(),
       this.db.from("budget_lines").select("id, category, label, amount, position").order("position").returns<LineRow[]>(),
       this.db
@@ -121,6 +138,12 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         )
         .order("month")
         .returns<ActualRow[]>(),
+      this.db
+        .from("budget_exceptions")
+        .select("id, month, kind, label, amount")
+        .order("month")
+        .order("created_at")
+        .returns<ExceptionRow[]>(),
     ]);
     const s = checkMaybe(settings);
     const allLoans = check(loans).map(toLoan);
@@ -138,6 +161,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       lines: check(lines).map(
         (l): BudgetLine => ({ id: l.id, category: l.category, label: l.label, amount: cents(l.amount), position: l.position }),
       ),
+      exceptions: check(exceptions).map(toException),
       loans: allLoans.filter((l) => l.archivedAt === null),
       archivedLoans: allLoans.filter((l) => l.archivedAt !== null),
       actuals: check(actuals).map(
@@ -187,6 +211,22 @@ export class SupabaseFinanceRepository implements FinanceRepository {
     const inserts = lines.filter((l) => !l.id).map(columns);
     if (updates.length > 0) checkMaybe(await this.db.from("budget_lines").upsert(updates, { onConflict: "id" }));
     if (inserts.length > 0) checkMaybe(await this.db.from("budget_lines").insert(inserts));
+  }
+
+  async addException(draft: BudgetExceptionDraft): Promise<BudgetException> {
+    const row = check(
+      await this.db
+        .from("budget_exceptions")
+        .insert({ month: draft.month, kind: draft.kind, label: draft.label.trim(), amount: euros(draft.amount) })
+        .select("id, month, kind, label, amount")
+        .single<ExceptionRow>(),
+    );
+    return toException(row);
+  }
+
+  async deleteException(id: string): Promise<void> {
+    const deleted = check(await this.db.from("budget_exceptions").delete().eq("id", id).select("id"));
+    if (deleted.length === 0) throw new RepositoryError("Exception introuvable", "not_found");
   }
 
   async createLoan(draft: LoanDraft): Promise<Loan> {

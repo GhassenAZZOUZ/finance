@@ -4,7 +4,15 @@ import type { YearMonth } from "./months";
 /** Number of simulated months (25 years), as in the spreadsheet. */
 export const HORIZON_MONTHS = 300;
 
-/** Budget inputs. The engine only needs the three sums (SPEC D9). */
+/** Extra income or extra expenses for a single month, on top of the regular budget (SPEC D14). */
+export interface BudgetExceptionInput {
+  month: YearMonth;
+  kind: "income" | "expense";
+  /** > 0 */
+  amount: Cents;
+}
+
+/** Budget inputs. The engine only needs the three sums (SPEC D9) plus one-off exceptions (D14). */
 export interface BudgetParams {
   income: Cents;
   fixedCosts: Cents;
@@ -20,6 +28,8 @@ export interface BudgetParams {
   riskFreeRate: number;
   /** Fraction 0..1 of the monthly remainder sent to early repayment. */
   earlyRepaymentPct: number;
+  /** One-off exceptions; months outside the plan are ignored. */
+  exceptions?: readonly BudgetExceptionInput[];
 }
 
 /** An active loan. Array order = entry order (breaks APR ties). */
@@ -54,8 +64,13 @@ export interface PlanMonth {
   /** 1-based month number. */
   index: number;
   month: YearMonth;
+  /** Regular income + this month's income exceptions. */
   income: Cents;
+  /** Regular fixed + variable expenses + this month's expense exceptions. */
   expenses: Cents;
+  /** Part of `income` / `expenses` coming from one-off exceptions (SPEC D14). */
+  extraIncome: Cents;
+  extraExpenses: Cents;
   loanPayments: Cents;
   available: Cents;
   toMoving: Cents;

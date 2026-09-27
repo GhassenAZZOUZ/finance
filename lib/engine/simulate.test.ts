@@ -217,3 +217,46 @@ describe("residual under 1 € (SPEC D13)", () => {
     expect(at(months, 2).loans[0]).toMatchObject({ paymentPaid: 100, endBalance: 0 });
   });
 });
+
+describe("one-off budget exceptions (SPEC D14)", () => {
+  const base = budget({ emergencyTarget: 10_000_000, earlyRepaymentPct: 0 });
+
+  it("changes only the months concerned; several exceptions in a month add up", () => {
+    const { months, kpis } = simulatePlan({
+      budget: {
+        ...base,
+        exceptions: [
+          { month: "2027-03", kind: "income", amount: 100_000 },
+          { month: "2027-03", kind: "expense", amount: 30_000 },
+          { month: "2027-03", kind: "expense", amount: 10_000 },
+          { month: "2027-05", kind: "expense", amount: 80_000 },
+        ],
+      },
+      loans: [],
+    });
+    expect(at(months, 2)).toMatchObject({ income: 200_000, expenses: 150_000, extraIncome: 0, extraExpenses: 0, available: 50_000 });
+    expect(at(months, 3)).toMatchObject({ income: 300_000, expenses: 190_000, extraIncome: 100_000, extraExpenses: 40_000, available: 110_000 });
+    // A big expense can make a single month negative.
+    expect(at(months, 5)).toMatchObject({ expenses: 230_000, available: -30_000, negativeBudget: true });
+    expect(kpis.negativeBudgetMonths).toBe(1);
+    // KPIs describe the regular month.
+    expect(kpis).toMatchObject({ monthlyIncome: 200_000, monthlyExpenses: 150_000, margin: 50_000 });
+  });
+
+  it("ignores exceptions outside the plan and changes nothing without exceptions", () => {
+    const without = simulatePlan({ budget: base, loans: [] });
+    const outside = simulatePlan({ budget: { ...base, exceptions: [{ month: "2026-12", kind: "expense", amount: 99_999 }] }, loans: [] });
+    expect(outside).toEqual(without);
+  });
+
+  it("compares a check-in with that month's budget, exceptions included", () => {
+    const input = { budget: { ...base, exceptions: [{ month: "2027-01", kind: "income" as const, amount: 50_000 }] }, loans: [] };
+    const plan = simulatePlan(input);
+    const c = compareActual(
+      { month: "2027-01", income: 250_000, expenses: 150_000, movingSavings: 0, emergencySavings: 0, freeSavings: 0, loanBalances: [] },
+      plan,
+      input.budget,
+    );
+    expect(c).toMatchObject({ incomeGap: 0, expensesGap: 0 });
+  });
+});

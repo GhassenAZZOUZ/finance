@@ -56,6 +56,7 @@ function snapshot(withSettings: boolean): FinanceSnapshot {
     ],
     loans,
     archivedLoans: [],
+    exceptions: [],
     actuals: [],
   };
 }
@@ -215,6 +216,7 @@ describe("checkContractEnd (SPEC D5b)", () => {
       // 1 200,00 € at 0 %, 100,00 €/month: 12 payments, last one in December 2027.
       loans: [loan("a", { principal: 120_000, apr: 0, monthlyPayment: 10_000, contractEndMonth: "2028-06" })],
       archivedLoans: [],
+    exceptions: [],
       actuals: [],
     };
     const [row] = buildLoanRows(snapshot.loans, computePlan(snapshot));
@@ -239,6 +241,7 @@ describe("principal read before the plan start (SPEC D5c)", () => {
     // 1 000,00 € at 12 %, 100,00 €/month.
     loans: [loan("a", { principal: 100_000, apr: 0.12, monthlyPayment: 10_000, principalPaidThroughMonth: paid })],
     archivedLoans: [],
+    exceptions: [],
     actuals: [],
   });
 
@@ -286,6 +289,7 @@ describe("loan repaid before the plan start", () => {
         loan("a", { principal: 10_000, apr: 0, monthlyPayment: 10_000, principalPaidThroughMonth: "2026-09", contractEndMonth: "2026-10" }),
       ],
       archivedLoans: [],
+    exceptions: [],
       actuals: [],
     };
     const [row] = buildLoanRows(snapshot.loans, computePlan(snapshot));

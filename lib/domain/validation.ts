@@ -7,6 +7,7 @@ import {
   BUDGET_CATEGORIES,
   type BudgetCategory,
   type BudgetLineDraft,
+  type BudgetExceptionDraft,
   type BudgetSettings,
   type LoanDraft,
   MAX_ACTIVE_LOANS,
@@ -148,6 +149,27 @@ export function validateLoan(form: LoanForm, activeLoanCount: number): Validated
     monthlyPayment,
     contractEndMonth,
   });
+}
+
+export interface ExceptionForm {
+  month: string;
+  kind: string;
+  label: string;
+  amount: string;
+}
+
+/** One-off budget exception (SPEC D14): a month, income or expense, a label and an amount > 0. */
+export function validateException(form: ExceptionForm): Validated<BudgetExceptionDraft> {
+  const c = new Collector();
+  const month = c.take("month", parseMonth(form.month));
+  const kind = form.kind === "income" || form.kind === "expense" ? form.kind : undefined;
+  if (!kind) c.fail("kind", "Choisissez revenu ou dépense");
+  const label = form.label.trim();
+  if (label === "") c.fail("label", "Libellé requis");
+  else if (label.length > 100) c.fail("label", "100 caractères maximum");
+  const amount = c.take("amount", parseAmount(form.amount)) as Cents;
+  if (amount === 0) c.fail("amount", "Le montant doit être supérieur à 0");
+  return c.result({ month, kind: kind as "income" | "expense", label, amount });
 }
 
 export interface ActualForm {

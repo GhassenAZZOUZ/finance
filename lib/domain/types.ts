@@ -51,6 +51,18 @@ export interface Loan {
 
 export type LoanDraft = Omit<Loan, "id" | "position" | "archivedAt">;
 
+/** Extra income or extra expenses for a single month (SPEC D14). */
+export interface BudgetException {
+  id: string;
+  month: YearMonth;
+  kind: "income" | "expense";
+  label: string;
+  /** > 0 */
+  amount: Cents;
+}
+
+export type BudgetExceptionDraft = Omit<BudgetException, "id">;
+
 export interface MonthlyActual {
   id: string;
   month: YearMonth;
@@ -68,6 +80,8 @@ export type MonthlyActualDraft = Omit<MonthlyActual, "id">;
 export interface FinanceSnapshot {
   settings: BudgetSettings | null;
   lines: BudgetLine[];
+  /** One-off exceptions, by month. */
+  exceptions: BudgetException[];
   /** Active loans, in entry order. */
   loans: Loan[];
   archivedLoans: Loan[];

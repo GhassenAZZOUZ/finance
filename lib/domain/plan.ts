@@ -11,7 +11,16 @@ import {
   simulatePlan,
   sumCents,
 } from "@/lib/engine";
-import type { BudgetCategory, BudgetLine, BudgetLineDraft, BudgetSettings, FinanceSnapshot, Loan, MonthlyActual } from "./types";
+import type {
+  BudgetCategory,
+  BudgetException,
+  BudgetLine,
+  BudgetLineDraft,
+  BudgetSettings,
+  FinanceSnapshot,
+  Loan,
+  MonthlyActual,
+} from "./types";
 
 export function sumCategory(lines: readonly Pick<BudgetLine | BudgetLineDraft, "category" | "amount">[], category: BudgetCategory) {
   return sumCents(lines.filter((l) => l.category === category).map((l) => l.amount));
@@ -35,6 +44,7 @@ export function buildPlanInput(
   settings: BudgetSettings,
   lines: readonly Pick<BudgetLine | BudgetLineDraft, "category" | "amount">[],
   loans: readonly Loan[],
+  exceptions: readonly Pick<BudgetException, "month" | "kind" | "amount">[] = [],
 ): PlanInput {
   return {
     budget: {
@@ -42,6 +52,7 @@ export function buildPlanInput(
       fixedCosts: sumCategory(lines, "fixed"),
       variableExpenses: sumCategory(lines, "variable"),
       ...settings,
+      exceptions: exceptions.map((e) => ({ month: e.month, kind: e.kind, amount: e.amount })),
     },
     loans: loans.map((l) => ({
       id: l.id,
@@ -75,7 +86,7 @@ export interface ComputedPlan {
 /** Null until the budget parameters exist (first-login onboarding). */
 export function computePlan(snapshot: FinanceSnapshot): ComputedPlan | null {
   if (!snapshot.settings) return null;
-  const input = buildPlanInput(snapshot.settings, snapshot.lines, snapshot.loans);
+  const input = buildPlanInput(snapshot.settings, snapshot.lines, snapshot.loans, snapshot.exceptions);
   const result = simulatePlan(input);
   const comparisons = snapshot.actuals.map((a) => compareActual(toActualInput(a), result, input.budget));
   return { input, result, comparisons };

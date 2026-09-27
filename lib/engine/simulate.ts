@@ -60,8 +60,16 @@ export function simulatePlan(input: PlanInput): PlanResult {
     .filter((i) => priorities[i] !== null)
     .sort((a, b) => (priorities[a] as number) - (priorities[b] as number));
 
-  const income = budget.income;
-  const expenses = budget.fixedCosts + budget.variableExpenses;
+  const baseIncome = budget.income;
+  const baseExpenses = budget.fixedCosts + budget.variableExpenses;
+  // One-off exceptions summed per month (SPEC D14).
+  const extras = new Map<YearMonth, { income: Cents; expenses: Cents }>();
+  for (const e of budget.exceptions ?? []) {
+    const x = extras.get(e.month) ?? { income: 0, expenses: 0 };
+    if (e.kind === "income") x.income += e.amount;
+    else x.expenses += e.amount;
+    extras.set(e.month, x);
+  }
 
   let balances = loans.map((l) => Math.max(0, l.principal));
   let baselineBalances = [...balances];
@@ -72,6 +80,11 @@ export function simulatePlan(input: PlanInput): PlanResult {
   const months: PlanMonth[] = [];
   for (let index = 1; index <= HORIZON_MONTHS; index++) {
     const month = addMonths(budget.startMonth, index - 1);
+    const extra = extras.get(month);
+    const extraIncome = extra?.income ?? 0;
+    const extraExpenses = extra?.expenses ?? 0;
+    const income = baseIncome + extraIncome;
+    const expenses = baseExpenses + extraExpenses;
 
     // Calcul, plan scenario: interest, normal payment (last one capped; residual < 1 € absorbed).
     const loanMonths: LoanMonth[] = loans.map((loan, i) => {
@@ -126,6 +139,8 @@ export function simulatePlan(input: PlanInput): PlanResult {
       month,
       income,
       expenses,
+      extraIncome,
+      extraExpenses,
       loanPayments,
       available,
       toMoving,

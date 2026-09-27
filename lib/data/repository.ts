@@ -1,4 +1,6 @@
 import type {
+  BudgetException,
+  BudgetExceptionDraft,
   BudgetLineDraft,
   BudgetSettings,
   FinanceSnapshot,
@@ -16,6 +18,8 @@ export interface FinanceRepository {
   load(): Promise<FinanceSnapshot>;
   /** Saves the parameters and replaces the budget lines with `lines` (ids kept when present). */
   saveBudget(settings: BudgetSettings, lines: BudgetLineDraft[]): Promise<void>;
+  addException(draft: BudgetExceptionDraft): Promise<BudgetException>;
+  deleteException(id: string): Promise<void>;
   createLoan(draft: LoanDraft): Promise<Loan>;
   updateLoan(id: string, draft: LoanDraft): Promise<void>;
   /** Deletes the loan, or archives it when check-ins reference it (SPEC D8). */

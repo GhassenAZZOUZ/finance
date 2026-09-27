@@ -34,7 +34,9 @@ export function compareActual(actual: ActualInput, plan: PlanResult, budget: Bud
   const debtGap = plannedDebt === null ? null : actualDebt - plannedDebt;
   const savingsGap = plannedSavings === null ? null : actualSavings - plannedSavings;
   const totalPrincipal = plan.kpis.totalPrincipal;
-  const expenses = budget.fixedCosts + budget.variableExpenses;
+  // That month's budget, exceptions included (SPEC D14); the regular budget outside the plan.
+  const plannedIncome = planMonth ? planMonth.income : budget.income;
+  const plannedExpenses = planMonth ? planMonth.expenses : budget.fixedCosts + budget.variableExpenses;
 
   return {
     month: actual.month,
@@ -48,8 +50,8 @@ export function compareActual(actual: ActualInput, plan: PlanResult, budget: Bud
     movingGoalPct: budget.movingGoal > 0 ? Math.min(1, actual.movingSavings / budget.movingGoal) : 0,
     debtRepaidPct: totalPrincipal > 0 ? Math.max(0, 1 - actualDebt / totalPrincipal) : 0,
     status: debtGap === null || savingsGap === null ? null : statusFor(debtGap, savingsGap),
-    incomeGap: actual.income === null ? null : actual.income - budget.income,
-    expensesGap: actual.expenses === null ? null : actual.expenses - expenses,
+    incomeGap: actual.income === null ? null : actual.income - plannedIncome,
+    expensesGap: actual.expenses === null ? null : actual.expenses - plannedExpenses,
   };
 }
 
