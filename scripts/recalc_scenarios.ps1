@@ -44,7 +44,8 @@ try {
     foreach ($p in $spec.patches) {
         $ws = $wb.Worksheets.Item([int]$p[0])
         $cell = $ws.Range([string]$p[1])
-        $cell.Formula = '=ROUND(' + $cell.Formula.Substring(1) + ',2)'
+        if ($p.Count -ge 4) { $cell.Formula = [string]$p[3] }
+        else { $cell.Formula = '=ROUND(' + $cell.Formula.Substring(1) + ',2)' }
         if ($null -ne $p[2]) { $ws.Range([string]$p[1] + ':' + [string]$p[2]).FillDown() | Out-Null }
     }
     $xl.CalculateFull()

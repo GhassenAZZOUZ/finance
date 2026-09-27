@@ -3,7 +3,8 @@
     "Driven by scripts/recalc_scenarios.ps1 (desktop Excel). Sheet indexes: 2=Synthese, 3=Budget, 4=Credits, 5=Suivi reel, 6=Plan, 7=Calcul.",
     "Set ops: [sheet, range, value]; value = number | text | 'date:YYYY-MM-DD' | null (clear).",
     "Patch ops: [sheet, firstCell, fillDownTo|null]: wrap firstCell's formula in ROUND(...,2), then fill it down (relative refs).",
-    "ALL values here are invented. Never put real figures in this file."
+    "ALL values here are invented. Never put real figures in this file.",
+    "Patch ops with a 4th element set the given formula on firstCell instead of wrapping it in ROUND (SPEC D13: residual < 1 € absorbed)."
   ],
   "template": {
     "source": "docs/plan_financier.xlsx",
@@ -386,6 +387,114 @@
       2,
       "B15",
       null
+    ],
+    [
+      7,
+      "D3",
+      "D302",
+      "=IF(B3+C3-N('Crédits'!$E$5)<1,B3+C3,N('Crédits'!$E$5))"
+    ],
+    [
+      7,
+      "H3",
+      null,
+      "=ROUND(MAX(0,N('Crédits'!$C$5))+I3-IF(MAX(0,N('Crédits'!$C$5))+I3-N('Crédits'!$E$5)<1,MAX(0,N('Crédits'!$C$5))+I3,N('Crédits'!$E$5)),2)"
+    ],
+    [
+      7,
+      "H4",
+      "H302",
+      "=ROUND(H3+I4-IF(H3+I4-N('Crédits'!$E$5)<1,H3+I4,N('Crédits'!$E$5)),2)"
+    ],
+    [
+      7,
+      "L3",
+      "L302",
+      "=IF(J3+K3-N('Crédits'!$E$6)<1,J3+K3,N('Crédits'!$E$6))"
+    ],
+    [
+      7,
+      "P3",
+      null,
+      "=ROUND(MAX(0,N('Crédits'!$C$6))+Q3-IF(MAX(0,N('Crédits'!$C$6))+Q3-N('Crédits'!$E$6)<1,MAX(0,N('Crédits'!$C$6))+Q3,N('Crédits'!$E$6)),2)"
+    ],
+    [
+      7,
+      "P4",
+      "P302",
+      "=ROUND(P3+Q4-IF(P3+Q4-N('Crédits'!$E$6)<1,P3+Q4,N('Crédits'!$E$6)),2)"
+    ],
+    [
+      7,
+      "T3",
+      "T302",
+      "=IF(R3+S3-N('Crédits'!$E$7)<1,R3+S3,N('Crédits'!$E$7))"
+    ],
+    [
+      7,
+      "X3",
+      null,
+      "=ROUND(MAX(0,N('Crédits'!$C$7))+Y3-IF(MAX(0,N('Crédits'!$C$7))+Y3-N('Crédits'!$E$7)<1,MAX(0,N('Crédits'!$C$7))+Y3,N('Crédits'!$E$7)),2)"
+    ],
+    [
+      7,
+      "X4",
+      "X302",
+      "=ROUND(X3+Y4-IF(X3+Y4-N('Crédits'!$E$7)<1,X3+Y4,N('Crédits'!$E$7)),2)"
+    ],
+    [
+      7,
+      "AB3",
+      "AB302",
+      "=IF(Z3+AA3-N('Crédits'!$E$8)<1,Z3+AA3,N('Crédits'!$E$8))"
+    ],
+    [
+      7,
+      "AF3",
+      null,
+      "=ROUND(MAX(0,N('Crédits'!$C$8))+AG3-IF(MAX(0,N('Crédits'!$C$8))+AG3-N('Crédits'!$E$8)<1,MAX(0,N('Crédits'!$C$8))+AG3,N('Crédits'!$E$8)),2)"
+    ],
+    [
+      7,
+      "AF4",
+      "AF302",
+      "=ROUND(AF3+AG4-IF(AF3+AG4-N('Crédits'!$E$8)<1,AF3+AG4,N('Crédits'!$E$8)),2)"
+    ],
+    [
+      7,
+      "AJ3",
+      "AJ302",
+      "=IF(AH3+AI3-N('Crédits'!$E$9)<1,AH3+AI3,N('Crédits'!$E$9))"
+    ],
+    [
+      7,
+      "AN3",
+      null,
+      "=ROUND(MAX(0,N('Crédits'!$C$9))+AO3-IF(MAX(0,N('Crédits'!$C$9))+AO3-N('Crédits'!$E$9)<1,MAX(0,N('Crédits'!$C$9))+AO3,N('Crédits'!$E$9)),2)"
+    ],
+    [
+      7,
+      "AN4",
+      "AN302",
+      "=ROUND(AN3+AO4-IF(AN3+AO4-N('Crédits'!$E$9)<1,AN3+AO4,N('Crédits'!$E$9)),2)"
+    ],
+    [
+      7,
+      "AR3",
+      "AR302",
+      "=IF(AP3+AQ3-N('Crédits'!$E$10)<1,AP3+AQ3,N('Crédits'!$E$10))"
+    ],
+    [
+      7,
+      "AV3",
+      null,
+      "=ROUND(MAX(0,N('Crédits'!$C$10))+AW3-IF(MAX(0,N('Crédits'!$C$10))+AW3-N('Crédits'!$E$10)<1,MAX(0,N('Crédits'!$C$10))+AW3,N('Crédits'!$E$10)),2)"
+    ],
+    [
+      7,
+      "AV4",
+      "AV302",
+      "=ROUND(AV3+AW4-IF(AV3+AW4-N('Crédits'!$E$10)<1,AV3+AW4,N('Crédits'!$E$10)),2)"
     ]
   ],
   "scenarios": [
@@ -569,6 +678,37 @@
           3,
           "B6",
           100.01
+        ]
+      ]
+    },
+    {
+      "id": "small_residual",
+      "description": "Loan leaving a 0,48 € residual after its 10th payment (795 € at 1,5 %, 80 €/month): absorbed into that payment (SPEC D13)",
+      "set": [
+        [
+          4,
+          "A10",
+          "Prêt reliquat"
+        ],
+        [
+          4,
+          "B10",
+          "Prêt personnel"
+        ],
+        [
+          4,
+          "C10",
+          795
+        ],
+        [
+          4,
+          "D10",
+          0.015
+        ],
+        [
+          4,
+          "E10",
+          80
         ]
       ]
     },

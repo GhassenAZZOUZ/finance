@@ -1,5 +1,6 @@
 import { type Cents, roundHalfAwayFromZero, sumCents } from "./money";
 import { addMonths, compareMonths, monthsBetween, type YearMonth } from "./months";
+import { normalPayment } from "./payment";
 import {
   HORIZON_MONTHS,
   type DebtAlert,
@@ -72,14 +73,14 @@ export function simulatePlan(input: PlanInput): PlanResult {
   for (let index = 1; index <= HORIZON_MONTHS; index++) {
     const month = addMonths(budget.startMonth, index - 1);
 
-    // Calcul, plan scenario: interest, normal payment (capped at balance + interest).
+    // Calcul, plan scenario: interest, normal payment (last one capped; residual < 1 € absorbed).
     const loanMonths: LoanMonth[] = loans.map((loan, i) => {
       const startBalance = balances[i] as Cents;
       const interest = monthlyInterest(startBalance, loan.apr);
-      const paymentPaid = Math.min(loan.monthlyPayment, startBalance + interest);
+      const paymentPaid = normalPayment(startBalance + interest, loan.monthlyPayment);
       const baselineStart = baselineBalances[i] as Cents;
       const baselineInterest = monthlyInterest(baselineStart, loan.apr);
-      const baselinePayment = Math.min(loan.monthlyPayment, baselineStart + baselineInterest);
+      const baselinePayment = normalPayment(baselineStart + baselineInterest, loan.monthlyPayment);
       return {
         startBalance,
         interest,

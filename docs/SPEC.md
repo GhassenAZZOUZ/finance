@@ -48,6 +48,7 @@ from our code.
 | D3 | Dates | `startMonth` and `movingDeadlineMonth` are `YYYY-MM` months. Month granularity everywhere |
 | D4 | Personal debts | No special rule. A 0 % personal debt behaves exactly as in the spreadsheet: normal payments only, never eligible for early repayment. "Dette personnelle" is just a loan type label |
 | D5 | Remaining months | **Dropped** (the input and its 3 derived columns). Replaced by simulated payoff months and per-loan interest (§5) |
+| D13 | Residual under 1 € (2026-09-27) | When less than 1 € would remain after a normal payment, it is added to that payment (as banks adjust the last instalment), so the loan ends that month. Applies to the plan, the baseline and the D5c projection. Deviation from the spreadsheet, patched into the Excel golden data |
 | D5c | Principal read before the plan start (2026-09-27) | Optional `principalPaidThroughMonth` per loan (default in the form: current month). The entered principal is the balance **after the payment of that month**; the app rolls it forward with the normal payments of the months strictly between that month and `startMonth` (§4.5). Empty = principal at the plan start (spreadsheet behaviour). Read after the start → used as is, with a warning |
 | D5b | Contract end month (2026-09-27) | Optional `contractEndMonth` (YYYY-MM) per loan, **for a consistency check only**: warning when it differs by more than 1 month from the simulated end without early repayment (§5). Never used by the simulation |
 | D6 | Actuals check-in | Complete rows only. Any month from the plan start to the current month. "Latest" = most recent month (§8) |
@@ -138,7 +139,8 @@ APR descending, ties broken by entry order (avalanche). A 0 % loan is never elig
 startBalance(1)      = principal_i
 startBalance(m>1)    = endBalance(m−1)
 interest             = round2(startBalance × apr_i / 12)
-paymentPaid          = min(monthlyPayment_i, startBalance + interest)
+paymentPaid          = normalPayment(startBalance + interest, monthlyPayment_i)
+                       where normalPayment(due, m) = due − m < 1 € ? due : m      (D13; spreadsheet: min(m, due))
 balanceAfterPayment  = startBalance + interest − paymentPaid
 earlyRepayment       = priority_i none → 0
                        else max(0, min(balanceAfterPayment,
@@ -173,7 +175,7 @@ payment is deducted (November's is plan month 1). The engine receives `principal
 ```
 baselineStart(1) = principal_i;  baselineStart(m>1) = baselineEnd(m−1)
 baselineInterest = round2(baselineStart × apr_i / 12)
-baselineEnd      = baselineStart + baselineInterest − min(monthlyPayment_i, baselineStart + baselineInterest)
+baselineEnd      = baselineStart + baselineInterest − normalPayment(baselineStart + baselineInterest, monthlyPayment_i)
 ```
 
 ### 4.4 Monthly totals (`Calcul!AX:BB`)
@@ -348,6 +350,7 @@ Latest = the most recent month with an entry. No entry → "Aucune saisie", gaps
 | `big_windfall` | Large income: both goals in month 1, overflow across loans in month 2; the ineligible 1.2 % loan still runs to its normal end (debt-free 2028-11) |
 | `rounding_ties` | Exact half-cent ties (interest 0.375 → 0.38; odd-cent remainder × 50 %, e.g. 318.095 → 318.10) |
 | `suivi_actuals` | 5 complete actuals rows: on track / late / mixed / exactly at ±10 € / ahead of plan |
+| `small_residual` | 795 € at 1,5 %, 80 €/month: the 10th payment becomes 80,48 € instead of leaving 0,48 € for an 11th month (D13) |
 
 Regenerate (Windows + desktop Excel): see `scripts/README.md`. The export aborts if the
 independent reference engine disagrees with Excel on any cell.

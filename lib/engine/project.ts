@@ -1,5 +1,6 @@
 import { type Cents, roundHalfAwayFromZero } from "./money";
 import { type YearMonth, monthsBetween } from "./months";
+import { normalPayment } from "./payment";
 
 /**
  * Number of normal payments between a balance read after the payment of `paidThroughMonth`
@@ -12,13 +13,13 @@ export function paymentsBeforeStart(paidThroughMonth: YearMonth, startMonth: Yea
 
 /**
  * Rolls a loan balance forward by `payments` normal monthly payments, with exactly the
- * simulation's rules (interest rounded to the cent, last payment capped). SPEC D5c.
+ * simulation's rules (interest rounded to the cent, last payment capped, residual absorbed). SPEC D5c.
  */
 export function projectBalance(balance: Cents, apr: number, monthlyPayment: Cents, payments: number): Cents {
   let b = Math.max(0, balance);
   for (let i = 0; i < payments && b > 0; i++) {
     const interest = roundHalfAwayFromZero((b * apr) / 12);
-    b = b + interest - Math.min(monthlyPayment, b + interest);
+    b = b + interest - normalPayment(b + interest, monthlyPayment);
   }
   return b;
 }

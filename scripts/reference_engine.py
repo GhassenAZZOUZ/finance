@@ -19,6 +19,8 @@ HORIZON = 300
 # xx.xx rule (SPEC §4.0): round monthly interest, baseline interest, early-repayment share and
 # the 'monthly needed' KPI to cents. False = the original spreadsheet (fractions of cents).
 CENTS = True
+# SPEC D13: a residual under 1 EUR after a normal payment is added to that payment (app rule).
+ABSORB_RESIDUAL = True
 LOAN_ROWS = range(5, 11)  # Crédits!5..10 -> 6 slots
 
 
@@ -37,6 +39,13 @@ def xround2(x: float) -> float:
 def c2(x: float) -> float:
     """Round to cents only under the xx.xx rule."""
     return xround2(x) if CENTS else x
+
+
+def normal_payment(due: float, payment: float) -> float:
+    """min(payment, due), except that a residual < 1 EUR is paid now (D13, app rules only)."""
+    if ABSORB_RESIDUAL and CENTS:
+        return due if due - payment < 1 else payment
+    return min(payment, due)
 
 
 def edate(d: dt.datetime, months: int) -> dt.datetime:
@@ -147,11 +156,11 @@ def simulate(budget, loans, derived):
         date = edate(budget["start"], m - 1)
         B = bal[:]
         Cint = [c2(B[i] * n(loans[i]["apr"]) / 12) for i in range(k)]
-        Dpay = [min(n(loans[i]["payment"]), B[i] + Cint[i]) for i in range(k)]
+        Dpay = [normal_payment(B[i] + Cint[i], n(loans[i]["payment"])) for i in range(k)]
         Eaft = [xround2(B[i] + Cint[i] - Dpay[i]) for i in range(k)]
         # baseline
         Ib = [c2(base[i] * n(loans[i]["apr"]) / 12) for i in range(k)]
-        Hb = [xround2(base[i] + Ib[i] - min(n(loans[i]["payment"]), base[i] + Ib[i])) for i in range(k)]
+        Hb = [xround2(base[i] + Ib[i] - normal_payment(base[i] + Ib[i], n(loans[i]["payment"]))) for i in range(k)]
         # plan part 1
         E = sum(Dpay)
         F = income - expenses - E

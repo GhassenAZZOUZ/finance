@@ -200,3 +200,20 @@ describe("actuals", () => {
     expect(latestActual([])).toBeNull();
   });
 });
+
+describe("residual under 1 € (SPEC D13)", () => {
+  it("adds the residual to the payment instead of adding a month", () => {
+    // 795,00 € at 1,5 %, 80,00 €/month: the 10th payment would leave 0,48 € → it becomes 80,48 €.
+    const { months, loans } = simulatePlan({ budget: budget({ earlyRepaymentPct: 0 }), loans: [loan("a", 79_500, 0.015, 8_000)] });
+    expect(at(months, 10).loans[0]).toMatchObject({ paymentPaid: 8_048, endBalance: 0 });
+    expect(at(months, 11).loans[0]?.paymentPaid).toBe(0);
+    expect(loans[0]).toMatchObject({ payoffMonthWithPlan: "2027-10", payoffMonthWithoutPlan: "2027-10" });
+  });
+
+  it("keeps a residual of 1 € or more for the next month", () => {
+    // 100,00 € at 0 %, 99,00 €/month: 1,00 € remains, paid the month after.
+    const { months } = simulatePlan({ budget: budget({ earlyRepaymentPct: 0 }), loans: [loan("a", 10_000, 0, 9_900)] });
+    expect(at(months, 1).loans[0]).toMatchObject({ paymentPaid: 9_900, endBalance: 100 });
+    expect(at(months, 2).loans[0]).toMatchObject({ paymentPaid: 100, endBalance: 0 });
+  });
+});
