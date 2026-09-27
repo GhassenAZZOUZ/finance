@@ -156,8 +156,8 @@ One-time setup (already done for this repository):
 2. GitHub → Settings → Pages → Source: **GitHub Actions**. Free Pages requires a public repository.
 3. GitHub → Settings → Secrets and variables → Actions → **Variables**:
    `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public values, not secrets);
-   **Secrets**: `SUPABASE_ACCESS_TOKEN` (Supabase account → Access tokens) and `SUPABASE_DB_PASSWORD`
-   (the project's database password), used only by the `migrate` job.
+   **Secret**: `SUPABASE_ACCESS_TOKEN` (Supabase account → Access tokens), used only by the `migrate`
+   job. No database password is needed: the CLI logs in with a temporary role created through the token.
 
 Preview the static build locally: `NEXT_PUBLIC_BASE_PATH=/finance npm run build:pages`, then serve
 `out/` under `/finance/` with any static server.
