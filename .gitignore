@@ -2,11 +2,39 @@
 docs/plan_financier.xlsx
 ~$*.xlsx
 
-# Python (Phase 0 scripts)
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+/build
+
+# env files: only the example is committed
+.env*
+!.env.example
+
+# supabase local state
+supabase/.branches
+supabase/.temp
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# python (Phase 0 scripts)
 __pycache__/
 *.pyc
 
-# Env
-.env
-.env.local
-.env*.local
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
