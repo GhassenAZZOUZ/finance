@@ -58,12 +58,37 @@ describe("parsePercent (APR bounds)", () => {
 });
 
 describe("validateLoan", () => {
-  const form = { name: "Prêt auto", type: "Prêt affecté", principal: "8 200", apr: "4,9", monthlyPayment: "245,30" };
+  const form = {
+    name: "Prêt auto",
+    type: "Prêt affecté",
+    principal: "8 200",
+    apr: "4,9",
+    monthlyPayment: "245,30",
+    contractEndMonth: "",
+  };
 
   it("accepts a valid loan", () => {
     expect(validateLoan(form, 3)).toEqual({
       ok: true,
-      value: { name: "Prêt auto", type: "Prêt affecté", principal: 820000, apr: 0.049, monthlyPayment: 24530 },
+      value: {
+        name: "Prêt auto",
+        type: "Prêt affecté",
+        principal: 820000,
+        apr: 0.049,
+        monthlyPayment: 24530,
+        contractEndMonth: null,
+      },
+    });
+  });
+
+  it("accepts an optional contract end month and rejects an invalid one", () => {
+    expect(validateLoan({ ...form, contractEndMonth: "2029-06" }, 0)).toMatchObject({
+      ok: true,
+      value: { contractEndMonth: "2029-06" },
+    });
+    expect(validateLoan({ ...form, contractEndMonth: "2029-13" }, 0)).toMatchObject({
+      ok: false,
+      errors: { contractEndMonth: "Mois invalide (AAAA-MM)" },
     });
   });
 

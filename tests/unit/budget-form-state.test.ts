@@ -38,6 +38,7 @@ const loan: Loan = {
   principal: 500000,
   apr: 0.05,
   monthlyPayment: 20000,
+  contractEndMonth: null,
   position: 0,
   archivedAt: null,
 };

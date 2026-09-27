@@ -7,13 +7,36 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MAX_ACTIVE_LOANS } from "@/lib/domain/types";
 import type { LoanAdvice, YearMonth } from "@/lib/engine";
-import { formatEuros, formatMonthShort, formatPercent } from "@/lib/format";
+import { formatEuros, formatMonthLong, formatMonthShort, formatPercent } from "@/lib/format";
 import { ADVICE_LABEL } from "@/lib/labels";
 import { DeleteLoanButton } from "./delete-loan-button";
 import { LoanFormPanel } from "./loan-form";
-import type { LoanRow, LoanTotals } from "./loan-view";
+import type { ContractEndCheck, LoanRow, LoanTotals } from "./loan-view";
 
 const BELOW_INTEREST_TEXT = "La mensualité ne couvre pas les intérêts : le capital augmente.";
+
+function contractEndText(row: LoanRow): string {
+  return row.contractEndMonth ? formatMonthShort(row.contractEndMonth) : "—";
+}
+
+/** Contract end differs from the simulated end (SPEC D5b): the capital, APR or payment is probably off. */
+function ContractEndWarning({ check }: { check: ContractEndCheck }) {
+  if (check.consistent) return null;
+  const simulated = check.simulatedEndMonth
+    ? `se termine en ${formatMonthLong(check.simulatedEndMonth)}`
+    : "ne se termine pas avant 25 ans";
+  const gap =
+    check.gapMonths === null ? "" : ` (${check.gapMonths > 0 ? "+" : "−"}${Math.abs(check.gapMonths)} mois)`;
+  return (
+    <p className="mt-1 flex items-start gap-1 text-xs font-medium text-amber-800">
+      <TriangleAlert aria-hidden className="mt-px size-3.5 shrink-0" />
+      <span>
+        Fin du contrat : {formatMonthLong(check.contractEndMonth)}, mais avec cette mensualité le crédit {simulated}
+        {gap}. Vérifiez le capital restant dû, le TAEG ou la mensualité.
+      </span>
+    </p>
+  );
+}
 
 function payoffText(month: YearMonth | null): string {
   return month ? formatMonthShort(month) : "Au-delà de 25 ans";
@@ -149,6 +172,7 @@ export function LoansManager({ rows, totals, hasPlan }: { rows: LoanRow[]; total
                   <TableHead scope="col" className="text-right">
                     Mensualité
                   </TableHead>
+                  <TableHead scope="col">Fin du contrat</TableHead>
                   {hasPlan ? (
                     <>
                       <TableHead scope="col">Remb. anticipé rentable</TableHead>
@@ -177,11 +201,13 @@ export function LoansManager({ rows, totals, hasPlan }: { rows: LoanRow[]; total
                     <TableHead scope="row" className="min-w-40 whitespace-normal align-top font-medium">
                       {row.displayName}
                       {row.paymentBelowInterest ? <BelowInterestWarning /> : null}
+                      {row.endCheck ? <ContractEndWarning check={row.endCheck} /> : null}
                     </TableHead>
                     <TableCell className="align-top">{row.type ?? "—"}</TableCell>
                     <TableCell className="text-right align-top tabular-nums">{formatEuros(row.principal)}</TableCell>
                     <TableCell className="text-right align-top tabular-nums">{formatPercent(row.apr)}</TableCell>
                     <TableCell className="text-right align-top tabular-nums">{formatEuros(row.monthlyPayment)}</TableCell>
+                    <TableCell className="align-top">{contractEndText(row)}</TableCell>
                     {row.derived ? (
                       <>
                         <TableCell className="align-top">
@@ -222,7 +248,7 @@ export function LoansManager({ rows, totals, hasPlan }: { rows: LoanRow[]; total
                   <TableCell className="text-right font-semibold tabular-nums">
                     {formatEuros(totals.monthlyPayments)}
                   </TableCell>
-                  <TableCell colSpan={hasPlan ? 8 : 1} />
+                  <TableCell colSpan={hasPlan ? 9 : 2} />
                 </TableRow>
               </TableFooter>
             </Table>
@@ -238,11 +264,13 @@ export function LoansManager({ rows, totals, hasPlan }: { rows: LoanRow[]; total
                       <h3 className="font-semibold">{row.displayName}</h3>
                       {row.type ? <p className="text-sm text-muted-foreground">{row.type}</p> : null}
                       {row.paymentBelowInterest ? <BelowInterestWarning /> : null}
+                      {row.endCheck ? <ContractEndWarning check={row.endCheck} /> : null}
                     </div>
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                       <CardItem label="Capital restant dû" value={formatEuros(row.principal)} />
                       <CardItem label="TAEG" value={formatPercent(row.apr)} />
                       <CardItem label="Mensualité" value={formatEuros(row.monthlyPayment)} />
+                      <CardItem label="Fin du contrat" value={contractEndText(row)} />
                       {row.derived ? (
                         <>
                           <CardItem

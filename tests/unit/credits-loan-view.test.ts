@@ -7,6 +7,7 @@ import {
   loanDisplayName,
   loanToForm,
   readLoanForm,
+  checkContractEnd,
   readLoanId,
 } from "@/app/(app)/credits/loan-view";
 import { computePlan } from "@/lib/domain/plan";
@@ -21,6 +22,7 @@ function loan(id: string, over: Partial<Loan> = {}): Loan {
     principal: 1_000_000,
     apr: 0.05,
     monthlyPayment: 20_000,
+    contractEndMonth: null,
     position: 0,
     archivedAt: null,
     ...over,
@@ -127,11 +129,18 @@ describe("computeLoanTotals", () => {
 describe("form helpers", () => {
   it("loanToForm round-trips through validateLoan", () => {
     const form = loanToForm(loans[0]!);
-    expect(form).toEqual({ name: "Auto", type: "Prêt affecté", principal: "8000,00", apr: "4,9", monthlyPayment: "250,00" });
+    expect(form).toEqual({
+      name: "Auto",
+      type: "Prêt affecté",
+      principal: "8000,00",
+      apr: "4,9",
+      monthlyPayment: "250,00",
+      contractEndMonth: "",
+    });
     const validated = validateLoan(form, 0);
     expect(validated).toEqual({
       ok: true,
-      value: { name: "Auto", type: "Prêt affecté", principal: 800_000, apr: 0.049, monthlyPayment: 25_000 },
+      value: { name: "Auto", type: "Prêt affecté", principal: 800_000, apr: 0.049, monthlyPayment: 25_000, contractEndMonth: null },
     });
   });
 
@@ -140,9 +149,64 @@ describe("form helpers", () => {
     fd.set("name", "Auto");
     fd.set("principal", "1 000");
     fd.set("apr", new Blob(["x"]));
-    expect(readLoanForm(fd)).toEqual({ name: "Auto", type: "", principal: "1 000", apr: "", monthlyPayment: "" });
+    expect(readLoanForm(fd)).toEqual({
+      name: "Auto",
+      type: "",
+      principal: "1 000",
+      apr: "",
+      monthlyPayment: "",
+      contractEndMonth: "",
+    });
     expect(readLoanId(fd)).toBe("");
     fd.set("id", " abc ");
     expect(readLoanId(fd)).toBe("abc");
+  });
+});
+
+describe("checkContractEnd (SPEC D5b)", () => {
+  it("is consistent within ±1 month of the simulated end", () => {
+    expect(checkContractEnd("2028-06", "2028-07")).toEqual({
+      contractEndMonth: "2028-06",
+      simulatedEndMonth: "2028-07",
+      gapMonths: 1,
+      consistent: true,
+    });
+    expect(checkContractEnd("2028-06", "2028-05")?.consistent).toBe(true);
+  });
+
+  it("flags a gap larger than one month, in both directions", () => {
+    expect(checkContractEnd("2028-06", "2028-10")).toMatchObject({ gapMonths: 4, consistent: false });
+    expect(checkContractEnd("2028-06", "2027-12")).toMatchObject({ gapMonths: -6, consistent: false });
+  });
+
+  it("flags a loan that never ends within the horizon", () => {
+    expect(checkContractEnd("2028-06", null)).toMatchObject({ gapMonths: null, consistent: false });
+  });
+
+  it("does nothing without a contract end or without a plan", () => {
+    expect(checkContractEnd(null, "2028-06")).toBeNull();
+    expect(checkContractEnd("2028-06", undefined)).toBeNull();
+  });
+
+  it("uses the simulated end without early repayment, through buildLoanRows", () => {
+    const snapshot: FinanceSnapshot = {
+      settings: {
+        startMonth: "2027-01",
+        movingGoal: 0,
+        movingDeadlineMonth: "2027-01",
+        movingAlreadySaved: 0,
+        emergencyTarget: 0,
+        emergencyExisting: 0,
+        riskFreeRate: 0.02,
+        earlyRepaymentPct: 1,
+      },
+      lines: [{ id: "i", category: "income", label: "Salaire", amount: 300_000, position: 0 }],
+      // 1 200,00 € at 0 %, 100,00 €/month: 12 payments, last one in December 2027.
+      loans: [loan("a", { principal: 120_000, apr: 0, monthlyPayment: 10_000, contractEndMonth: "2028-06" })],
+      archivedLoans: [],
+      actuals: [],
+    };
+    const [row] = buildLoanRows(snapshot.loans, computePlan(snapshot));
+    expect(row?.endCheck).toMatchObject({ simulatedEndMonth: "2027-12", gapMonths: -6, consistent: false });
   });
 });

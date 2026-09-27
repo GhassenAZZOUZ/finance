@@ -116,6 +116,8 @@ export interface LoanForm {
   principal: string;
   apr: string;
   monthlyPayment: string;
+  /** Optional YYYY-MM. */
+  contractEndMonth: string;
 }
 
 /** `activeLoanCount` excludes the loan being edited. */
@@ -131,7 +133,9 @@ export function validateLoan(form: LoanForm, activeLoanCount: number): Validated
   const monthlyPayment = c.take("monthlyPayment", parseAmount(form.monthlyPayment)) as Cents;
   if (monthlyPayment === 0) c.fail("monthlyPayment", "La mensualité doit être supérieure à 0");
   const apr = c.take("apr", parsePercent(form.apr));
-  return c.result({ name: name || null, type: type || null, principal, apr, monthlyPayment });
+  const endText = (form.contractEndMonth ?? "").trim();
+  const contractEndMonth = endText === "" ? null : c.take("contractEndMonth", parseMonth(endText));
+  return c.result({ name: name || null, type: type || null, principal, apr, monthlyPayment, contractEndMonth });
 }
 
 export interface ActualForm {

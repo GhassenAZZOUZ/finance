@@ -42,22 +42,23 @@ describe("SupabaseFinanceRepository", () => {
     ]);
     const snap = await repo.load();
     expect(snap.settings).toEqual(settings);
-    expect(snap.lines.map((l) => [l.category, l.label, l.amount])).toEqual([
-      ["income", "Salaire", 280000],
+    // Lines are ordered by position within a category; the order across categories is not specified.
+    expect(snap.lines.map((l) => [l.category, l.label, l.amount]).sort()).toEqual([
       ["fixed", "Loyer", 85000],
+      ["income", "Salaire", 280000],
       ["variable", "Courses", 35012],
     ]);
     expect(snap.lines.find((l) => l.label === "Salaire")?.id).toBe(salary.id);
   });
 
   it("creates, updates and orders loans; exact cents and rates survive the round-trip", async () => {
-    const a = await repo.createLoan({ name: "Prêt auto", type: "Prêt affecté", principal: 820000, apr: 0.049, monthlyPayment: 24530 });
-    const b = await repo.createLoan({ name: null, type: "Dette personnelle", principal: 60000, apr: 0, monthlyPayment: 15000 });
-    await repo.updateLoan(a.id, { name: "Prêt auto", type: "Prêt affecté", principal: 810001, apr: 0.0615, monthlyPayment: 24530 });
+    const a = await repo.createLoan({ name: "Prêt auto", type: "Prêt affecté", principal: 820000, apr: 0.049, monthlyPayment: 24530, contractEndMonth: "2030-01" });
+    const b = await repo.createLoan({ name: null, type: "Dette personnelle", principal: 60000, apr: 0, monthlyPayment: 15000, contractEndMonth: null });
+    await repo.updateLoan(a.id, { name: "Prêt auto", type: "Prêt affecté", principal: 810001, apr: 0.0615, monthlyPayment: 24530, contractEndMonth: "2029-12" });
     const { loans } = await repo.load();
-    expect(loans.map((l) => [l.id, l.principal, l.apr, l.position])).toEqual([
-      [a.id, 810001, 0.0615, 0],
-      [b.id, 60000, 0, 1],
+    expect(loans.map((l) => [l.id, l.principal, l.apr, l.contractEndMonth, l.position])).toEqual([
+      [a.id, 810001, 0.0615, "2029-12", 0],
+      [b.id, 60000, 0, null, 1],
     ]);
   });
 
@@ -84,7 +85,7 @@ describe("SupabaseFinanceRepository", () => {
     expect(snap.actuals[0]!.loanBalances.map((x) => x.balance).sort()).toEqual([0, 700000]);
 
     expect(await repo.removeLoan(b!.id)).toBe("archived");
-    const c = await repo.createLoan({ name: "Sans historique", type: null, principal: 1000, apr: 0.1, monthlyPayment: 100 });
+    const c = await repo.createLoan({ name: "Sans historique", type: null, principal: 1000, apr: 0.1, monthlyPayment: 100, contractEndMonth: null });
     expect(await repo.removeLoan(c.id)).toBe("deleted");
     snap = await repo.load();
     expect(snap.loans.map((l) => l.id)).toEqual([a!.id]);

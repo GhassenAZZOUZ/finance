@@ -48,6 +48,7 @@ from our code.
 | D3 | Dates | `startMonth` and `movingDeadlineMonth` are `YYYY-MM` months. Month granularity everywhere |
 | D4 | Personal debts | No special rule. A 0 % personal debt behaves exactly as in the spreadsheet: normal payments only, never eligible for early repayment. "Dette personnelle" is just a loan type label |
 | D5 | Remaining months | **Dropped** (the input and its 3 derived columns). Replaced by simulated payoff months and per-loan interest (§5) |
+| D5b | Contract end month (2026-09-27) | Optional `contractEndMonth` (YYYY-MM) per loan, **for a consistency check only**: warning when it differs by more than 1 month from the simulated end without early repayment (§5). Never used by the simulation |
 | D6 | Actuals check-in | Complete rows only. Any month from the plan start to the current month. "Latest" = most recent month (§8) |
 | D7 | Loan validation | `principal > 0`, `monthlyPayment > 0`, `0 ≤ apr ≤ 1`, amounts with 2 decimals, name optional (→ "Crédit n"), at most **6 active** loans |
 | D8 | Loan identity | Loans have ids. Deleting a loan that has actuals **archives** it (history kept, excluded from the engine) |
@@ -93,6 +94,7 @@ All inputs are constant over the horizon (no inflation, no income changes).
 | `principal` | C | Remaining principal ("capital restant dû"), > 0 |
 | `apr` | D | TAEG as a fraction, 0 ≤ apr ≤ 1 (0 allowed, e.g. personal debts) |
 | `monthlyPayment` | E | > 0 |
+| `contractEndMonth` | — | Optional YYYY-MM, last instalment per the contract (D5b); not in the spreadsheet |
 | `position` | row order | Entry order, used to break APR ties |
 
 Column F (Durée restante) is **not used** (D5).
@@ -179,6 +181,11 @@ baselineEnd      = baselineStart + baselineInterest − min(monthlyPayment_i, ba
 | `payoffMonthWithoutPlan` | *new*: same on `baselineEnd` |
 | `interestWithPlan` / `interestWithoutPlan` | *new*: Σ over 300 months of `interest` / `baselineInterest` for this loan |
 | Totals | `totalPrincipal = Σ principal`; `weightedApr = Σ(principal × apr) / Σ principal` (0 if no loans); `monthlyPayments = Σ monthlyPayment` |
+
+Contract end check (D5b): when `contractEndMonth` is set and a plan exists, compare it with
+`payoffMonthWithoutPlan` (the contract assumes normal payments). Consistent if the gap is ≤ 1 month; otherwise
+warn "Fin du contrat : X, mais avec cette mensualité le crédit se termine en Y (±n mois). Vérifiez le capital restant
+dû, le TAEG ou la mensualité." A loan that never ends within 300 months is always inconsistent.
 
 Badge "Remb. anticipé rentable" = `earlyRepaymentWorthIt`. Warning (D10) when
 `monthlyPayment ≤ round2(principal × apr / 12)`.

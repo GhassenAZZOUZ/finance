@@ -5,7 +5,7 @@
 import type { ComputedPlan } from "@/lib/domain/plan";
 import type { Loan } from "@/lib/domain/types";
 import type { LoanForm } from "@/lib/domain/validation";
-import { type Cents, type LoanAdvice, type YearMonth, roundHalfAwayFromZero, sumCents } from "@/lib/engine";
+import { type Cents, type LoanAdvice, type YearMonth, monthsBetween, roundHalfAwayFromZero, sumCents } from "@/lib/engine";
 import { amountInputValue, percentInputValue } from "@/lib/format";
 
 /** Values only known once the budget exists (the engine needs it to simulate the plan). */
@@ -27,6 +27,9 @@ export interface LoanRow {
   apr: number;
   monthlyPayment: Cents;
   paymentBelowInterest: boolean;
+  contractEndMonth: YearMonth | null;
+  /** Contract end vs simulated end, when both are known (SPEC D5b). */
+  endCheck: ContractEndCheck | null;
   derived: LoanDerived | null;
   /** Pre-filled values for the edit form. */
   form: LoanForm;
@@ -38,7 +41,45 @@ export interface LoanTotals {
   monthlyPayments: Cents;
 }
 
-export const EMPTY_LOAN_FORM: LoanForm = { name: "", type: "", principal: "", apr: "", monthlyPayment: "" };
+export const EMPTY_LOAN_FORM: LoanForm = {
+  name: "",
+  type: "",
+  principal: "",
+  apr: "",
+  monthlyPayment: "",
+  contractEndMonth: "",
+};
+
+/** Tolerated difference between the contract end and the simulated end (rounding of the last payment). */
+export const CONTRACT_END_TOLERANCE_MONTHS = 1;
+
+export interface ContractEndCheck {
+  contractEndMonth: YearMonth;
+  /** End with normal payments only; null = beyond the 25-year horizon. */
+  simulatedEndMonth: YearMonth | null;
+  /** simulated − contract, in months; null when the loan never ends within the horizon. */
+  gapMonths: number | null;
+  consistent: boolean;
+}
+
+/**
+ * Compares the contract end month with the end the engine simulates from the capital, APR and
+ * monthly payment without early repayment. The contract assumes normal payments, hence "sans plan".
+ * `simulatedEndMonth` undefined = no plan yet (no budget): nothing to compare.
+ */
+export function checkContractEnd(
+  contractEndMonth: YearMonth | null,
+  simulatedEndMonth: YearMonth | null | undefined,
+): ContractEndCheck | null {
+  if (!contractEndMonth || simulatedEndMonth === undefined) return null;
+  const gapMonths = simulatedEndMonth === null ? null : monthsBetween(contractEndMonth, simulatedEndMonth);
+  return {
+    contractEndMonth,
+    simulatedEndMonth,
+    gapMonths,
+    consistent: gapMonths !== null && Math.abs(gapMonths) <= CONTRACT_END_TOLERANCE_MONTHS,
+  };
+}
 
 /** Same fallback as the engine: "Crédit n", n = 1-based position among active loans. */
 export function loanDisplayName(loan: Pick<Loan, "name">, index: number): string {
@@ -58,6 +99,7 @@ export function loanToForm(loan: Loan): LoanForm {
     principal: amountInputValue(loan.principal),
     apr: percentInputValue(loan.apr),
     monthlyPayment: amountInputValue(loan.monthlyPayment),
+    contractEndMonth: loan.contractEndMonth ?? "",
   };
 }
 
@@ -74,6 +116,8 @@ export function buildLoanRows(loans: readonly Loan[], plan: ComputedPlan | null)
       apr: loan.apr,
       monthlyPayment: loan.monthlyPayment,
       paymentBelowInterest: s?.paymentBelowInterest ?? isPaymentBelowInterest(loan),
+      contractEndMonth: loan.contractEndMonth,
+      endCheck: checkContractEnd(loan.contractEndMonth, s ? s.payoffMonthWithoutPlan : undefined),
       derived: s
         ? {
             eligible: s.eligible,
@@ -114,6 +158,7 @@ export function readLoanForm(formData: FormData): LoanForm {
     principal: text(formData, "principal"),
     apr: text(formData, "apr"),
     monthlyPayment: text(formData, "monthlyPayment"),
+    contractEndMonth: text(formData, "contractEndMonth"),
   };
 }
 

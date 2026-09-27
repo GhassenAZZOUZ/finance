@@ -40,6 +40,8 @@ export interface Loan {
   principal: Cents;
   apr: number;
   monthlyPayment: Cents;
+  /** Optional contract end month, for a consistency check only (SPEC D5b). */
+  contractEndMonth: YearMonth | null;
   position: number;
   archivedAt: string | null;
 }

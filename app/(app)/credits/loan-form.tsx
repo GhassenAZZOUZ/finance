@@ -18,11 +18,12 @@ interface FieldProps {
   defaultValue: string;
   error?: string;
   inputMode?: "decimal" | "text";
+  type?: "text" | "month";
   list?: string;
   autoFocus?: boolean;
 }
 
-function Field({ name, label, hint, defaultValue, error, inputMode = "text", list, autoFocus }: FieldProps) {
+function Field({ name, label, hint, defaultValue, error, inputMode = "text", type = "text", list, autoFocus }: FieldProps) {
   const id = `credit-${name}`;
   const describedBy = [hint ? `${id}-hint` : null, error ? `${id}-error` : null].filter(Boolean).join(" ");
   return (
@@ -31,6 +32,7 @@ function Field({ name, label, hint, defaultValue, error, inputMode = "text", lis
       <Input
         id={id}
         name={name}
+        type={type}
         defaultValue={defaultValue}
         inputMode={inputMode}
         list={list}
@@ -90,7 +92,7 @@ export function LoanFormPanel({
           {errors.form}
         </p>
       ) : null}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Field
           name="name"
           label="Nom (facultatif)"
@@ -128,6 +130,14 @@ export function LoanFormPanel({
           defaultValue={values.monthlyPayment}
           error={errors.monthlyPayment}
           inputMode="decimal"
+        />
+        <Field
+          name="contractEndMonth"
+          label="Date de fin du contrat (facultatif)"
+          hint="Mois de la dernière échéance (offre de prêt, relevé). Sert à vérifier vos chiffres."
+          defaultValue={values.contractEndMonth}
+          error={errors.contractEndMonth}
+          type="month"
         />
       </div>
       <datalist id={TYPE_LIST_ID}>
