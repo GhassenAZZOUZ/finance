@@ -48,6 +48,7 @@ from our code.
 | D3 | Dates | `startMonth` and `movingDeadlineMonth` are `YYYY-MM` months. Month granularity everywhere |
 | D4 | Personal debts | No special rule. A 0 % personal debt behaves exactly as in the spreadsheet: normal payments only, never eligible for early repayment. "Dette personnelle" is just a loan type label |
 | D5 | Remaining months | **Dropped** (the input and its 3 derived columns). Replaced by simulated payoff months and per-loan interest (§5) |
+| D18 | Export (issue #7) | Page « Mes données » (account area): a versioned **JSON backup** of every input (settings, budget lines, exceptions, active and archived loans, check-ins with frozen values; the plan is not included since it is recomputed) and the **300-month plan as CSV** (French format by default: `;` and decimal comma; international: `,` and dot). Both are built in the browser from a fresh repository load (RLS applies); a failed load downloads nothing. Format in §10 |
 | D17 | "Et si…" simulator (issue #2) | A page compares the saved plan with a simulation that is **never saved**: early-repayment %, risk-free threshold and budget line amounts can be changed, and one-off **extra repayments** added (loan, month within the plan, amount > 0). An extra repayment is paid after that month's normal payment and **before** the avalanche (which then works on the reduced balance), capped at the balance left; the simulator refuses a larger amount. Its money comes either from the **free savings** (deducted from `freeSavingsCum` that month, which may then go negative: the UI warns) or from **outside the plan** (bonus, gift: no other effect). The monthly allocation (§6) is unchanged. Not stored and not used by the dashboard: without extra repayments the engine is unchanged (golden data unchanged) |
 | D16 | Re-basing the plan (issue #5) | Each check-in stores the planned debt, savings, income and expenses it was compared with, plus the plan's start month (frozen at save time; a re-save keeps them). Comparisons use frozen values when present, so later plan changes never rewrite past gaps. "Recaler le plan" (from the latest check-in M): freezes unfrozen check-ins, sets start month = M+1, moving/emergency/free savings starting amounts = M's balances (new `freeSavingsExisting`, default 0), loan principals = M's balances read after M's payment (D5c), loans at 0 archived |
 | D15 | Budget lines with a period (issue #1) | A budget line may have an optional `startMonth` and/or `endMonth` (inclusive, `YYYY-MM`; null = open; end ≥ start). Each month's regular income and expenses are the sums of the lines active that month; one-off exceptions (D14) apply on top. KPIs (monthly income, expenses, margin, debt ratio) describe the **reference month** = the current month kept within the plan (plan start before it starts, month 300 after it ends), and the UI names that month. Lines without a period behave exactly as before (golden data unchanged) |
@@ -365,3 +366,39 @@ Latest = the most recent month with an entry. No entry → "Aucune saisie", gaps
 
 Regenerate (Windows + desktop Excel): see `scripts/README.md`. The export aborts if the
 independent reference engine disagrees with Excel on any cell.
+
+---
+
+## 10. Exports (D18)
+
+### 10.1 JSON backup, `finance-backup-YYYY-MM-DD.json`
+
+```
+{ format: "finance-plan-backup", version: 1, exportedAt: ISO timestamp,
+  data: { settings | null,
+          budgetLines[] { id, category, label, amount, position, startMonth, endMonth },
+          exceptions[]  { id, month, kind, label, amount },
+          loans[]       { id, name, type, principal, principalPaidThroughMonth, apr, monthlyPayment,
+                          contractEndMonth, position, archivedAt }   active first, then archived,
+          checkIns[]    { id, month, income, expenses, movingSavings, emergencySavings, freeSavings,
+                          loanBalances[] { loanId, balance }, frozen | null } } }
+```
+
+- Amounts are **strings** in euros with exactly 2 decimals and a dot (`"1234.50"`, `"-0.05"`),
+  converted from integer cents, so no precision is lost. Rates (`apr`, `riskFreeRate`,
+  `earlyRepaymentPct`) are fractions as stored. Months are `YYYY-MM`; `null` = empty.
+- Empty collections are empty arrays; `settings` is `null` before onboarding.
+- `version` changes whenever the shape changes; an import (#8) must check `format` and `version`.
+
+### 10.2 Plan CSV, `finance-plan-YYYY-MM-DD.csv`
+
+- UTF-8 with BOM, CRLF line ends, one header row and one row per plan month (300).
+- Columns: `Mois` (`YYYY-MM`), `N°`, then the monthly amounts (income, of which exceptions,
+  expenses, of which exceptions, loan payments, available, moving paid / cumulative, emergency
+  paid / cumulative, remainder, early repayment, unused early repayment, free savings paid /
+  cumulative, interest, remaining debt), one `Restant dû <crédit>` column per active loan, and
+  `Budget négatif` (`oui` / `non`).
+- Amounts have exactly 2 decimals, no thousands separator. French format: `;` and decimal comma;
+  international: `,` and decimal dot.
+- Text cells are quoted when they contain the separator, a quote or a line break; a text cell
+  starting with `=`, `+`, `-`, `@`, tab or CR is prefixed with `'` (formula injection).
