@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration --passWithNoTests",
-    "test:watch": "vitest --project unit"
+    "test:watch": "vitest --project unit",
+    "verify": "npm run lint && npm run typecheck && npm test"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

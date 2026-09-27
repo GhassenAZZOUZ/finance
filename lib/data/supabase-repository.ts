@@ -57,9 +57,19 @@ const centsOrNull = (euros: number | null) => (euros === null ? null : cents(eur
 const euros = (value: number) => centsToEuros(value);
 const eurosOrNull = (value: number | null) => (value === null ? null : euros(value));
 
-function check<T>(result: { data: T; error: { message: string; code?: string } | null }): T {
+type Result<T> = { data: T | null; error: { message: string; code?: string } | null };
+
+/** Throws on error; for queries that may legitimately return no row (`maybeSingle`). */
+function checkMaybe<T>(result: Result<T>): T | null {
   if (result.error) throw new RepositoryError(result.error.message, result.error.code);
   return result.data;
+}
+
+/** Throws on error or on a missing result. */
+function check<T>(result: Result<T>): T {
+  const data = checkMaybe(result);
+  if (data === null) throw new RepositoryError("Réponse vide de la base de données");
+  return data;
 }
 
 function toLoan(r: LoanRow): Loan {
@@ -106,7 +116,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         .order("month")
         .returns<ActualRow[]>(),
     ]);
-    const s = check(settings);
+    const s = checkMaybe(settings);
     const allLoans = check(loans).map(toLoan);
     return {
       settings: s && {
@@ -140,7 +150,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   }
 
   async saveBudget(settings: BudgetSettings, lines: BudgetLineDraft[]): Promise<void> {
-    check(
+    checkMaybe(
       await this.db.from("budget_settings").upsert(
         {
           start_month: settings.startMonth,
@@ -159,7 +169,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
     const existing = check(await this.db.from("budget_lines").select("id").returns<{ id: string }[]>());
     const kept = new Set(lines.flatMap((l) => (l.id ? [l.id] : [])));
     const removed = existing.map((r) => r.id).filter((id) => !kept.has(id));
-    if (removed.length > 0) check(await this.db.from("budget_lines").delete().in("id", removed));
+    if (removed.length > 0) checkMaybe(await this.db.from("budget_lines").delete().in("id", removed));
 
     const columns = (l: BudgetLineDraft) => ({
       category: l.category,
@@ -169,8 +179,8 @@ export class SupabaseFinanceRepository implements FinanceRepository {
     });
     const updates = lines.filter((l) => l.id).map((l) => ({ id: l.id, ...columns(l) }));
     const inserts = lines.filter((l) => !l.id).map(columns);
-    if (updates.length > 0) check(await this.db.from("budget_lines").upsert(updates, { onConflict: "id" }));
-    if (inserts.length > 0) check(await this.db.from("budget_lines").insert(inserts));
+    if (updates.length > 0) checkMaybe(await this.db.from("budget_lines").upsert(updates, { onConflict: "id" }));
+    if (inserts.length > 0) checkMaybe(await this.db.from("budget_lines").insert(inserts));
   }
 
   async createLoan(draft: LoanDraft): Promise<Loan> {
@@ -198,10 +208,10 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       await this.db.from("monthly_actual_loan_balances").select("id").eq("loan_id", id).limit(1).returns<{ id: string }[]>(),
     );
     if (refs.length > 0) {
-      check(await this.db.from("loans").update({ archived_at: new Date().toISOString() }).eq("id", id));
+      checkMaybe(await this.db.from("loans").update({ archived_at: new Date().toISOString() }).eq("id", id));
       return "archived";
     }
-    check(await this.db.from("loans").delete().eq("id", id));
+    checkMaybe(await this.db.from("loans").delete().eq("id", id));
     return "deleted";
   }
 
@@ -223,9 +233,9 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         .select("id")
         .single<{ id: string }>(),
     );
-    check(await this.db.from("monthly_actual_loan_balances").delete().eq("monthly_actual_id", actual.id));
+    checkMaybe(await this.db.from("monthly_actual_loan_balances").delete().eq("monthly_actual_id", actual.id));
     if (draft.loanBalances.length > 0) {
-      check(
+      checkMaybe(
         await this.db.from("monthly_actual_loan_balances").insert(
           draft.loanBalances.map((b) => ({ monthly_actual_id: actual.id, loan_id: b.loanId, balance: euros(b.balance) })),
         ),
@@ -234,6 +244,6 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   }
 
   async deleteActual(month: string): Promise<void> {
-    check(await this.db.from("monthly_actuals").delete().eq("month", month));
+    checkMaybe(await this.db.from("monthly_actuals").delete().eq("month", month));
   }
 }

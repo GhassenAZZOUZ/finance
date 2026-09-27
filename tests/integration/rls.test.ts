@@ -41,10 +41,14 @@ const aRow = {} as Record<Table, string>;
 let aLoanId: string;
 let aActualId: string;
 
-async function must<T>(p: PromiseLike<{ data: T; error: { message: string } | null }>): Promise<T> {
+/** Throws on error. Writes without `.select()` legitimately return null data. */
+type Row = { id: string } & Record<string, unknown>;
+
+/** Throws on error. The caller states the row shape (the test client is untyped). */
+async function must<T = Row>(p: PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T> {
   const { data, error } = await p;
   if (error) throw new Error(error.message);
-  return data;
+  return data as T;
 }
 
 beforeAll(async () => {
@@ -92,9 +96,9 @@ afterAll(async () => {
 
 describe("signup trigger", () => {
   it("creates the profile and the 15 default budget lines", async () => {
-    const lines = await must(a.client.from("budget_lines").select("category"));
+    const lines = await must<Row[]>(a.client.from("budget_lines").select("category"));
     expect(lines).toHaveLength(15);
-    const profile = await must(a.client.from("profiles").select("user_id").eq("user_id", a.id));
+    const profile = await must<Row[]>(a.client.from("profiles").select("user_id").eq("user_id", a.id));
     expect(profile).toHaveLength(1);
   });
 });
@@ -104,15 +108,15 @@ describe.each(TABLES)("RLS on %s", (table) => {
   const id = () => aRow[table];
 
   it("owner can read their row (positive control)", async () => {
-    const rows = await must(a.client.from(table).select(key()).eq(key(), id()));
+    const rows = await must<Row[]>(a.client.from(table).select(key()).eq(key(), id()));
     expect(rows).toHaveLength(1);
   });
 
   it("another user cannot read it", async () => {
-    const rows = await must(b.client.from(table).select(key()).eq(key(), id()));
+    const rows = await must<Row[]>(b.client.from(table).select(key()).eq(key(), id()));
     expect(rows).toHaveLength(0);
-    const all = await must(b.client.from(table).select("user_id"));
-    expect(all.every((r: { user_id: string }) => r.user_id === b.id)).toBe(true);
+    const all = await must<{ user_id: string }[]>(b.client.from(table).select("user_id"));
+    expect(all.every((r) => r.user_id === b.id)).toBe(true);
   });
 
   it("another user cannot update it", async () => {
@@ -122,14 +126,14 @@ describe.each(TABLES)("RLS on %s", (table) => {
     expect(updated.data).toHaveLength(0);
     const [column, value] = Object.entries(PATCH[table])[0]!;
     const current = await must(adminClient().from(table).select(column).eq(key(), id()).single());
-    expect((current as unknown as Record<string, unknown>)[column]).not.toBe(value);
+    expect(current[column]).not.toBe(value);
   });
 
   it("another user cannot delete it", async () => {
     const deleted = await b.client.from(table).delete().eq(key(), id()).select();
     expect(deleted.error).toBeNull();
     expect(deleted.data).toHaveLength(0);
-    const still = await must(adminClient().from(table).select(key()).eq(key(), id()));
+    const still = await must<Row[]>(adminClient().from(table).select(key()).eq(key(), id()));
     expect(still).toHaveLength(1);
   });
 
