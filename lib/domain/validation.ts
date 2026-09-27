@@ -118,6 +118,8 @@ export interface LoanForm {
   monthlyPayment: string;
   /** Optional YYYY-MM. */
   contractEndMonth: string;
+  /** Optional YYYY-MM: last payment already made when the principal was read. */
+  principalPaidThroughMonth: string;
 }
 
 /** `activeLoanCount` excludes the loan being edited. */
@@ -135,7 +137,17 @@ export function validateLoan(form: LoanForm, activeLoanCount: number): Validated
   const apr = c.take("apr", parsePercent(form.apr));
   const endText = (form.contractEndMonth ?? "").trim();
   const contractEndMonth = endText === "" ? null : c.take("contractEndMonth", parseMonth(endText));
-  return c.result({ name: name || null, type: type || null, principal, apr, monthlyPayment, contractEndMonth });
+  const paidText = (form.principalPaidThroughMonth ?? "").trim();
+  const principalPaidThroughMonth = paidText === "" ? null : c.take("principalPaidThroughMonth", parseMonth(paidText));
+  return c.result({
+    name: name || null,
+    type: type || null,
+    principal,
+    principalPaidThroughMonth,
+    apr,
+    monthlyPayment,
+    contractEndMonth,
+  });
 }
 
 export interface ActualForm {

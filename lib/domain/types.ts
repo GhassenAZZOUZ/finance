@@ -37,7 +37,10 @@ export interface Loan {
   id: string;
   name: string | null;
   type: string | null;
+  /** Remaining principal as read by the user, after the payment of `principalPaidThroughMonth`. */
   principal: Cents;
+  /** Last payment already made when `principal` was read; null = principal at the plan start (SPEC D5c). */
+  principalPaidThroughMonth: YearMonth | null;
   apr: number;
   monthlyPayment: Cents;
   /** Optional contract end month, for a consistency check only (SPEC D5b). */

@@ -15,6 +15,26 @@ import type { ContractEndCheck, LoanRow, LoanTotals } from "./loan-view";
 
 const BELOW_INTEREST_TEXT = "La mensualité ne couvre pas les intérêts : le capital augmente.";
 
+/** Entered principal, plus its projection at the plan start when it differs (SPEC D5c). */
+function PrincipalNote({ row }: { row: LoanRow }) {
+  if (row.principalAtStart) {
+    return (
+      <span className="block text-xs font-normal text-muted-foreground">
+        ≈ {formatEuros(row.principalAtStart.amount)} au début du plan ({formatMonthShort(row.principalAtStart.month)})
+      </span>
+    );
+  }
+  if (row.principalReadAfterStart) {
+    return (
+      <span className="mt-1 flex items-start gap-1 text-xs font-medium text-amber-800">
+        <TriangleAlert aria-hidden className="mt-px size-3.5 shrink-0" />
+        Capital relevé après le début du plan ({formatMonthShort(row.principalReadAfterStart)}) : utilisé tel quel.
+      </span>
+    );
+  }
+  return null;
+}
+
 function contractEndText(row: LoanRow): string {
   return row.contractEndMonth ? formatMonthShort(row.contractEndMonth) : "—";
 }
@@ -103,7 +123,17 @@ function RowActions({ row, editing, onEdit, onDeleted }: RowActionsProps) {
 }
 
 /** Active loans (table on large screens, cards below), totals, and the add / edit form. */
-export function LoansManager({ rows, totals, hasPlan }: { rows: LoanRow[]; totals: LoanTotals; hasPlan: boolean }) {
+export function LoansManager({
+  rows,
+  totals,
+  hasPlan,
+  currentMonth,
+}: {
+  rows: LoanRow[];
+  totals: LoanTotals;
+  hasPlan: boolean;
+  currentMonth: string;
+}) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ message: string; focus: boolean; seq: number } | null>(null);
   const noticeRef = useRef<HTMLParagraphElement>(null);
@@ -204,7 +234,10 @@ export function LoansManager({ rows, totals, hasPlan }: { rows: LoanRow[]; total
                       {row.endCheck ? <ContractEndWarning check={row.endCheck} /> : null}
                     </TableHead>
                     <TableCell className="align-top">{row.type ?? "—"}</TableCell>
-                    <TableCell className="text-right align-top tabular-nums">{formatEuros(row.principal)}</TableCell>
+                    <TableCell className="text-right align-top tabular-nums">
+                      {formatEuros(row.principal)}
+                      <PrincipalNote row={row} />
+                    </TableCell>
                     <TableCell className="text-right align-top tabular-nums">{formatPercent(row.apr)}</TableCell>
                     <TableCell className="text-right align-top tabular-nums">{formatEuros(row.monthlyPayment)}</TableCell>
                     <TableCell className="align-top">{contractEndText(row)}</TableCell>
@@ -267,7 +300,15 @@ export function LoansManager({ rows, totals, hasPlan }: { rows: LoanRow[]; total
                       {row.endCheck ? <ContractEndWarning check={row.endCheck} /> : null}
                     </div>
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                      <CardItem label="Capital restant dû" value={formatEuros(row.principal)} />
+                      <CardItem
+                        label="Capital restant dû"
+                        value={
+                          <>
+                            {formatEuros(row.principal)}
+                            <PrincipalNote row={row} />
+                          </>
+                        }
+                      />
                       <CardItem label="TAEG" value={formatPercent(row.apr)} />
                       <CardItem label="Mensualité" value={formatEuros(row.monthlyPayment)} />
                       <CardItem label="Fin du contrat" value={contractEndText(row)} />
@@ -310,6 +351,7 @@ export function LoansManager({ rows, totals, hasPlan }: { rows: LoanRow[]; total
           <LoanFormPanel
             key={editing?.id ?? "nouveau"}
             editing={editing}
+            defaultPaidThroughMonth={currentMonth}
             onSaved={(message) => {
               announce(message, editing !== null);
               setEditingId(null);

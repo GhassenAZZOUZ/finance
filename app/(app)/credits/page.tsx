@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/app/page-header";
 import { loadPageData } from "@/lib/data/session";
 import { MAX_ACTIVE_LOANS } from "@/lib/domain/types";
-import { formatEuros, formatPercent } from "@/lib/format";
+import { currentYearMonth, formatEuros, formatPercent } from "@/lib/format";
 import { LoansManager } from "./loans-manager";
 import { buildLoanRows, computeLoanTotals } from "./loan-view";
 
@@ -31,7 +31,7 @@ export default async function CreditsPage() {
         </p>
       )}
 
-      <LoansManager rows={rows} totals={totals} hasPlan={plan !== null} />
+      <LoansManager rows={rows} totals={totals} hasPlan={plan !== null} currentMonth={currentYearMonth()} />
 
       <p className="text-sm text-muted-foreground">
         TAEG : taux annuel effectif global, indiqué sur l’offre de prêt ou le relevé annuel. Priorité 1 = crédit à

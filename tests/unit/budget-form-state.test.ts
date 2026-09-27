@@ -36,6 +36,7 @@ const loan: Loan = {
   name: "Auto",
   type: null,
   principal: 500000,
+  principalPaidThroughMonth: null,
   apr: 0.05,
   monthlyPayment: 20000,
   contractEndMonth: null,

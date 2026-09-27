@@ -65,6 +65,7 @@ describe("validateLoan", () => {
     apr: "4,9",
     monthlyPayment: "245,30",
     contractEndMonth: "",
+    principalPaidThroughMonth: "",
   };
 
   it("accepts a valid loan", () => {
@@ -77,7 +78,19 @@ describe("validateLoan", () => {
         apr: 0.049,
         monthlyPayment: 24530,
         contractEndMonth: null,
+        principalPaidThroughMonth: null,
       },
+    });
+  });
+
+  it("accepts an optional 'last payment made' month and rejects an invalid one", () => {
+    expect(validateLoan({ ...form, principalPaidThroughMonth: "2026-09" }, 0)).toMatchObject({
+      ok: true,
+      value: { principalPaidThroughMonth: "2026-09" },
+    });
+    expect(validateLoan({ ...form, principalPaidThroughMonth: "sept" }, 0)).toMatchObject({
+      ok: false,
+      errors: { principalPaidThroughMonth: "Mois invalide (AAAA-MM)" },
     });
   });
 

@@ -3,7 +3,11 @@ import {
   type ActualInput,
   type PlanInput,
   type PlanResult,
+  type Cents,
+  type YearMonth,
   compareActual,
+  paymentsBeforeStart,
+  projectBalance,
   simulatePlan,
   sumCents,
 } from "@/lib/engine";
@@ -11,6 +15,20 @@ import type { BudgetCategory, BudgetLine, BudgetLineDraft, BudgetSettings, Finan
 
 export function sumCategory(lines: readonly Pick<BudgetLine | BudgetLineDraft, "category" | "amount">[], category: BudgetCategory) {
   return sumCents(lines.filter((l) => l.category === category).map((l) => l.amount));
+}
+
+/**
+ * Remaining principal at the plan start: the balance read by the user, rolled forward with the
+ * normal payments made between `principalPaidThroughMonth` and the start (SPEC D5c).
+ * Unchanged when no month is given or when it is not before the start.
+ */
+export function principalAtStart(
+  loan: Pick<Loan, "principal" | "principalPaidThroughMonth" | "apr" | "monthlyPayment">,
+  startMonth: YearMonth,
+): Cents {
+  if (!loan.principalPaidThroughMonth) return loan.principal;
+  const payments = paymentsBeforeStart(loan.principalPaidThroughMonth, startMonth);
+  return payments > 0 ? projectBalance(loan.principal, loan.apr, loan.monthlyPayment, payments) : loan.principal;
 }
 
 export function buildPlanInput(
@@ -28,7 +46,7 @@ export function buildPlanInput(
     loans: loans.map((l) => ({
       id: l.id,
       name: l.name,
-      principal: l.principal,
+      principal: principalAtStart(l, settings.startMonth),
       apr: l.apr,
       monthlyPayment: l.monthlyPayment,
     })),

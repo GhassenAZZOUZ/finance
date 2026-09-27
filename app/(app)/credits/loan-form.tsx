@@ -62,10 +62,13 @@ function Field({ name, label, hint, defaultValue, error, inputMode = "text", typ
  */
 export function LoanFormPanel({
   editing,
+  defaultPaidThroughMonth,
   onSaved,
   onCancel,
 }: {
   editing: LoanRow | null;
+  /** Pre-filled "last payment already made" month for a new loan (the current month). */
+  defaultPaidThroughMonth: string;
   onSaved: (message: string) => void;
   onCancel: () => void;
 }) {
@@ -75,7 +78,10 @@ export function LoanFormPanel({
       if (next.status === "success") onSaved(next.message);
       return next;
     },
-    { status: "idle", values: editing?.form ?? EMPTY_LOAN_FORM },
+    {
+      status: "idle",
+      values: editing?.form ?? { ...EMPTY_LOAN_FORM, principalPaidThroughMonth: defaultPaidThroughMonth },
+    },
   );
   const errors = state.status === "error" ? state.errors : {};
   const values = state.values;
@@ -115,6 +121,14 @@ export function LoanFormPanel({
           defaultValue={values.principal}
           error={errors.principal}
           inputMode="decimal"
+        />
+        <Field
+          name="principalPaidThroughMonth"
+          label="Dernière mensualité déjà payée"
+          hint="Mois de la dernière échéance prélevée quand vous avez relevé ce capital. L’app déduit les mensualités suivantes jusqu’au début du plan. Vide : capital au début du plan."
+          defaultValue={values.principalPaidThroughMonth}
+          error={errors.principalPaidThroughMonth}
+          type="month"
         />
         <Field
           name="apr"

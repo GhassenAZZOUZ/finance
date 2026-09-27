@@ -5,7 +5,15 @@
 import type { ComputedPlan } from "@/lib/domain/plan";
 import type { Loan } from "@/lib/domain/types";
 import type { LoanForm } from "@/lib/domain/validation";
-import { type Cents, type LoanAdvice, type YearMonth, monthsBetween, roundHalfAwayFromZero, sumCents } from "@/lib/engine";
+import {
+  type Cents,
+  type LoanAdvice,
+  type YearMonth,
+  monthsBetween,
+  paymentsBeforeStart,
+  roundHalfAwayFromZero,
+  sumCents,
+} from "@/lib/engine";
 import { amountInputValue, percentInputValue } from "@/lib/format";
 
 /** Values only known once the budget exists (the engine needs it to simulate the plan). */
@@ -23,7 +31,13 @@ export interface LoanRow {
   id: string;
   displayName: string;
   type: string | null;
+  /** As entered (read after the payment of `principalPaidThroughMonth`). */
   principal: Cents;
+  principalPaidThroughMonth: YearMonth | null;
+  /** Projected principal at the plan start, when a plan exists and it differs from `principal` (SPEC D5c). */
+  principalAtStart: { month: YearMonth; amount: Cents } | null;
+  /** The principal was read after the plan start: it is used as is (cannot be projected backwards). */
+  principalReadAfterStart: YearMonth | null;
   apr: number;
   monthlyPayment: Cents;
   paymentBelowInterest: boolean;
@@ -48,6 +62,7 @@ export const EMPTY_LOAN_FORM: LoanForm = {
   apr: "",
   monthlyPayment: "",
   contractEndMonth: "",
+  principalPaidThroughMonth: "",
 };
 
 /** Tolerated difference between the contract end and the simulated end (rounding of the last payment). */
@@ -100,19 +115,29 @@ export function loanToForm(loan: Loan): LoanForm {
     apr: percentInputValue(loan.apr),
     monthlyPayment: amountInputValue(loan.monthlyPayment),
     contractEndMonth: loan.contractEndMonth ?? "",
+    principalPaidThroughMonth: loan.principalPaidThroughMonth ?? "",
   };
 }
 
 /** Active loans in entry order; `plan.result.loans` follows the same order (matched by id to be safe). */
 export function buildLoanRows(loans: readonly Loan[], plan: ComputedPlan | null): LoanRow[] {
   const summaries = new Map((plan?.result.loans ?? []).map((s) => [s.id, s]));
+  const startPrincipals = new Map((plan?.input.loans ?? []).map((l) => [l.id, l.principal]));
+  const startMonth = plan?.input.budget.startMonth ?? null;
   return loans.map((loan, i) => {
     const s = summaries.get(loan.id);
+    const atStart = startPrincipals.get(loan.id);
+    const paidThrough = loan.principalPaidThroughMonth;
     return {
       id: loan.id,
       displayName: s?.displayName ?? loanDisplayName(loan, i),
       type: loan.type,
       principal: loan.principal,
+      principalPaidThroughMonth: paidThrough,
+      principalAtStart:
+        startMonth && atStart !== undefined && atStart !== loan.principal ? { month: startMonth, amount: atStart } : null,
+      principalReadAfterStart:
+        startMonth && paidThrough && paymentsBeforeStart(paidThrough, startMonth) < 0 ? startMonth : null,
       apr: loan.apr,
       monthlyPayment: loan.monthlyPayment,
       paymentBelowInterest: s?.paymentBelowInterest ?? isPaymentBelowInterest(loan),
@@ -159,6 +184,7 @@ export function readLoanForm(formData: FormData): LoanForm {
     apr: text(formData, "apr"),
     monthlyPayment: text(formData, "monthlyPayment"),
     contractEndMonth: text(formData, "contractEndMonth"),
+    principalPaidThroughMonth: text(formData, "principalPaidThroughMonth"),
   };
 }
 

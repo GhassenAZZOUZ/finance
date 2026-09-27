@@ -6,3 +6,4 @@ export * from "./money";
 export * from "./months";
 export { simulatePlan, computePriorities } from "./simulate";
 export { compareActual, latestActual, statusFor, GAP_TOLERANCE } from "./actuals";
+export { paymentsBeforeStart, projectBalance } from "./project";

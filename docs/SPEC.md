@@ -48,6 +48,7 @@ from our code.
 | D3 | Dates | `startMonth` and `movingDeadlineMonth` are `YYYY-MM` months. Month granularity everywhere |
 | D4 | Personal debts | No special rule. A 0 % personal debt behaves exactly as in the spreadsheet: normal payments only, never eligible for early repayment. "Dette personnelle" is just a loan type label |
 | D5 | Remaining months | **Dropped** (the input and its 3 derived columns). Replaced by simulated payoff months and per-loan interest (§5) |
+| D5c | Principal read before the plan start (2026-09-27) | Optional `principalPaidThroughMonth` per loan (default in the form: current month). The entered principal is the balance **after the payment of that month**; the app rolls it forward with the normal payments of the months strictly between that month and `startMonth` (§4.5). Empty = principal at the plan start (spreadsheet behaviour). Read after the start → used as is, with a warning |
 | D5b | Contract end month (2026-09-27) | Optional `contractEndMonth` (YYYY-MM) per loan, **for a consistency check only**: warning when it differs by more than 1 month from the simulated end without early repayment (§5). Never used by the simulation |
 | D6 | Actuals check-in | Complete rows only. Any month from the plan start to the current month. "Latest" = most recent month (§8) |
 | D7 | Loan validation | `principal > 0`, `monthlyPayment > 0`, `0 ≤ apr ≤ 1`, amounts with 2 decimals, name optional (→ "Crédit n"), at most **6 active** loans |
@@ -154,6 +155,18 @@ endBalance           = balanceAfterPayment − earlyRepayment
 - The last normal payment is capped at `balance + interest`, so it can be smaller than `monthlyPayment`.
 - If `monthlyPayment < interest`, the balance grows every month (negative amortisation). The
   engine does not cap it; the UI warns (D10).
+
+### 4.5 Principal at the plan start (D5c)
+
+```
+payments        = monthsBetween(principalPaidThroughMonth, startMonth) − 1
+principalAtStart = payments > 0 ? roll principal forward `payments` months with §4.2 rules
+                   (interest = round2(balance × apr / 12), payment = min(monthlyPayment, balance + interest))
+                 : principal
+```
+
+Example: capital read after the September 2026 payment, plan starting November 2026 → only October's
+payment is deducted (November's is plan month 1). The engine receives `principalAtStart` as `principal`.
 
 ### 4.3 Baseline scenario (no early repayment), per loan i
 
