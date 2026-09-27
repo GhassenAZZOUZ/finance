@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CalendarCheck, CreditCard, FlaskConical, LayoutDashboard, Table2, Wallet } from "lucide-react";
+import { ArrowRight, CalendarCheck, CreditCard, Database, FlaskConical, LayoutDashboard, Table2, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
@@ -19,6 +19,9 @@ export const NAV_ITEMS = [
   { href: "/suivi", label: "Suivi", short: "Suivi", icon: CalendarCheck },
   { href: "/simuler", label: "Et si… ?", short: "Simuler", icon: FlaskConical },
 ] as const;
+
+/** Export / backup page, reached from the account area (not a main tab). */
+export const DATA_HREF = "/donnees";
 
 const FOCUS_RING = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
@@ -145,11 +148,27 @@ export function Sidebar() {
         </section>
       ) : null}
 
-      <div className="flex items-center justify-between gap-2 px-2">
-        <span className="min-w-0 truncate text-[13px] text-muted-foreground" title={finance?.email ?? undefined}>
-          {finance?.email ?? ""}
-        </span>
-        <SignOutButton iconOnly />
+      <div className="flex flex-col gap-1">
+        <Link
+          href={DATA_HREF}
+          aria-current={isActive(pathname, DATA_HREF) ? "page" : undefined}
+          className={cn(
+            "flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-sm font-medium transition-colors",
+            FOCUS_RING,
+            isActive(pathname, DATA_HREF)
+              ? "bg-sidebar-primary text-sidebar-primary-foreground"
+              : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+          )}
+        >
+          <Database aria-hidden className="size-4.5" />
+          Mes données
+        </Link>
+        <div className="flex items-center justify-between gap-2 px-2">
+          <span className="min-w-0 truncate text-[13px] text-muted-foreground" title={finance?.email ?? undefined}>
+            {finance?.email ?? ""}
+          </span>
+          <SignOutButton iconOnly />
+        </div>
       </div>
     </aside>
   );
@@ -211,6 +230,17 @@ export function MobileHeader() {
           className="absolute top-12 right-0 z-40 flex w-64 flex-col gap-2 rounded-2xl border bg-popover p-3 text-sm shadow-lg"
         >
           {finance?.email ? <p className="truncate px-1 text-muted-foreground">{finance.email}</p> : null}
+          <Link
+            href={DATA_HREF}
+            onClick={() => setOpen(false)}
+            className={cn(
+              "flex min-h-11 items-center gap-2 rounded-md border border-input px-3 font-medium hover:bg-secondary",
+              FOCUS_RING,
+            )}
+          >
+            <Database aria-hidden className="size-4" />
+            Mes données
+          </Link>
           <SignOutButton />
         </div>
       </div>
