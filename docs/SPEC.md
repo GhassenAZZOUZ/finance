@@ -48,6 +48,7 @@ from our code.
 | D3 | Dates | `startMonth` and `movingDeadlineMonth` are `YYYY-MM` months. Month granularity everywhere |
 | D4 | Personal debts | No special rule. A 0 % personal debt behaves exactly as in the spreadsheet: normal payments only, never eligible for early repayment. "Dette personnelle" is just a loan type label |
 | D5 | Remaining months | **Dropped** (the input and its 3 derived columns). Replaced by simulated payoff months and per-loan interest (§5) |
+| D15 | Budget lines with a period (issue #1) | A budget line may have an optional `startMonth` and/or `endMonth` (inclusive, `YYYY-MM`; null = open; end ≥ start). Each month's regular income and expenses are the sums of the lines active that month; one-off exceptions (D14) apply on top. KPIs (monthly income, expenses, margin, debt ratio) describe the **reference month** = the current month kept within the plan (plan start before it starts, month 300 after it ends), and the UI names that month. Lines without a period behave exactly as before (golden data unchanged) |
 | D14 | One-off budget exceptions (2026-09-27) | The regular budget applies to every month; `budget_exceptions` add extra income or extra expenses to a single month (label, amount > 0). That month's `income`/`expenses` (and so its allocation) include them; months outside the plan are ignored. KPIs (monthly income, expenses, margin, debt ratio, emergency-fund suggestion) keep describing the regular month. Check-in income/expense gaps compare with that month's budget. Deviation from the spreadsheet (constant budget) |
 | D13 | Residual under 1 € (2026-09-27) | When less than 1 € would remain after a normal payment, it is added to that payment (as banks adjust the last instalment), so the loan ends that month. Applies to the plan, the baseline and the D5c projection. Deviation from the spreadsheet, patched into the Excel golden data |
 | D5c | Principal read before the plan start (2026-09-27) | Optional `principalPaidThroughMonth` per loan (default in the form: current month). The entered principal is the balance **after the payment of that month**; the app rolls it forward with the normal payments of the months strictly between that month and `startMonth` (§4.5). Empty = principal at the plan start (spreadsheet behaviour). Read after the start → used as is, with a warning |
@@ -214,8 +215,9 @@ Badge "Remb. anticipé rentable" = `earlyRepaymentWorthIt`. Warning (D10) when
 
 ```
 yearMonth(m)          = startMonth + (m − 1) months
-income(m)             = totalIncome + extraIncome(m)                            (D14)
-expenses(m)           = totalFixed + totalVariable + extraExpenses(m)           (D14)
+income(m)             = Σ income lines active in m + extraIncome(m)             (D15, D14)
+expenses(m)           = Σ fixed + variable lines active in m + extraExpenses(m) (D15, D14)
+                        (a line is active in m if startMonth ≤ m ≤ endMonth, open bounds allowed)
 available      (F)    = income(m) − expenses(m) − totalPayments(m)             (can be negative)
 
 ① Moving fund

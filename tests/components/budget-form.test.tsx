@@ -1,5 +1,5 @@
 /** BudgetForm (/budget): negative line amounts block the save; the live preview follows the edits. */
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BudgetForm } from "@/app/(app)/budget/budget-form";
@@ -33,7 +33,11 @@ function renderForm() {
 }
 
 const amountInput = (label: string) => screen.getByLabelText(`Montant mensuel en euros (${label})`);
-const margin = () => screen.getByText("Marge mensuelle (mois normal)").nextElementSibling?.textContent;
+// Settings start in January 2026 and today is September 2026: the KPIs describe September 2026.
+/** A month field of a line's period panel (only reachable once the panel is open). */
+const periodInput = (line: string, field: "Début (inclus)" | "Fin (incluse)") =>
+  within(screen.getByRole("group", { name: `Période de ${line}` })).getByLabelText(field);
+const margin = () => screen.getByText("Marge mensuelle (sept. 2026)").nextElementSibling?.textContent;
 
 beforeEach(() => {
   mocks.repo = createRepositoryMock();
@@ -108,6 +112,56 @@ describe("BudgetForm", () => {
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     expect(await screen.findByText("Session expirée : reconnectez-vous.")).toBeTruthy();
+    expect(mocks.repo?.saveBudget).not.toHaveBeenCalled();
+  });
+
+  it("sets a period on a line, shows it compactly and saves it", async () => {
+    const user = renderForm();
+    const toggle = screen.getByRole("button", { name: "Période (Loyer)" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    await user.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.change(periodInput("Loyer", "Fin (incluse)"), { target: { value: "2026-06" } });
+    // The rent stops before the reference month (September 2026): 3 000 − 400 = 2 600 €.
+    expect(margin()).toBe(formatEuros(260_000));
+    expect(screen.getByText("Certaines lignes changent au fil du temps : le plan en tient compte mois par mois.")).toBeTruthy();
+    expect(screen.getByText("Total (sept. 2026) :", { exact: false })).toBeTruthy();
+
+    await user.click(toggle);
+    expect(screen.getByText("jusqu’à juin 2026")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(mocks.repo?.saveBudget).toHaveBeenCalledTimes(1));
+    expect(mocks.repo?.saveBudget).toHaveBeenCalledWith(SETTINGS, [
+      { id: "l-income", category: "income", label: "Salaire", amount: 300_000, position: 0, startMonth: null, endMonth: null },
+      { id: "l-rent", category: "fixed", label: "Loyer", amount: 90_000, position: 0, startMonth: null, endMonth: "2026-06" },
+      { id: "l-food", category: "variable", label: "Courses", amount: 40_000, position: 0, startMonth: null, endMonth: null },
+    ]);
+  });
+
+  it("flags a line whose period is outside the plan", async () => {
+    const user = renderForm();
+    await user.click(screen.getByRole("button", { name: "Période (Courses)" }));
+    // The plan starts in January 2026.
+    fireEvent.change(periodInput("Courses", "Fin (incluse)"), { target: { value: "2025-12" } });
+    expect(screen.getByText("hors de la période du plan : sans effet")).toBeTruthy();
+  });
+
+  it("shows an end before the start on the line and does not save", async () => {
+    const user = renderForm();
+    await user.click(screen.getByRole("button", { name: "Période (Loyer)" }));
+    fireEvent.change(periodInput("Loyer", "Début (inclus)"), { target: { value: "2027-07" } });
+    fireEvent.change(periodInput("Loyer", "Fin (incluse)"), { target: { value: "2027-06" } });
+    // Collapsing does not hide the error once it is reported.
+    await user.click(screen.getByRole("button", { name: "Période (Loyer)" }));
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    expect(await screen.findByText("La fin doit être après le début")).toBeTruthy();
+    const end = periodInput("Loyer", "Fin (incluse)");
+    expect(end.getAttribute("aria-invalid")).toBe("true");
+    expect(end.getAttribute("aria-describedby")).toBe("line-l-rent-end-error");
+    expect(screen.getByRole("button", { name: "Période (Loyer)" }).getAttribute("aria-expanded")).toBe("true");
     expect(mocks.repo?.saveBudget).not.toHaveBeenCalled();
   });
 });

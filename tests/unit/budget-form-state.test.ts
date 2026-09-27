@@ -5,8 +5,10 @@ import {
   formSignature,
   initialFormState,
   invalidParams,
+  isOutsidePlan,
   parsePayload,
   parseSettings,
+  periodText,
   sectionTotal,
   toPayload,
 } from "@/app/(app)/budget/budget-form-state";
@@ -58,7 +60,15 @@ describe("initialFormState", () => {
       earlyRepaymentPct: "50",
     });
     expect(state.lines.map((l) => l.id)).toEqual(["i1", "i2", "f1", "v1"]);
-    expect(state.lines[0]).toEqual({ key: "i1", id: "i1", category: "income", label: "Salaire net", amount: "2500,00" });
+    expect(state.lines[0]).toEqual({
+      key: "i1",
+      id: "i1",
+      category: "income",
+      label: "Salaire net",
+      amount: "2500,00",
+      startMonth: "",
+      endMonth: "",
+    });
   });
 
   it("first visit: current month, empty deadline and rates, zero amounts", () => {
@@ -83,14 +93,14 @@ describe("toPayload", () => {
     const state: BudgetFormState = {
       params: initialFormState(settings, [], "2026-09").params,
       lines: [
-        { key: "new-1", category: "fixed", label: "Internet", amount: "30" },
-        { key: "i1", id: "i1", category: "income", label: "Salaire", amount: "2 500,50" },
-        { key: "new-2", category: "income", label: "Autres", amount: "10" },
+        { key: "new-1", category: "fixed", label: "Internet", amount: "30", startMonth: "", endMonth: "" },
+        { key: "i1", id: "i1", category: "income", label: "Salaire", amount: "2 500,50", startMonth: "", endMonth: "" },
+        { key: "new-2", category: "income", label: "Autres", amount: "10", startMonth: "", endMonth: "" },
       ],
     };
     const payload = toPayload(state);
     expect(payload.keys).toEqual(["i1", "new-2", "new-1"]);
-    expect(payload.form.lines[1]).toEqual({ category: "income", label: "Autres", amount: "10" });
+    expect(payload.form.lines[1]).toEqual({ category: "income", label: "Autres", amount: "10", startMonth: "", endMonth: "" });
 
     const parsed = parsePayload(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
@@ -119,8 +129,8 @@ describe("parsePayload", () => {
     const parsed = parsePayload(JSON.stringify({ form: { startMonth: 5, lines: [{ id: 3, category: "income", label: null, amount: "1" }, 7] } }));
     expect(parsed?.form.startMonth).toBe("");
     expect(parsed?.form.lines).toEqual([
-      { category: "income", label: "", amount: "1" },
-      { category: "", label: "", amount: "" },
+      { category: "income", label: "", amount: "1", startMonth: "", endMonth: "" },
+      { category: "", label: "", amount: "", startMonth: "", endMonth: "" },
     ]);
     expect(parsed?.keys).toEqual(["0", "1"]);
   });
@@ -134,7 +144,7 @@ describe("parsePayload", () => {
 describe("computePreview", () => {
   it("sums valid amounts, skips invalid ones and simulates when parameters are valid", () => {
     const state = initialFormState(settings, lines, "2026-09");
-    state.lines.push({ key: "new-1", category: "fixed", label: "Cassé", amount: "12,345" });
+    state.lines.push({ key: "new-1", category: "fixed", label: "Cassé", amount: "12,345", startMonth: "", endMonth: "" });
     const preview = computePreview(state, [loan]);
     expect(preview).toMatchObject({
       income: 260000,
@@ -172,5 +182,94 @@ describe("computePreview", () => {
     expect(at(66000)).toBe("warning"); // 30.3 %
     expect(at(50000)).toBe("alert"); // 40 %
     expect(at(66667)).toBe("ok"); // 29.99 %
+  });
+});
+
+describe("line periods (SPEC D15)", () => {
+  // Rent 850,00 € until June 2027, then 1 100,00 € from July 2027.
+  const dated: BudgetLine[] = [
+    { id: "i1", category: "income", label: "Salaire", amount: 280000, position: 0, startMonth: null, endMonth: null },
+    { id: "r1", category: "fixed", label: "Loyer", amount: 85000, position: 0, startMonth: null, endMonth: "2027-06" },
+    { id: "r2", category: "fixed", label: "Loyer", amount: 110000, position: 1, startMonth: "2027-07", endMonth: null },
+  ];
+
+  it("starts from the saved periods and sends them back in the payload", () => {
+    const state = initialFormState(settings, dated, "2026-09");
+    expect(state.lines.map((l) => [l.id, l.startMonth, l.endMonth])).toEqual([
+      ["i1", "", ""],
+      ["r1", "", "2027-06"],
+      ["r2", "2027-07", ""],
+    ]);
+    const payload = toPayload(state);
+    expect(payload.form.lines[2]).toMatchObject({ id: "r2", startMonth: "2027-07", endMonth: "" });
+    const parsed = parsePayload(JSON.stringify(payload));
+    expect(parsed).toEqual(payload);
+    const result = validateBudget(parsed!.form);
+    expect(result.ok && result.value.lines.map((l) => [l.amount, l.startMonth, l.endMonth])).toEqual([
+      [280000, null, null],
+      [85000, null, "2027-06"],
+      [110000, "2027-07", null],
+    ]);
+  });
+
+  it("detects a period change through the signature", () => {
+    const state = initialFormState(settings, dated, "2026-09");
+    const edited = { ...state, lines: state.lines.map((l) => (l.id === "i1" ? { ...l, endMonth: "2030-12" } : l)) };
+    expect(formSignature(edited)).not.toBe(formSignature(state));
+    expect(formSignature(initialFormState(settings, dated, "2026-09"))).toBe(formSignature(state));
+  });
+
+  it("parsePayload keeps month strings only and caps their length", () => {
+    const parsed = parsePayload(
+      JSON.stringify({ form: { lines: [{ category: "fixed", startMonth: 202701, endMonth: `2027-06${"x".repeat(500)}` }] } }),
+    );
+    expect(parsed?.form.lines[0]?.startMonth).toBe("");
+    expect(parsed?.form.lines[0]?.endMonth).toHaveLength(20);
+    const result = validateBudget({ ...parsed!.form, ...initialFormState(settings, [], "2026-09").params });
+    expect(result).toMatchObject({ ok: false, errors: { "lines.0.endMonth": "Mois invalide (AAAA-MM)" } });
+  });
+
+  it("totals and KPIs describe the reference month; the plan follows the periods month by month", () => {
+    const state = initialFormState(settings, dated, "2026-09");
+    // Before the plan start: reference = plan start (January 2027), old rent.
+    const early = computePreview(state, [], [], { currentMonth: "2026-09" });
+    expect(early).toMatchObject({ referenceMonth: "2027-01", hasPeriods: true, fixed: 85000, margin: 195000 });
+    // During the plan: reference = current month (September 2027), new rent.
+    const later = computePreview(state, [], [], { currentMonth: "2027-09" });
+    expect(later).toMatchObject({ referenceMonth: "2027-09", fixed: 110000, margin: 170000 });
+    expect(later.suggestedEmergencyTarget).toBe(3 * 110000);
+    expect(sectionTotal(state.lines, "fixed", "2027-06")).toBe(85000);
+    expect(sectionTotal(state.lines, "fixed", "2027-07")).toBe(110000);
+    expect(sectionTotal(state.lines, "fixed")).toBe(195000);
+    // The simulated months switch rent in July 2027 (month index 6).
+    const months = later.plan!.months;
+    expect(months[5]?.available).toBe(195000);
+    expect(months[6]?.available).toBe(170000);
+  });
+
+  it("falls back to the saved start month while the typed one is invalid", () => {
+    const state = initialFormState(settings, dated, "2026-09");
+    state.params.startMonth = "2027-1";
+    const preview = computePreview(state, [], [], { currentMonth: "2027-09", savedStartMonth: "2027-08" });
+    expect(preview.plan).toBeNull();
+    expect(preview.referenceMonth).toBe("2027-09");
+    expect(preview.fixed).toBe(110000);
+  });
+
+  it("describes a period in words", () => {
+    expect(periodText({ startMonth: null, endMonth: null })).toBeNull();
+    expect(periodText({ startMonth: null, endMonth: "2027-06" })).toBe("jusqu’à juin 2027");
+    expect(periodText({ startMonth: "2027-07", endMonth: null })).toBe("à partir de juil. 2027");
+    expect(periodText({ startMonth: "2027-07", endMonth: "2027-12" })).toBe("de juil. 2027 à déc. 2027");
+    expect(periodText({ startMonth: "2027-07", endMonth: "2027-07" })).toBe("en juil. 2027 uniquement");
+  });
+
+  it("flags a period entirely outside the 300 simulated months", () => {
+    // Plan: 2027-01 … 2051-12.
+    expect(isOutsidePlan({ startMonth: null, endMonth: "2026-12" }, "2027-01")).toBe(true);
+    expect(isOutsidePlan({ startMonth: null, endMonth: "2027-01" }, "2027-01")).toBe(false);
+    expect(isOutsidePlan({ startMonth: "2051-12", endMonth: null }, "2027-01")).toBe(false);
+    expect(isOutsidePlan({ startMonth: "2052-01", endMonth: null }, "2027-01")).toBe(true);
+    expect(isOutsidePlan({ startMonth: null, endMonth: "2020-01" }, null)).toBe(false);
   });
 });
