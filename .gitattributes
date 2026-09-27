@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.xlsx binary
+*.ps1 text eol=crlf
+# large generated fixture: no textual diffs
+tests/fixtures/golden.json -diff

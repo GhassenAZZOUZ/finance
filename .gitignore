@@ -1,0 +1,12 @@
+# Real personal finances — NEVER commit (use docs/plan_financier.template.xlsx)
+docs/plan_financier.xlsx
+~$*.xlsx
+
+# Python (Phase 0 scripts)
+__pycache__/
+*.pyc
+
+# Env
+.env
+.env.local
+.env*.local
