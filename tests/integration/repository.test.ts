@@ -51,6 +51,21 @@ describe("SupabaseFinanceRepository", () => {
     expect(snap.lines.find((l) => l.label === "Salaire")?.id).toBe(salary.id);
   });
 
+  it("adds, lists (by month) and deletes one-off exceptions", async () => {
+    const late = await repo.addException({ month: "2027-08", kind: "expense", label: " Vacances ", amount: 90000 });
+    const early = await repo.addException({ month: "2027-03", kind: "income", label: "Prime", amount: 100050 });
+    let snap = await repo.load();
+    expect(snap.exceptions.map((e) => [e.month, e.kind, e.label, e.amount])).toEqual([
+      ["2027-03", "income", "Prime", 100050],
+      ["2027-08", "expense", "Vacances", 90000],
+    ]);
+    await repo.deleteException(early.id);
+    await expect(repo.deleteException(early.id)).rejects.toMatchObject({ code: "not_found" });
+    snap = await repo.load();
+    expect(snap.exceptions.map((e) => e.id)).toEqual([late.id]);
+    await repo.deleteException(late.id);
+  });
+
   it("creates, updates and orders loans; exact cents and rates survive the round-trip", async () => {
     const a = await repo.createLoan({ name: "Prêt auto", type: "Prêt affecté", principal: 820000, principalPaidThroughMonth: "2026-09", apr: 0.049, monthlyPayment: 24530, contractEndMonth: "2030-01" });
     const b = await repo.createLoan({ name: null, type: "Dette personnelle", principal: 60000, principalPaidThroughMonth: null, apr: 0, monthlyPayment: 15000, contractEndMonth: null });

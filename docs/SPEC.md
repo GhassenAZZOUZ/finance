@@ -48,6 +48,7 @@ from our code.
 | D3 | Dates | `startMonth` and `movingDeadlineMonth` are `YYYY-MM` months. Month granularity everywhere |
 | D4 | Personal debts | No special rule. A 0 % personal debt behaves exactly as in the spreadsheet: normal payments only, never eligible for early repayment. "Dette personnelle" is just a loan type label |
 | D5 | Remaining months | **Dropped** (the input and its 3 derived columns). Replaced by simulated payoff months and per-loan interest (§5) |
+| D14 | One-off budget exceptions (2026-09-27) | The regular budget applies to every month; `budget_exceptions` add extra income or extra expenses to a single month (label, amount > 0). That month's `income`/`expenses` (and so its allocation) include them; months outside the plan are ignored. KPIs (monthly income, expenses, margin, debt ratio, emergency-fund suggestion) keep describing the regular month. Check-in income/expense gaps compare with that month's budget. Deviation from the spreadsheet (constant budget) |
 | D13 | Residual under 1 € (2026-09-27) | When less than 1 € would remain after a normal payment, it is added to that payment (as banks adjust the last instalment), so the loan ends that month. Applies to the plan, the baseline and the D5c projection. Deviation from the spreadsheet, patched into the Excel golden data |
 | D5c | Principal read before the plan start (2026-09-27) | Optional `principalPaidThroughMonth` per loan (default in the form: current month). The entered principal is the balance **after the payment of that month**; the app rolls it forward with the normal payments of the months strictly between that month and `startMonth` (§4.5). Empty = principal at the plan start (spreadsheet behaviour). Read after the start → used as is, with a warning |
 | D5b | Contract end month (2026-09-27) | Optional `contractEndMonth` (YYYY-MM) per loan, **for a consistency check only**: warning when it differs by more than 1 month from the simulated end without early repayment (§5). Never used by the simulation |
@@ -85,7 +86,9 @@ Derived: `totalIncome`, `totalFixed`, `totalVariable` (sums, B7/B18/B25);
 `expenses = totalFixed + totalVariable`; hint
 `suggestedEmergencyTarget = 3 × (totalFixed + totalVariable + Σ monthlyPayment)` (B33), not used by the engine.
 
-All inputs are constant over the horizon (no inflation, no income changes).
+The regular budget is constant over the horizon (no inflation, no income changes); one-off exceptions
+(D14) add extra income or expenses to a single month: `extraIncome(m)`, `extraExpenses(m)` = sums of that
+month's exceptions.
 
 ### 3.2 Loans (`Crédits!A5:E10`)
 
@@ -211,7 +214,9 @@ Badge "Remb. anticipé rentable" = `earlyRepaymentWorthIt`. Warning (D10) when
 
 ```
 yearMonth(m)          = startMonth + (m − 1) months
-available      (F)    = totalIncome − expenses − totalPayments(m)                 (can be negative)
+income(m)             = totalIncome + extraIncome(m)                            (D14)
+expenses(m)           = totalFixed + totalVariable + extraExpenses(m)           (D14)
+available      (F)    = income(m) − expenses(m) − totalPayments(m)             (can be negative)
 
 ① Moving fund
 toMoving       (G)    = yearMonth(m) ≤ movingDeadlineMonth ? max(0, min(available, movingGoal − movingCum(m−1))) : 0

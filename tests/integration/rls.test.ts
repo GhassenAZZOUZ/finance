@@ -9,6 +9,7 @@ const TABLES = [
   "profiles",
   "budget_settings",
   "budget_lines",
+  "budget_exceptions",
   "loans",
   "monthly_actuals",
   "monthly_actual_loan_balances",
@@ -20,6 +21,7 @@ const KEY: Record<Table, string> = {
   profiles: "user_id",
   budget_settings: "user_id",
   budget_lines: "id",
+  budget_exceptions: "id",
   loans: "id",
   monthly_actuals: "id",
   monthly_actual_loan_balances: "id",
@@ -30,6 +32,7 @@ const PATCH: Record<Table, Record<string, unknown>> = {
   profiles: { display_name: "pirate" },
   budget_settings: { moving_goal: 1 },
   budget_lines: { amount: 1 },
+  budget_exceptions: { amount: 1 },
   loans: { principal: 1 },
   monthly_actuals: { free_savings: 1 },
   monthly_actual_loan_balances: { balance: 1 },
@@ -60,6 +63,9 @@ beforeAll(async () => {
     a.client.from("budget_settings").insert({ start_month: "2027-01", moving_deadline_month: "2027-06", moving_goal: 4000 }),
   );
   const line = await must(a.client.from("budget_lines").select("id").limit(1).single());
+  const exception = await must(
+    a.client.from("budget_exceptions").insert({ month: "2027-12", kind: "income", label: "Prime", amount: 500 }).select("id").single(),
+  );
   const loan = await must(
     a.client.from("loans").insert({ name: "Prêt test", principal: 1000, apr: 0.05, monthly_payment: 100 }).select("id").single(),
   );
@@ -83,6 +89,7 @@ beforeAll(async () => {
     profiles: a.id,
     budget_settings: a.id,
     budget_lines: line.id,
+    budget_exceptions: exception.id,
     loans: loan.id,
     monthly_actuals: actual.id,
     monthly_actual_loan_balances: balance.id,
@@ -149,6 +156,7 @@ describe("forged writes", () => {
       profiles: { user_id: a.id },
       budget_settings: { user_id: a.id, start_month: "2027-01", moving_deadline_month: "2027-06" },
       budget_lines: { user_id: a.id, category: "income", label: "forged", amount: 1 },
+      budget_exceptions: { user_id: a.id, month: "2027-12", kind: "expense", label: "forged", amount: 1 },
       loans: { user_id: a.id, principal: 1, apr: 0.1, monthly_payment: 1 },
       monthly_actuals: { user_id: a.id, month: "2027-02", moving_savings: 0, emergency_savings: 0, free_savings: 0 },
       monthly_actual_loan_balances: { user_id: a.id, monthly_actual_id: aActualId, loan_id: aLoanId, balance: 1 },

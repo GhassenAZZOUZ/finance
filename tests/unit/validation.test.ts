@@ -10,6 +10,7 @@ import {
   parsePercent,
   validateActual,
   validateBudget,
+  validateException,
   validateLoan,
 } from "@/lib/domain/validation";
 import { amountInputValue, currentYearMonth, formatEuros, formatMonthShort, percentInputValue } from "@/lib/format";
@@ -165,6 +166,31 @@ describe("validateBudget", () => {
       earlyRepaymentPct: "Le taux doit être inférieur ou égal à 100 %",
       "lines.0.label": "Libellé requis",
       "lines.0.amount": "Le montant ne peut pas être négatif",
+    });
+  });
+});
+
+describe("validateException (SPEC D14)", () => {
+  it("accepts a one-off extra income or expense", () => {
+    expect(validateException({ month: "2027-12", kind: "income", label: " Prime ", amount: "1 000" })).toEqual({
+      ok: true,
+      value: { month: "2027-12", kind: "income", label: "Prime", amount: 100000 },
+    });
+  });
+
+  it("rejects an invalid month, type, empty label and a zero or negative amount", () => {
+    expect(validateException({ month: "2027-13", kind: "gift", label: " ", amount: "0" })).toEqual({
+      ok: false,
+      errors: {
+        month: "Mois invalide (AAAA-MM)",
+        kind: "Choisissez revenu ou dépense",
+        label: "Libellé requis",
+        amount: "Le montant doit être supérieur à 0",
+      },
+    });
+    expect(validateException({ month: "2027-12", kind: "expense", label: "x", amount: "-5" })).toMatchObject({
+      ok: false,
+      errors: { amount: "Le montant ne peut pas être négatif" },
     });
   });
 });
