@@ -15,6 +15,15 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          // Rendered form components (Testing Library + jsdom); the repository is mocked.
+          name: "components",
+          environment: "jsdom",
+          include: ["tests/components/**/*.test.tsx"],
+        },
+      },
+      {
+        extends: true,
+        test: {
           name: "integration",
           environment: "node",
           include: ["tests/integration/**/*.test.ts"],
