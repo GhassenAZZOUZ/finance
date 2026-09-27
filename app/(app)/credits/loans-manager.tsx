@@ -17,6 +17,14 @@ const BELOW_INTEREST_TEXT = "La mensualité ne couvre pas les intérêts : le ca
 
 /** Entered principal, plus its projection at the plan start when it differs (SPEC D5c). */
 function PrincipalNote({ row }: { row: LoanRow }) {
+  if (row.paidOffBeforeStart) {
+    return (
+      <span className="mt-1 flex items-start justify-end gap-1 text-xs font-medium text-green-800">
+        <Check aria-hidden className="mt-px size-3.5 shrink-0" />
+        Soldé en {formatMonthShort(row.paidOffBeforeStart)}, avant le début du plan. Vous pouvez le supprimer.
+      </span>
+    );
+  }
   if (row.principalAtStart) {
     return (
       <span className="block text-xs font-normal text-muted-foreground">
@@ -56,6 +64,12 @@ function ContractEndWarning({ check }: { check: ContractEndCheck }) {
       </span>
     </p>
   );
+}
+
+/** End month shown in the "Fin avec / sans plan" columns. */
+function endText(row: LoanRow, month: YearMonth | null): string {
+  if (row.paidOffBeforeStart) return `Soldé (${formatMonthShort(row.paidOffBeforeStart)})`;
+  return payoffText(month);
 }
 
 function payoffText(month: YearMonth | null): string {
@@ -252,8 +266,8 @@ export function LoansManager({
                         <TableCell className="min-w-44 whitespace-normal align-top">
                           <Advice advice={row.derived.advice} />
                         </TableCell>
-                        <TableCell className="align-top">{payoffText(row.derived.payoffMonthWithPlan)}</TableCell>
-                        <TableCell className="align-top">{payoffText(row.derived.payoffMonthWithoutPlan)}</TableCell>
+                        <TableCell className="align-top">{endText(row, row.derived.payoffMonthWithPlan)}</TableCell>
+                        <TableCell className="align-top">{endText(row, row.derived.payoffMonthWithoutPlan)}</TableCell>
                         <TableCell className="text-right align-top tabular-nums">
                           {formatEuros(row.derived.interestWithPlan)}
                         </TableCell>
@@ -319,8 +333,8 @@ export function LoansManager({
                             value={<EligibleBadge eligible={row.derived.eligible} />}
                           />
                           <CardItem label="Priorité" value={row.derived.priority ?? "—"} />
-                          <CardItem label="Fin avec plan" value={payoffText(row.derived.payoffMonthWithPlan)} />
-                          <CardItem label="Fin sans plan" value={payoffText(row.derived.payoffMonthWithoutPlan)} />
+                          <CardItem label="Fin avec plan" value={endText(row, row.derived.payoffMonthWithPlan)} />
+                          <CardItem label="Fin sans plan" value={endText(row, row.derived.payoffMonthWithoutPlan)} />
                           <CardItem label="Intérêts avec plan" value={formatEuros(row.derived.interestWithPlan)} />
                           <CardItem label="Intérêts sans plan" value={formatEuros(row.derived.interestWithoutPlan)} />
                           <CardItem label="Conseil" value={<Advice advice={row.derived.advice} />} wide />

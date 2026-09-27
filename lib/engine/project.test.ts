@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { paymentsBeforeStart, projectBalance } from "./project";
+import { paymentsBeforeStart, paymentsUntilRepaid, projectBalance } from "./project";
 import { simulatePlan } from "./simulate";
 
 describe("paymentsBeforeStart (SPEC D5c)", () => {
@@ -40,5 +40,14 @@ describe("projectBalance", () => {
     for (const k of [1, 2, 12, 30]) {
       expect(projectBalance(loan.principal, loan.apr, loan.monthlyPayment, k)).toBe(months[k - 1]!.loans[0]!.endBalance);
     }
+  });
+});
+
+describe("paymentsUntilRepaid", () => {
+  it("counts the payments that repay the balance, or null beyond the limit", () => {
+    expect(paymentsUntilRepaid(10_000, 0, 10_000, 5)).toBe(1);
+    expect(paymentsUntilRepaid(25_000, 0, 10_000, 5)).toBe(3);
+    expect(paymentsUntilRepaid(25_000, 0, 10_000, 2)).toBeNull();
+    expect(paymentsUntilRepaid(0, 0.05, 10_000, 2)).toBe(0);
   });
 });

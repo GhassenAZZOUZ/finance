@@ -265,3 +265,34 @@ describe("principal read before the plan start (SPEC D5c)", () => {
     expect(computePlan(snap(null))?.input.loans[0]?.principal).toBe(100_000);
   });
 });
+
+describe("loan repaid before the plan start", () => {
+  it("shows the month it was repaid instead of 'Au-delà de 25 ans'", () => {
+    // 100,00 € at 0 %, 100,00 €/month, read after the September payment, plan in November:
+    // October's payment repays it.
+    const snapshot: FinanceSnapshot = {
+      settings: {
+        startMonth: "2026-11",
+        movingGoal: 0,
+        movingDeadlineMonth: "2026-11",
+        movingAlreadySaved: 0,
+        emergencyTarget: 0,
+        emergencyExisting: 0,
+        riskFreeRate: 0.02,
+        earlyRepaymentPct: 0,
+      },
+      lines: [{ id: "i", category: "income", label: "Salaire", amount: 300_000, position: 0 }],
+      loans: [
+        loan("a", { principal: 10_000, apr: 0, monthlyPayment: 10_000, principalPaidThroughMonth: "2026-09", contractEndMonth: "2026-10" }),
+      ],
+      archivedLoans: [],
+      actuals: [],
+    };
+    const [row] = buildLoanRows(snapshot.loans, computePlan(snapshot));
+    expect(row).toMatchObject({
+      paidOffBeforeStart: "2026-10",
+      principalAtStart: null,
+      endCheck: { simulatedEndMonth: "2026-10", consistent: true },
+    });
+  });
+});

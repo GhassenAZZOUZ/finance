@@ -9,8 +9,10 @@ import {
   type Cents,
   type LoanAdvice,
   type YearMonth,
+  addMonths,
   monthsBetween,
   paymentsBeforeStart,
+  paymentsUntilRepaid,
   roundHalfAwayFromZero,
   sumCents,
 } from "@/lib/engine";
@@ -38,6 +40,8 @@ export interface LoanRow {
   principalAtStart: { month: YearMonth; amount: Cents } | null;
   /** The principal was read after the plan start: it is used as is (cannot be projected backwards). */
   principalReadAfterStart: YearMonth | null;
+  /** Month of the last payment when the loan is fully repaid before the plan start (SPEC D5c). */
+  paidOffBeforeStart: YearMonth | null;
   apr: number;
   monthlyPayment: Cents;
   paymentBelowInterest: boolean;
@@ -119,6 +123,18 @@ export function loanToForm(loan: Loan): LoanForm {
   };
 }
 
+/** Month of the payment that repaid the loan during the projection to the plan start, if any. */
+function repaidMonth(loan: Loan, startMonth: YearMonth): YearMonth | null {
+  if (!loan.principalPaidThroughMonth || loan.principal <= 0) return null;
+  const n = paymentsUntilRepaid(
+    loan.principal,
+    loan.apr,
+    loan.monthlyPayment,
+    paymentsBeforeStart(loan.principalPaidThroughMonth, startMonth),
+  );
+  return n === null || n === 0 ? null : addMonths(loan.principalPaidThroughMonth, n);
+}
+
 /** Active loans in entry order; `plan.result.loans` follows the same order (matched by id to be safe). */
 export function buildLoanRows(loans: readonly Loan[], plan: ComputedPlan | null): LoanRow[] {
   const summaries = new Map((plan?.result.loans ?? []).map((s) => [s.id, s]));
@@ -128,6 +144,7 @@ export function buildLoanRows(loans: readonly Loan[], plan: ComputedPlan | null)
     const s = summaries.get(loan.id);
     const atStart = startPrincipals.get(loan.id);
     const paidThrough = loan.principalPaidThroughMonth;
+    const paidOffBeforeStart = startMonth && atStart === 0 ? repaidMonth(loan, startMonth) : null;
     return {
       id: loan.id,
       displayName: s?.displayName ?? loanDisplayName(loan, i),
@@ -135,14 +152,17 @@ export function buildLoanRows(loans: readonly Loan[], plan: ComputedPlan | null)
       principal: loan.principal,
       principalPaidThroughMonth: paidThrough,
       principalAtStart:
-        startMonth && atStart !== undefined && atStart !== loan.principal ? { month: startMonth, amount: atStart } : null,
+        startMonth && atStart !== undefined && atStart !== loan.principal && !paidOffBeforeStart
+          ? { month: startMonth, amount: atStart }
+          : null,
+      paidOffBeforeStart,
       principalReadAfterStart:
         startMonth && paidThrough && paymentsBeforeStart(paidThrough, startMonth) < 0 ? startMonth : null,
       apr: loan.apr,
       monthlyPayment: loan.monthlyPayment,
       paymentBelowInterest: s?.paymentBelowInterest ?? isPaymentBelowInterest(loan),
       contractEndMonth: loan.contractEndMonth,
-      endCheck: checkContractEnd(loan.contractEndMonth, s ? s.payoffMonthWithoutPlan : undefined),
+      endCheck: checkContractEnd(loan.contractEndMonth, s ? (paidOffBeforeStart ?? s.payoffMonthWithoutPlan) : undefined),
       derived: s
         ? {
             eligible: s.eligible,

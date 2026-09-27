@@ -23,3 +23,18 @@ export function projectBalance(balance: Cents, apr: number, monthlyPayment: Cent
   }
   return b;
 }
+
+/**
+ * Number of normal payments (at most `maxPayments`) after which the balance is fully repaid,
+ * with the same rules as projectBalance; null if it is not repaid within `maxPayments`.
+ */
+export function paymentsUntilRepaid(balance: Cents, apr: number, monthlyPayment: Cents, maxPayments: number): number | null {
+  let b = Math.max(0, balance);
+  if (b === 0) return 0;
+  for (let i = 1; i <= maxPayments; i++) {
+    const interest = roundHalfAwayFromZero((b * apr) / 12);
+    b = b + interest - normalPayment(b + interest, monthlyPayment);
+    if (b <= 0) return i;
+  }
+  return null;
+}
