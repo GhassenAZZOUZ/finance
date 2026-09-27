@@ -90,6 +90,8 @@ describe("SupabaseFinanceRepository", () => {
     expect(snap.loans.map((l) => l.id)).toEqual([a!.id]);
     expect(snap.archivedLoans.map((l) => l.id)).toEqual([b!.id]);
 
+    await expect(repo.removeLoan(c.id)).rejects.toMatchObject({ code: "not_found" });
+
     await repo.deleteActual("2027-01");
     expect((await repo.load()).actuals).toEqual([]);
   });

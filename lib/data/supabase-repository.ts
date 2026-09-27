@@ -208,10 +208,14 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       await this.db.from("monthly_actual_loan_balances").select("id").eq("loan_id", id).limit(1).returns<{ id: string }[]>(),
     );
     if (refs.length > 0) {
-      checkMaybe(await this.db.from("loans").update({ archived_at: new Date().toISOString() }).eq("id", id));
+      const archived = check(
+        await this.db.from("loans").update({ archived_at: new Date().toISOString() }).eq("id", id).select("id"),
+      );
+      if (archived.length === 0) throw new RepositoryError("Crédit introuvable", "not_found");
       return "archived";
     }
-    checkMaybe(await this.db.from("loans").delete().eq("id", id));
+    const deleted = check(await this.db.from("loans").delete().eq("id", id).select("id"));
+    if (deleted.length === 0) throw new RepositoryError("Crédit introuvable", "not_found");
     return "deleted";
   }
 
