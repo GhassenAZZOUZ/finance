@@ -12,6 +12,16 @@ export interface BudgetExceptionInput {
   amount: Cents;
 }
 
+/** A budget line that may apply only from and/or until a given month (SPEC D15). */
+export interface DatedBudgetLineInput {
+  category: "income" | "fixed" | "variable";
+  amount: Cents;
+  /** First month the line applies (inclusive); null = from the start. */
+  startMonth: YearMonth | null;
+  /** Last month the line applies (inclusive); null = no end. */
+  endMonth: YearMonth | null;
+}
+
 /** Budget inputs. The engine only needs the three sums (SPEC D9) plus one-off exceptions (D14). */
 export interface BudgetParams {
   income: Cents;
@@ -30,6 +40,12 @@ export interface BudgetParams {
   earlyRepaymentPct: number;
   /** One-off exceptions; months outside the plan are ignored. */
   exceptions?: readonly BudgetExceptionInput[];
+  /**
+   * Budget lines with optional periods (SPEC D15). When present, each month's regular income and
+   * expenses are the sums of the lines active that month; `income`, `fixedCosts` and
+   * `variableExpenses` then only describe the reference month used by the KPIs.
+   */
+  lines?: readonly DatedBudgetLineInput[];
 }
 
 /** An active loan. Array order = entry order (breaks APR ties). */

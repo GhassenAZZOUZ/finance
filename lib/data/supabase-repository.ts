@@ -32,6 +32,8 @@ interface LineRow {
   label: string;
   amount: number;
   position: number;
+  start_month: string | null;
+  end_month: string | null;
 }
 interface LoanRow {
   id: string;
@@ -124,7 +126,11 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   async load(): Promise<FinanceSnapshot> {
     const [settings, lines, loans, actuals, exceptions] = await Promise.all([
       this.db.from("budget_settings").select("*").maybeSingle<SettingsRow>(),
-      this.db.from("budget_lines").select("id, category, label, amount, position").order("position").returns<LineRow[]>(),
+      this.db
+        .from("budget_lines")
+        .select("id, category, label, amount, position, start_month, end_month")
+        .order("position")
+        .returns<LineRow[]>(),
       this.db
         .from("loans")
         .select("id, name, type, principal, principal_paid_through_month, apr, monthly_payment, contract_end_month, position, archived_at")
@@ -159,7 +165,15 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         earlyRepaymentPct: Number(s.early_repayment_pct),
       },
       lines: check(lines).map(
-        (l): BudgetLine => ({ id: l.id, category: l.category, label: l.label, amount: cents(l.amount), position: l.position }),
+        (l): BudgetLine => ({
+          id: l.id,
+          category: l.category,
+          label: l.label,
+          amount: cents(l.amount),
+          position: l.position,
+          startMonth: l.start_month,
+          endMonth: l.end_month,
+        }),
       ),
       exceptions: check(exceptions).map(toException),
       loans: allLoans.filter((l) => l.archivedAt === null),
@@ -206,6 +220,8 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       label: l.label.trim(),
       amount: euros(l.amount),
       position: l.position,
+      start_month: l.startMonth,
+      end_month: l.endMonth,
     });
     const updates = lines.filter((l) => l.id).map((l) => ({ id: l.id, ...columns(l) }));
     const inserts = lines.filter((l) => !l.id).map(columns);

@@ -11,6 +11,9 @@ export interface BudgetLine {
   label: string;
   amount: Cents;
   position: number;
+  /** Optional period (SPEC D15): first / last month the line applies, inclusive. */
+  startMonth: YearMonth | null;
+  endMonth: YearMonth | null;
 }
 
 /** A line as edited in the form: no id yet for new lines. */
@@ -20,6 +23,8 @@ export interface BudgetLineDraft {
   label: string;
   amount: Cents;
   position: number;
+  startMonth: YearMonth | null;
+  endMonth: YearMonth | null;
 }
 
 export interface BudgetSettings {

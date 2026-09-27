@@ -25,10 +25,10 @@ const settings: BudgetSettings = {
 };
 
 const lines: BudgetLine[] = [
-  { id: "v1", category: "variable", label: "Courses", amount: 40000, position: 0 },
-  { id: "i2", category: "income", label: "Primes", amount: 10000, position: 1 },
-  { id: "f1", category: "fixed", label: "Loyer", amount: 80000, position: 0 },
-  { id: "i1", category: "income", label: "Salaire net", amount: 250000, position: 0 },
+  { id: "v1", category: "variable", label: "Courses", amount: 40000, position: 0, startMonth: null, endMonth: null },
+  { id: "i2", category: "income", label: "Primes", amount: 10000, position: 1, startMonth: null, endMonth: null },
+  { id: "f1", category: "fixed", label: "Loyer", amount: 80000, position: 0, startMonth: null, endMonth: null },
+  { id: "i1", category: "income", label: "Salaire net", amount: 250000, position: 0, startMonth: null, endMonth: null },
 ];
 
 const loan: Loan = {

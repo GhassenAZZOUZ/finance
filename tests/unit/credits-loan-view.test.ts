@@ -51,8 +51,8 @@ function snapshot(withSettings: boolean): FinanceSnapshot {
         }
       : null,
     lines: [
-      { id: "i", category: "income", label: "Salaire", amount: 300_000, position: 0 },
-      { id: "f", category: "fixed", label: "Loyer", amount: 90_000, position: 0 },
+      { id: "i", category: "income", label: "Salaire", amount: 300_000, position: 0, startMonth: null, endMonth: null },
+      { id: "f", category: "fixed", label: "Loyer", amount: 90_000, position: 0, startMonth: null, endMonth: null },
     ],
     loans,
     archivedLoans: [],
@@ -212,7 +212,7 @@ describe("checkContractEnd (SPEC D5b)", () => {
         riskFreeRate: 0.02,
         earlyRepaymentPct: 1,
       },
-      lines: [{ id: "i", category: "income", label: "Salaire", amount: 300_000, position: 0 }],
+      lines: [{ id: "i", category: "income", label: "Salaire", amount: 300_000, position: 0, startMonth: null, endMonth: null }],
       // 1 200,00 € at 0 %, 100,00 €/month: 12 payments, last one in December 2027.
       loans: [loan("a", { principal: 120_000, apr: 0, monthlyPayment: 10_000, contractEndMonth: "2028-06" })],
       archivedLoans: [],
@@ -237,7 +237,7 @@ describe("principal read before the plan start (SPEC D5c)", () => {
   };
   const snap = (paid: string | null): FinanceSnapshot => ({
     settings,
-    lines: [{ id: "i", category: "income", label: "Salaire", amount: 300_000, position: 0 }],
+    lines: [{ id: "i", category: "income", label: "Salaire", amount: 300_000, position: 0, startMonth: null, endMonth: null }],
     // 1 000,00 € at 12 %, 100,00 €/month.
     loans: [loan("a", { principal: 100_000, apr: 0.12, monthlyPayment: 10_000, principalPaidThroughMonth: paid })],
     archivedLoans: [],
@@ -284,7 +284,7 @@ describe("loan repaid before the plan start", () => {
         riskFreeRate: 0.02,
         earlyRepaymentPct: 0,
       },
-      lines: [{ id: "i", category: "income", label: "Salaire", amount: 300_000, position: 0 }],
+      lines: [{ id: "i", category: "income", label: "Salaire", amount: 300_000, position: 0, startMonth: null, endMonth: null }],
       loans: [
         loan("a", { principal: 10_000, apr: 0, monthlyPayment: 10_000, principalPaidThroughMonth: "2026-09", contractEndMonth: "2026-10" }),
       ],

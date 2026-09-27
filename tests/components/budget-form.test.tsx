@@ -22,9 +22,9 @@ vi.mock("@/lib/supabase/client", () => ({
 
 const SETTINGS = makeSettings();
 const LINES: BudgetLine[] = [
-  { id: "l-income", category: "income", label: "Salaire", amount: 300_000, position: 0 },
-  { id: "l-rent", category: "fixed", label: "Loyer", amount: 90_000, position: 0 },
-  { id: "l-food", category: "variable", label: "Courses", amount: 40_000, position: 0 },
+  { id: "l-income", category: "income", label: "Salaire", amount: 300_000, position: 0, startMonth: null, endMonth: null },
+  { id: "l-rent", category: "fixed", label: "Loyer", amount: 90_000, position: 0, startMonth: null, endMonth: null },
+  { id: "l-food", category: "variable", label: "Courses", amount: 40_000, position: 0, startMonth: null, endMonth: null },
 ];
 
 function renderForm() {
@@ -95,9 +95,9 @@ describe("BudgetForm", () => {
 
     await waitFor(() => expect(mocks.repo?.saveBudget).toHaveBeenCalledTimes(1));
     expect(mocks.repo?.saveBudget).toHaveBeenCalledWith(SETTINGS, [
-      { id: "l-income", category: "income", label: "Salaire", amount: 300_000, position: 0 },
-      { id: "l-rent", category: "fixed", label: "Loyer", amount: 95_050, position: 0 },
-      { id: "l-food", category: "variable", label: "Courses", amount: 40_000, position: 0 },
+      { id: "l-income", category: "income", label: "Salaire", amount: 300_000, position: 0, startMonth: null, endMonth: null },
+      { id: "l-rent", category: "fixed", label: "Loyer", amount: 95_050, position: 0, startMonth: null, endMonth: null },
+      { id: "l-food", category: "variable", label: "Courses", amount: 40_000, position: 0, startMonth: null, endMonth: null },
     ]);
     expect(mocks.notify).toHaveBeenCalledTimes(1);
   });
