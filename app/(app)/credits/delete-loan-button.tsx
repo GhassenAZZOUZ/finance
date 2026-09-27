@@ -44,7 +44,7 @@ export function DeleteLoanButton({
       action={formAction}
       role="group"
       aria-label={`Confirmer la suppression de « ${loanName} »`}
-      className="flex flex-col gap-2 rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-900"
+      className="flex max-w-44 flex-col gap-2 whitespace-normal rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-900"
     >
       <input type="hidden" name="id" value={loanId} />
       <p>
@@ -55,11 +55,11 @@ export function DeleteLoanButton({
           {state.message}
         </p>
       ) : null}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-2">
         <Button
           type="submit"
           disabled={pending}
-          className="min-h-10 bg-red-700 px-3 text-white hover:bg-red-800"
+          className="h-auto min-h-10 whitespace-normal bg-red-700 px-3 py-1 text-white hover:bg-red-800"
           aria-describedby={state.status === "error" ? errorId : undefined}
         >
           {pending ? "Suppression…" : "Confirmer la suppression"}

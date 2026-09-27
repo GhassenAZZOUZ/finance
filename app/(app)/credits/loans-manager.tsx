@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Minus, TriangleAlert } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,7 +19,7 @@ const BELOW_INTEREST_TEXT = "La mensualité ne couvre pas les intérêts : le ca
 function PrincipalNote({ row }: { row: LoanRow }) {
   if (row.paidOffBeforeStart) {
     return (
-      <span className="mt-1 flex items-start justify-end gap-1 text-xs font-medium text-green-800">
+      <span className="mt-1 flex items-start justify-end gap-1 whitespace-normal text-xs font-medium text-green-800">
         <Check aria-hidden className="mt-px size-3.5 shrink-0" />
         Soldé en {formatMonthShort(row.paidOffBeforeStart)}, avant le début du plan. Vous pouvez le supprimer.
       </span>
@@ -27,14 +27,14 @@ function PrincipalNote({ row }: { row: LoanRow }) {
   }
   if (row.principalAtStart) {
     return (
-      <span className="block text-xs font-normal text-muted-foreground">
+      <span className="block whitespace-normal text-xs font-normal text-muted-foreground">
         ≈ {formatEuros(row.principalAtStart.amount)} au début du plan ({formatMonthShort(row.principalAtStart.month)})
       </span>
     );
   }
   if (row.principalReadAfterStart) {
     return (
-      <span className="mt-1 flex items-start gap-1 text-xs font-medium text-amber-800">
+      <span className="mt-1 flex items-start gap-1 whitespace-normal text-xs font-medium text-amber-800">
         <TriangleAlert aria-hidden className="mt-px size-3.5 shrink-0" />
         Capital relevé après le début du plan ({formatMonthShort(row.principalReadAfterStart)}) : utilisé tel quel.
       </span>
@@ -66,7 +66,7 @@ function ContractEndWarning({ check }: { check: ContractEndCheck }) {
   );
 }
 
-/** End month shown in the "Fin avec / sans plan" columns. */
+/** End month shown for "Fin avec / sans plan". */
 function endText(row: LoanRow, month: YearMonth | null): string {
   if (row.paidOffBeforeStart) return `Soldé (${formatMonthShort(row.paidOffBeforeStart)})`;
   return payoffText(month);
@@ -102,6 +102,32 @@ function Advice({ advice }: { advice: LoanAdvice }) {
   return <span className={advice === "worthIt" ? "text-green-800" : "text-muted-foreground"}>{ADVICE_LABEL[advice]}</span>;
 }
 
+/** Early-repayment verdict with the priority rank underneath (desktop table). */
+function EligibleWithPriority({ eligible, priority }: { eligible: boolean; priority: number | null }) {
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <EligibleBadge eligible={eligible} />
+      {priority !== null ? <span className="whitespace-nowrap tabular-nums">Priorité {priority}</span> : null}
+    </div>
+  );
+}
+
+/** Several labelled values in one cell (e.g. "avec plan : … / sans plan : …"). */
+function LabelledValues({ items, align = "start" }: { items: { label: string; value: ReactNode }[]; align?: "start" | "end" }) {
+  return (
+    <dl
+      className={`grid grid-cols-[auto_auto] items-baseline gap-x-2 gap-y-0.5 ${align === "end" ? "justify-end" : "justify-start"}`}
+    >
+      {items.map((item) => (
+        <Fragment key={item.label}>
+          <dt className="whitespace-nowrap text-xs text-muted-foreground">{item.label}</dt>
+          <dd className={`whitespace-nowrap tabular-nums ${align === "end" ? "text-right" : ""}`}>{item.value}</dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
+}
+
 function BelowInterestWarning() {
   return (
     <p className="mt-1 flex items-start gap-1 text-xs font-medium text-red-700">
@@ -114,13 +140,15 @@ function BelowInterestWarning() {
 interface RowActionsProps {
   row: LoanRow;
   editing: boolean;
+  /** Buttons one above the other (narrow table column). */
+  stacked?: boolean;
   onEdit: () => void;
   onDeleted: (message: string) => void;
 }
 
-function RowActions({ row, editing, onEdit, onDeleted }: RowActionsProps) {
+function RowActions({ row, editing, stacked, onEdit, onDeleted }: RowActionsProps) {
   return (
-    <div className="flex flex-wrap items-start gap-2">
+    <div className={stacked ? "flex flex-col items-stretch gap-2" : "flex flex-wrap items-start gap-2"}>
       <Button
         type="button"
         variant="outline"
@@ -164,11 +192,12 @@ export function LoansManager({
     setNotice((prev) => ({ message, focus, seq: (prev?.seq ?? 0) + 1 }));
   }
 
-  function actionsFor(row: LoanRow) {
+  function actionsFor(row: LoanRow, stacked = false) {
     return (
       <RowActions
         row={row}
         editing={row.id === editingId}
+        stacked={stacked}
         onEdit={() => setEditingId(row.id)}
         onDeleted={(message) => {
           if (row.id === editingId) setEditingId(null);
@@ -199,14 +228,13 @@ export function LoansManager({
         </p>
       ) : (
         <>
-          {/* Large screens: full table (scrolls horizontally if needed). */}
-          <div className="hidden rounded-lg border lg:block">
+          {/* From 1280px: full table, compacted so it fits without horizontal scrolling. */}
+          <div className="hidden rounded-lg border xl:block">
             <Table>
               <caption className="sr-only">Crédits en cours et totaux</caption>
               <TableHeader>
-                <TableRow>
+                <TableRow className="[&>th]:whitespace-normal [&>th]:align-bottom [&>th]:py-2">
                   <TableHead scope="col">Nom</TableHead>
-                  <TableHead scope="col">Type</TableHead>
                   <TableHead scope="col" className="text-right">
                     Capital restant dû
                   </TableHead>
@@ -216,24 +244,20 @@ export function LoansManager({
                   <TableHead scope="col" className="text-right">
                     Mensualité
                   </TableHead>
-                  <TableHead scope="col">Fin du contrat</TableHead>
                   {hasPlan ? (
                     <>
-                      <TableHead scope="col">Remb. anticipé rentable</TableHead>
-                      <TableHead scope="col" className="text-center">
-                        Priorité
+                      <TableHead scope="col" className="min-w-28">
+                        Remb. anticipé rentable (priorité)
                       </TableHead>
                       <TableHead scope="col">Conseil</TableHead>
-                      <TableHead scope="col">Fin avec plan</TableHead>
-                      <TableHead scope="col">Fin sans plan</TableHead>
+                      <TableHead scope="col">Fin du crédit</TableHead>
                       <TableHead scope="col" className="text-right">
-                        Intérêts avec plan
-                      </TableHead>
-                      <TableHead scope="col" className="text-right">
-                        Intérêts sans plan
+                        Intérêts
                       </TableHead>
                     </>
-                  ) : null}
+                  ) : (
+                    <TableHead scope="col">Fin du contrat</TableHead>
+                  )}
                   <TableHead scope="col">
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -242,49 +266,65 @@ export function LoansManager({
               <TableBody>
                 {rows.map((row) => (
                   <TableRow key={row.id} data-state={row.id === editingId ? "selected" : undefined}>
-                    <TableHead scope="row" className="min-w-40 whitespace-normal align-top font-medium">
+                    <TableHead scope="row" className="h-auto min-w-36 whitespace-normal py-2 align-top font-medium">
                       {row.displayName}
+                      {row.type ? (
+                        <span className="block text-xs font-normal text-muted-foreground">{row.type}</span>
+                      ) : null}
                       {row.paymentBelowInterest ? <BelowInterestWarning /> : null}
                       {row.endCheck ? <ContractEndWarning check={row.endCheck} /> : null}
                     </TableHead>
-                    <TableCell className="align-top">{row.type ?? "—"}</TableCell>
-                    <TableCell className="text-right align-top tabular-nums">
+                    <TableCell className="min-w-28 text-right align-top tabular-nums">
                       {formatEuros(row.principal)}
                       <PrincipalNote row={row} />
                     </TableCell>
                     <TableCell className="text-right align-top tabular-nums">{formatPercent(row.apr)}</TableCell>
                     <TableCell className="text-right align-top tabular-nums">{formatEuros(row.monthlyPayment)}</TableCell>
-                    <TableCell className="align-top">{contractEndText(row)}</TableCell>
-                    {row.derived ? (
-                      <>
-                        <TableCell className="align-top">
-                          <EligibleBadge eligible={row.derived.eligible} />
+                    {hasPlan ? (
+                      row.derived ? (
+                        <>
+                          <TableCell className="align-top">
+                            <EligibleWithPriority eligible={row.derived.eligible} priority={row.derived.priority} />
+                          </TableCell>
+                          <TableCell className="min-w-32 whitespace-normal align-top">
+                            <Advice advice={row.derived.advice} />
+                          </TableCell>
+                          <TableCell className="align-top">
+                            <LabelledValues
+                              items={[
+                                ...(row.contractEndMonth
+                                  ? [{ label: "contrat", value: contractEndText(row) }]
+                                  : []),
+                                { label: "avec plan", value: endText(row, row.derived.payoffMonthWithPlan) },
+                                { label: "sans plan", value: endText(row, row.derived.payoffMonthWithoutPlan) },
+                              ]}
+                            />
+                          </TableCell>
+                          <TableCell className="align-top">
+                            <LabelledValues
+                              align="end"
+                              items={[
+                                { label: "avec plan", value: formatEuros(row.derived.interestWithPlan) },
+                                { label: "sans plan", value: formatEuros(row.derived.interestWithoutPlan) },
+                              ]}
+                            />
+                          </TableCell>
+                        </>
+                      ) : (
+                        <TableCell colSpan={4} className="align-top text-muted-foreground">
+                          —
                         </TableCell>
-                        <TableCell className="text-center align-top tabular-nums">
-                          {row.derived.priority ?? "—"}
-                        </TableCell>
-                        <TableCell className="min-w-44 whitespace-normal align-top">
-                          <Advice advice={row.derived.advice} />
-                        </TableCell>
-                        <TableCell className="align-top">{endText(row, row.derived.payoffMonthWithPlan)}</TableCell>
-                        <TableCell className="align-top">{endText(row, row.derived.payoffMonthWithoutPlan)}</TableCell>
-                        <TableCell className="text-right align-top tabular-nums">
-                          {formatEuros(row.derived.interestWithPlan)}
-                        </TableCell>
-                        <TableCell className="text-right align-top tabular-nums">
-                          {formatEuros(row.derived.interestWithoutPlan)}
-                        </TableCell>
-                      </>
-                    ) : null}
-                    <TableCell className="align-top">{actionsFor(row)}</TableCell>
+                      )
+                    ) : (
+                      <TableCell className="align-top">{contractEndText(row)}</TableCell>
+                    )}
+                    <TableCell className="align-top">{actionsFor(row, true)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableHead scope="row" colSpan={2}>
-                    Total
-                  </TableHead>
+                  <TableHead scope="row">Total</TableHead>
                   <TableCell className="text-right font-semibold tabular-nums">
                     {formatEuros(totals.totalPrincipal)}
                   </TableCell>
@@ -295,17 +335,17 @@ export function LoansManager({
                   <TableCell className="text-right font-semibold tabular-nums">
                     {formatEuros(totals.monthlyPayments)}
                   </TableCell>
-                  <TableCell colSpan={hasPlan ? 9 : 2} />
+                  <TableCell colSpan={hasPlan ? 5 : 2} />
                 </TableRow>
               </TableFooter>
             </Table>
           </div>
 
-          {/* Small screens: one card per loan. */}
-          <ul className="flex flex-col gap-3 lg:hidden" aria-label="Crédits en cours">
+          {/* Below 1280px: one card per loan (two columns from 768px), never a horizontal scrollbar. */}
+          <ul className="flex flex-col gap-3 md:grid md:grid-cols-2 xl:hidden" aria-label="Crédits en cours">
             {rows.map((row) => (
               <li key={row.id}>
-                <Card className={row.id === editingId ? "ring-2 ring-ring" : undefined}>
+                <Card className={row.id === editingId ? "h-full ring-2 ring-ring" : "h-full"}>
                   <CardContent className="flex flex-col gap-3">
                     <div>
                       <h3 className="font-semibold">{row.displayName}</h3>
@@ -347,7 +387,7 @@ export function LoansManager({
               </li>
             ))}
           </ul>
-          <Card className="lg:hidden">
+          <Card className="xl:hidden">
             <CardContent>
               <h3 className="mb-2 font-semibold">Total</h3>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
