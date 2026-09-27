@@ -1,0 +1,148 @@
+/** /credits view-model: rows (with and without a plan), totals (SPEC §5) and form reading. */
+import { describe, expect, it } from "vitest";
+import {
+  buildLoanRows,
+  computeLoanTotals,
+  isPaymentBelowInterest,
+  loanDisplayName,
+  loanToForm,
+  readLoanForm,
+  readLoanId,
+} from "@/app/(app)/credits/loan-view";
+import { computePlan } from "@/lib/domain/plan";
+import type { FinanceSnapshot, Loan } from "@/lib/domain/types";
+import { validateLoan } from "@/lib/domain/validation";
+
+function loan(id: string, over: Partial<Loan> = {}): Loan {
+  return {
+    id,
+    name: null,
+    type: null,
+    principal: 1_000_000,
+    apr: 0.05,
+    monthlyPayment: 20_000,
+    position: 0,
+    archivedAt: null,
+    ...over,
+  };
+}
+
+const loans: Loan[] = [
+  loan("a", { name: "Auto", type: "Prêt affecté", principal: 800_000, apr: 0.049, monthlyPayment: 25_000 }),
+  loan("b", { principal: 200_000, apr: 0.189, monthlyPayment: 10_000, position: 1 }),
+  loan("c", { name: "  ", principal: 50_000, apr: 0, monthlyPayment: 5_000, position: 2 }),
+];
+
+function snapshot(withSettings: boolean): FinanceSnapshot {
+  return {
+    settings: withSettings
+      ? {
+          startMonth: "2026-01",
+          movingGoal: 500_000,
+          movingDeadlineMonth: "2027-06",
+          movingAlreadySaved: 0,
+          emergencyTarget: 300_000,
+          emergencyExisting: 0,
+          riskFreeRate: 0.03,
+          earlyRepaymentPct: 0.5,
+        }
+      : null,
+    lines: [
+      { id: "i", category: "income", label: "Salaire", amount: 300_000, position: 0 },
+      { id: "f", category: "fixed", label: "Loyer", amount: 90_000, position: 0 },
+    ],
+    loans,
+    archivedLoans: [],
+    actuals: [],
+  };
+}
+
+describe("loanDisplayName", () => {
+  it("falls back to 'Crédit n' for empty names", () => {
+    expect(loanDisplayName({ name: "Auto" }, 0)).toBe("Auto");
+    expect(loanDisplayName({ name: null }, 1)).toBe("Crédit 2");
+    expect(loanDisplayName({ name: "   " }, 2)).toBe("Crédit 3");
+  });
+});
+
+describe("buildLoanRows", () => {
+  it("without a plan: loans in entry order, no derived values", () => {
+    const rows = buildLoanRows(loans, null);
+    expect(rows.map((r) => r.displayName)).toEqual(["Auto", "Crédit 2", "Crédit 3"]);
+    expect(rows.every((r) => r.derived === null)).toBe(true);
+    expect(rows[0]).toMatchObject({ type: "Prêt affecté", principal: 800_000, apr: 0.049, monthlyPayment: 25_000 });
+  });
+
+  it("with a plan: derived values come from the engine, in the same order", () => {
+    const plan = computePlan(snapshot(true));
+    const rows = buildLoanRows(loans, plan);
+    expect(rows.map((r) => r.displayName)).toEqual(["Auto", "Crédit 2", "Crédit 3"]);
+    // Avalanche: 18.9 % first, 4.9 % second, 0 % never eligible.
+    expect(rows.map((r) => r.derived?.priority)).toEqual([2, 1, null]);
+    expect(rows.map((r) => r.derived?.eligible)).toEqual([true, true, false]);
+    expect(rows.map((r) => r.derived?.advice)).toEqual(["worthIt", "highRate", "keep"]);
+    for (const r of rows) {
+      expect(r.derived!.interestWithPlan).toBeLessThanOrEqual(r.derived!.interestWithoutPlan);
+    }
+  });
+});
+
+describe("isPaymentBelowInterest (SPEC D10)", () => {
+  it("flags a payment that does not exceed the first month's interest", () => {
+    // 10 000 € at 12 % → 100 € interest per month.
+    expect(isPaymentBelowInterest({ principal: 1_000_000, apr: 0.12, monthlyPayment: 10_000 })).toBe(true);
+    expect(isPaymentBelowInterest({ principal: 1_000_000, apr: 0.12, monthlyPayment: 10_001 })).toBe(false);
+  });
+
+  it("matches the engine's flag when a plan exists", () => {
+    const low = [loan("x", { principal: 1_000_000, apr: 0.12, monthlyPayment: 9_000 })];
+    const plan = computePlan({ ...snapshot(true), loans: low });
+    expect(buildLoanRows(low, plan)[0]?.paymentBelowInterest).toBe(true);
+    expect(buildLoanRows(low, null)[0]?.paymentBelowInterest).toBe(true);
+  });
+});
+
+describe("computeLoanTotals", () => {
+  it("computes SPEC §5 totals without a plan", () => {
+    const totals = computeLoanTotals(loans, null);
+    expect(totals.totalPrincipal).toBe(1_050_000);
+    expect(totals.monthlyPayments).toBe(40_000);
+    expect(totals.weightedApr).toBeCloseTo((800_000 * 0.049 + 200_000 * 0.189) / 1_050_000, 12);
+  });
+
+  it("returns 0 % weighted APR when there are no loans", () => {
+    expect(computeLoanTotals([], null)).toEqual({ totalPrincipal: 0, weightedApr: 0, monthlyPayments: 0 });
+  });
+
+  it("agrees with the engine KPIs when a plan exists", () => {
+    const plan = computePlan(snapshot(true));
+    const withPlan = computeLoanTotals(loans, plan);
+    const withoutPlan = computeLoanTotals(loans, null);
+    expect(withPlan.totalPrincipal).toBe(withoutPlan.totalPrincipal);
+    expect(withPlan.monthlyPayments).toBe(withoutPlan.monthlyPayments);
+    expect(withPlan.weightedApr).toBeCloseTo(withoutPlan.weightedApr, 12);
+  });
+});
+
+describe("form helpers", () => {
+  it("loanToForm round-trips through validateLoan", () => {
+    const form = loanToForm(loans[0]!);
+    expect(form).toEqual({ name: "Auto", type: "Prêt affecté", principal: "8000,00", apr: "4,9", monthlyPayment: "250,00" });
+    const validated = validateLoan(form, 0);
+    expect(validated).toEqual({
+      ok: true,
+      value: { name: "Auto", type: "Prêt affecté", principal: 800_000, apr: 0.049, monthlyPayment: 25_000 },
+    });
+  });
+
+  it("readLoanForm / readLoanId tolerate missing and non-text fields", () => {
+    const fd = new FormData();
+    fd.set("name", "Auto");
+    fd.set("principal", "1 000");
+    fd.set("apr", new Blob(["x"]));
+    expect(readLoanForm(fd)).toEqual({ name: "Auto", type: "", principal: "1 000", apr: "", monthlyPayment: "" });
+    expect(readLoanId(fd)).toBe("");
+    fd.set("id", " abc ");
+    expect(readLoanId(fd)).toBe("abc");
+  });
+});
