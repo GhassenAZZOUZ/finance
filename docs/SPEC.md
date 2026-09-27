@@ -48,6 +48,7 @@ from our code.
 | D3 | Dates | `startMonth` and `movingDeadlineMonth` are `YYYY-MM` months. Month granularity everywhere |
 | D4 | Personal debts | No special rule. A 0 % personal debt behaves exactly as in the spreadsheet: normal payments only, never eligible for early repayment. "Dette personnelle" is just a loan type label |
 | D5 | Remaining months | **Dropped** (the input and its 3 derived columns). Replaced by simulated payoff months and per-loan interest (§5) |
+| D17 | "Et si…" simulator (issue #2) | A page compares the saved plan with a simulation that is **never saved**: early-repayment %, risk-free threshold and budget line amounts can be changed, and one-off **extra repayments** added (loan, month within the plan, amount > 0). An extra repayment is paid after that month's normal payment and **before** the avalanche (which then works on the reduced balance), capped at the balance left; the simulator refuses a larger amount. Its money comes either from the **free savings** (deducted from `freeSavingsCum` that month, which may then go negative: the UI warns) or from **outside the plan** (bonus, gift: no other effect). The monthly allocation (§6) is unchanged. Not stored and not used by the dashboard: without extra repayments the engine is unchanged (golden data unchanged) |
 | D16 | Re-basing the plan (issue #5) | Each check-in stores the planned debt, savings, income and expenses it was compared with, plus the plan's start month (frozen at save time; a re-save keeps them). Comparisons use frozen values when present, so later plan changes never rewrite past gaps. "Recaler le plan" (from the latest check-in M): freezes unfrozen check-ins, sets start month = M+1, moving/emergency/free savings starting amounts = M's balances (new `freeSavingsExisting`, default 0), loan principals = M's balances read after M's payment (D5c), loans at 0 archived |
 | D15 | Budget lines with a period (issue #1) | A budget line may have an optional `startMonth` and/or `endMonth` (inclusive, `YYYY-MM`; null = open; end ≥ start). Each month's regular income and expenses are the sums of the lines active that month; one-off exceptions (D14) apply on top. KPIs (monthly income, expenses, margin, debt ratio) describe the **reference month** = the current month kept within the plan (plan start before it starts, month 300 after it ends), and the UI names that month. Lines without a period behave exactly as before (golden data unchanged) |
 | D14 | One-off budget exceptions (2026-09-27) | The regular budget applies to every month; `budget_exceptions` add extra income or extra expenses to a single month (label, amount > 0). That month's `income`/`expenses` (and so its allocation) include them; months outside the plan are ignored. KPIs (monthly income, expenses, margin, debt ratio, emergency-fund suggestion) keep describing the regular month. Check-in income/expense gaps compare with that month's budget. Deviation from the spreadsheet (constant budget) |
@@ -147,10 +148,11 @@ interest             = round2(startBalance × apr_i / 12)
 paymentPaid          = normalPayment(startBalance + interest, monthlyPayment_i)
                        where normalPayment(due, m) = due − m < 1 € ? due : m      (D13; spreadsheet: min(m, due))
 balanceAfterPayment  = startBalance + interest − paymentPaid
+extraRepayment       = min(Σ extra repayments on i in m, balanceAfterPayment)            (D17, simulator only; else 0)
+open                 = balanceAfterPayment − extraRepayment
 earlyRepayment       = priority_i none → 0
-                       else max(0, min(balanceAfterPayment,
-                                       toEarlyRepayment(m) − Σ_{j : priority_j < priority_i} balanceAfterPayment_j))
-endBalance           = balanceAfterPayment − earlyRepayment
+                       else max(0, min(open, toEarlyRepayment(m) − Σ_{j : priority_j < priority_i} open_j))
+endBalance           = open − earlyRepayment
 ```
 
 - The early-repayment formula is the **avalanche**: the month's early-repayment budget fills
@@ -234,7 +236,8 @@ remainder      (K)    = max(0, available − toMoving − toEmergency)
 toEarlyRepayment (L)  = round2(remainder × earlyRepaymentPct)
 unusedEarlyRepayment (M) = max(0, toEarlyRepayment − totalEarlyRepayment(m))
 toFreeSavings  (N)    = remainder − toEarlyRepayment + unusedEarlyRepayment
-freeSavingsCum (O)    = freeSavingsCum(m−1) + toFreeSavings        freeSavingsCum(0) = freeSavingsExisting (D16, default 0)
+freeSavingsCum (O)    = freeSavingsCum(m−1) + toFreeSavings − extraFromFreeSavings(m)
+                        freeSavingsCum(0) = freeSavingsExisting (D16, default 0); extraFromFreeSavings: D17, else 0
 
 Debts / flags
 remainingDebt  (P)    = totalEndDebt(m)

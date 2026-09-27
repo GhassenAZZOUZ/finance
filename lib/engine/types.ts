@@ -60,9 +60,25 @@ export interface LoanInput {
   monthlyPayment: Cents;
 }
 
+/**
+ * A one-off extra repayment on one loan (SPEC D17, "Et si…" simulator only): paid after that
+ * month's normal payment and before the avalanche, capped at the loan's remaining balance.
+ */
+export interface ExtraRepaymentInput {
+  month: YearMonth;
+  /** `LoanInput.id`; unknown ids are ignored. */
+  loanId: string;
+  /** > 0 */
+  amount: Cents;
+  /** "freeSavings": taken from the cumulative free savings; "external": money from outside the plan. */
+  source: "freeSavings" | "external";
+}
+
 export interface PlanInput {
   budget: BudgetParams;
   loans: readonly LoanInput[];
+  /** One-off extra repayments (SPEC D17); months outside the plan are ignored. */
+  extraRepayments?: readonly ExtraRepaymentInput[];
 }
 
 /** One loan in one month (spreadsheet `Calcul` block). */
@@ -71,6 +87,8 @@ export interface LoanMonth {
   interest: Cents;
   paymentPaid: Cents;
   balanceAfterPayment: Cents;
+  /** One-off extra repayment applied this month (SPEC D17), before the avalanche. */
+  extraRepayment: Cents;
   earlyRepayment: Cents;
   endBalance: Cents;
   baselineInterest: Cents;
@@ -108,6 +126,10 @@ export interface PlanMonth {
   /** Same order as `PlanInput.loans`. */
   loans: LoanMonth[];
   totalEarlyRepayment: Cents;
+  /** Σ extraRepayment of the loans (SPEC D17). */
+  totalExtraRepayment: Cents;
+  /** Part of `totalExtraRepayment` taken from the free savings (deducted from `freeSavingsCumulative`). */
+  extraFromFreeSavings: Cents;
   totalInterest: Cents;
   totalBaselineInterest: Cents;
 }

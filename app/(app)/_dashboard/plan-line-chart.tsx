@@ -119,7 +119,8 @@ export function PlanLineChart({
               tick={{ fill: MUTED, fontSize: 12 }}
               tickLine={false}
               axisLine={false}
-              domain={[0, "auto"]}
+              // From 0, or lower when a series goes negative (e.g. simulated free savings).
+              domain={[(dataMin: number) => Math.min(0, dataMin), "auto"]}
               tickFormatter={(v: number) => formatEurosWhole(eurosToCents(v))}
             />
             <Tooltip

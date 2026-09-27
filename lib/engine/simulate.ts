@@ -91,6 +91,16 @@ export function simulatePlan(input: PlanInput): PlanResult {
     else x.expenses += e.amount;
     extras.set(e.month, x);
   }
+  // One-off extra repayments grouped per month, in input order (SPEC D17).
+  const loanIndex = new Map(loans.map((l, i) => [l.id, i]));
+  const extraRepayments = new Map<YearMonth, { index: number; amount: Cents; fromSavings: boolean }[]>();
+  for (const r of input.extraRepayments ?? []) {
+    const index = loanIndex.get(r.loanId);
+    if (index === undefined || r.amount <= 0) continue;
+    const list = extraRepayments.get(r.month) ?? [];
+    list.push({ index, amount: r.amount, fromSavings: r.source === "freeSavings" });
+    extraRepayments.set(r.month, list);
+  }
 
   let balances = loans.map((l) => Math.max(0, l.principal));
   let baselineBalances = [...balances];
@@ -121,6 +131,7 @@ export function simulatePlan(input: PlanInput): PlanResult {
         interest,
         paymentPaid,
         balanceAfterPayment: startBalance + interest - paymentPaid,
+        extraRepayment: 0,
         earlyRepayment: 0,
         endBalance: 0,
         baselineInterest,
@@ -141,19 +152,30 @@ export function simulatePlan(input: PlanInput): PlanResult {
     const remainder = Math.max(0, available - toMoving - toEmergency);
     const toEarlyRepayment = roundHalfAwayFromZero(remainder * budget.earlyRepaymentPct);
 
-    // Avalanche: each loan gets min(its post-payment balance, budget − balances of higher priorities).
+    // One-off extra repayments (SPEC D17): after the normal payment, capped at the balance left.
+    let extraFromFreeSavings = 0;
+    for (const r of extraRepayments.get(month) ?? []) {
+      const lm = loanMonths[r.index] as LoanMonth;
+      const applied = Math.min(r.amount, lm.balanceAfterPayment - lm.extraRepayment);
+      if (applied <= 0) continue;
+      lm.extraRepayment += applied;
+      if (r.fromSavings) extraFromFreeSavings += applied;
+    }
+
+    // Avalanche: each loan gets min(its open balance, budget − open balances of higher priorities).
     let higherPriorityBalances = 0;
     for (const i of avalancheOrder) {
       const lm = loanMonths[i] as LoanMonth;
-      lm.earlyRepayment = Math.max(0, Math.min(lm.balanceAfterPayment, toEarlyRepayment - higherPriorityBalances));
-      higherPriorityBalances += lm.balanceAfterPayment;
+      const open = lm.balanceAfterPayment - lm.extraRepayment;
+      lm.earlyRepayment = Math.max(0, Math.min(open, toEarlyRepayment - higherPriorityBalances));
+      higherPriorityBalances += open;
     }
-    for (const lm of loanMonths) lm.endBalance = lm.balanceAfterPayment - lm.earlyRepayment;
+    for (const lm of loanMonths) lm.endBalance = lm.balanceAfterPayment - lm.extraRepayment - lm.earlyRepayment;
 
     const totalEarlyRepayment = sumCents(loanMonths.map((l) => l.earlyRepayment));
     const unusedEarlyRepayment = Math.max(0, toEarlyRepayment - totalEarlyRepayment);
     const toFreeSavings = remainder - toEarlyRepayment + unusedEarlyRepayment;
-    const freeSavingsCumulative = freePrev + toFreeSavings;
+    const freeSavingsCumulative = freePrev + toFreeSavings - extraFromFreeSavings;
     const remainingDebt = sumCents(loanMonths.map((l) => l.endBalance));
 
     months.push({
@@ -181,6 +203,8 @@ export function simulatePlan(input: PlanInput): PlanResult {
       debtFree: remainingDebt <= PAID_OFF_THRESHOLD,
       loans: loanMonths,
       totalEarlyRepayment,
+      totalExtraRepayment: sumCents(loanMonths.map((l) => l.extraRepayment)),
+      extraFromFreeSavings,
       totalInterest: sumCents(loanMonths.map((l) => l.interest)),
       totalBaselineInterest: sumCents(loanMonths.map((l) => l.baselineInterest)),
     });
