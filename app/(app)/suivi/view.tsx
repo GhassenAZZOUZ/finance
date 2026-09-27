@@ -1,24 +1,35 @@
 "use client";
 
 import { CalendarClock } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useFinance } from "@/components/app/finance-provider";
 import { Onboarding } from "@/components/app/onboarding";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useFinance } from "@/components/app/finance-provider";
 import { planRebase } from "@/lib/domain/rebase";
 import type { ActualForm } from "@/lib/domain/validation";
-import { compareMonths } from "@/lib/engine";
+import { type ActualStatus, compareMonths } from "@/lib/engine";
 import { currentYearMonth, formatMonthLong } from "@/lib/format";
+import { ActualVsPlannedCard } from "./actual-vs-planned";
 import { CheckInForm } from "./check-in-form";
-import { History } from "./history";
-import { type PlannedValues, buildHistory, checkInMonths, plannedForMonth, prefillForm } from "./logic";
+import { History, HistoryList } from "./history";
+import {
+  type PlannedValues,
+  buildHistory,
+  checkInMonths,
+  parseMonthParam,
+  pendingCheckIns,
+  plannedForMonth,
+  prefillForm,
+} from "./logic";
 import { RebaseCard } from "./rebase-card";
 
 const TITLE = "Suivi mensuel";
-const DESCRIPTION = "Chaque mois, reportez vos soldes réels pour comparer avec le plan.";
+const DESCRIPTION = "En fin de mois, reportez vos soldes réels. L’écart avec le plan s’affiche pendant la saisie.";
 
 export function SuiviView() {
   const { snapshot, plan } = useFinance();
+  const monthParam = useSearchParams().get("mois");
 
   if (!plan || !snapshot.settings) {
     return (
@@ -36,6 +47,7 @@ export function SuiviView() {
   const hasActuals = snapshot.actuals.length > 0;
 
   const months = notStarted ? [] : checkInMonths(startMonth, currentMonth);
+  const entered = snapshot.actuals.map((a) => a.month);
   const actualsByMonth = new Map(snapshot.actuals.map((a) => [a.month, a]));
   const values: Record<string, ActualForm> = {};
   const planned: Record<string, PlannedValues | null> = {};
@@ -43,19 +55,24 @@ export function SuiviView() {
     values[month] = prefillForm(month, actualsByMonth.get(month), snapshot.loans);
     planned[month] = plannedForMonth(plan.result, startMonth, month);
   }
+  const statuses: Record<string, ActualStatus | null> = Object.fromEntries(plan.comparisons.map((c) => [c.month, c.status]));
+  // ?mois= (sidebar, dashboard), else the oldest month still to enter, else the current month.
+  const initialMonth =
+    parseMonthParam(monthParam, months) ?? pendingCheckIns(startMonth, currentMonth, entered)[0] ?? months[0];
   const loans = snapshot.loans.map((loan, j) => ({
     id: loan.id,
     label: plan.result.loans[j]?.displayName ?? loan.name ?? `Crédit ${j + 1}`,
   }));
   const loanLabels = Object.fromEntries(loans.map((l) => [l.id, l.label]));
+  const history = buildHistory(plan.comparisons, snapshot.actuals);
 
   return (
     <>
       <PageHeader title={TITLE} description={DESCRIPTION} />
 
-      <div className="flex flex-col gap-8">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_23.75rem]">
         {notStarted ? (
-          <Card className="w-full max-w-xl">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CalendarClock aria-hidden className="size-5 shrink-0" />
@@ -68,19 +85,16 @@ export function SuiviView() {
             </CardHeader>
           </Card>
         ) : (
-          <Card className="w-full max-w-xl overflow-visible">
-            <CardHeader>
-              <CardTitle>
-                <h2>Saisie du mois</h2>
-              </CardTitle>
-              <CardDescription>Soldes relevés en fin de mois sur vos comptes et relevés de crédit.</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <Card className="overflow-visible">
+            <CardContent className="md:px-7">
               <CheckInForm
-                key={startMonth}
+                key={`${startMonth}-${monthParam ?? ""}`}
                 months={months}
+                initialMonth={initialMonth}
                 values={values}
-                existing={snapshot.actuals.map((a) => a.month)}
+                existing={entered}
+                statuses={statuses}
+                currentMonth={currentMonth}
                 planned={planned}
                 loans={loans}
               />
@@ -88,21 +102,33 @@ export function SuiviView() {
           </Card>
         )}
 
-        <RebaseCard preview={planRebase(snapshot, plan)} startMonth={startMonth} loanLabels={loanLabels} />
-
-        {notStarted && !hasActuals ? null : (
-          <section aria-labelledby="suivi-history-title" className="flex min-w-0 flex-col gap-4">
-            <h2 id="suivi-history-title" className="text-lg font-semibold">
-              Historique
-            </h2>
-            <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-              Écart dettes : vert si ≤ prévu (+10 € de tolérance). Écart épargne : vert si ≥ prévu (−10 € de tolérance).
-              Statut : les deux verts → Dans les temps ; les deux rouges → En retard ; sinon Mitigé.
-            </p>
-            <History entries={buildHistory(plan.comparisons, snapshot.actuals)} />
-          </section>
-        )}
+        <div className="flex flex-col gap-4">
+          {notStarted && !hasActuals ? null : (
+            <section aria-labelledby="suivi-history-title" className="flex flex-col gap-3.5 rounded-2xl border bg-card p-4 md:p-6">
+              <h2 id="suivi-history-title" className="text-[17px] font-semibold">
+                Historique
+              </h2>
+              <HistoryList months={months} entries={history} currentMonth={currentMonth} />
+              <p className="rounded-[10px] bg-secondary px-3 py-2.5 text-[13px] leading-normal text-muted-foreground">
+                Écart dettes vert si ≤ +10 €, écart épargne vert si ≥ −10 €. Les deux verts : dans les temps ; les deux
+                rouges : en retard ; sinon mitigé.
+              </p>
+            </section>
+          )}
+          <RebaseCard preview={planRebase(snapshot, plan)} startMonth={startMonth} loanLabels={loanLabels} />
+        </div>
       </div>
+
+      <ActualVsPlannedCard comparisons={plan.comparisons} />
+
+      {history.length > 0 ? (
+        <section aria-labelledby="suivi-detail-title" className="flex min-w-0 flex-col gap-4">
+          <h2 id="suivi-detail-title" className="text-[17px] font-semibold">
+            Détail des saisies
+          </h2>
+          <History entries={history} />
+        </section>
+      ) : null}
     </>
   );
 }

@@ -212,3 +212,43 @@ export function readLoanForm(formData: FormData): LoanForm {
 export function readLoanId(formData: FormData): string {
   return text(formData, "id").trim();
 }
+
+/** Rows in early-repayment order: eligible loans by priority, then the others by APR (highest first). */
+export function sortByPriority(rows: readonly LoanRow[]): LoanRow[] {
+  return [...rows].sort((a, b) => {
+    const pa = a.derived?.priority ?? null;
+    const pb = b.derived?.priority ?? null;
+    if (pa !== null && pb !== null) return pa - pb;
+    if (pa !== null) return -1;
+    if (pb !== null) return 1;
+    return b.apr - a.apr;
+  });
+}
+
+/** Months saved by the plan on this loan's payoff (without − with), null when unknown or beyond 25 years. */
+export function payoffGain(derived: Pick<LoanDerived, "payoffMonthWithPlan" | "payoffMonthWithoutPlan">): number | null {
+  const { payoffMonthWithPlan: withPlan, payoffMonthWithoutPlan: without } = derived;
+  return withPlan && without ? monthsBetween(withPlan, without) : null;
+}
+
+export interface TimelineScale {
+  start: YearMonth;
+  /** Number of months drawn (≥ 12). */
+  months: number;
+}
+
+/** Time axis of the payoff timelines: from the plan start to the latest payoff without the plan (+1 month). */
+export function timelineScale(rows: readonly LoanRow[], startMonth: YearMonth): TimelineScale {
+  let months = 12;
+  for (const row of rows) {
+    for (const m of [row.derived?.payoffMonthWithPlan, row.derived?.payoffMonthWithoutPlan]) {
+      if (m) months = Math.max(months, monthsBetween(startMonth, m) + 2);
+    }
+  }
+  return { start: startMonth, months };
+}
+
+/** Position (0..1) of the middle of `month` on the scale, clamped. */
+export function timelinePosition(scale: TimelineScale, month: YearMonth): number {
+  return Math.min(1, Math.max(0, (monthsBetween(scale.start, month) + 0.5) / scale.months));
+}

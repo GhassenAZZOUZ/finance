@@ -69,7 +69,7 @@ describe("CheckInForm", () => {
   it("requires every savings balance", async () => {
     const user = renderForm();
     await fillAllRequired(user, "Fonds d’urgence");
-    await user.click(screen.getByRole("button", { name: "Enregistrer le mois" }));
+    await user.click(screen.getByRole("button", { name: "Enregistrer mai 2026" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("Certains champs sont à corriger.");
     expect(screen.getAllByText("Montant requis")).toHaveLength(1);
@@ -83,7 +83,7 @@ describe("CheckInForm", () => {
   it("requires every loan balance", async () => {
     const user = renderForm();
     await fillAllRequired(user, "Travaux");
-    await user.click(screen.getByRole("button", { name: "Enregistrer le mois" }));
+    await user.click(screen.getByRole("button", { name: "Enregistrer mai 2026" }));
 
     await screen.findByRole("alert");
     expect(screen.getAllByText("Montant requis")).toHaveLength(1);
@@ -94,7 +94,7 @@ describe("CheckInForm", () => {
 
   it("flags every empty required field when nothing is entered", async () => {
     const user = renderForm();
-    await user.click(screen.getByRole("button", { name: "Enregistrer le mois" }));
+    await user.click(screen.getByRole("button", { name: "Enregistrer mai 2026" }));
 
     await screen.findByRole("alert");
     expect(screen.getAllByText("Montant requis")).toHaveLength(5);
@@ -105,7 +105,7 @@ describe("CheckInForm", () => {
     const user = renderForm();
     await fillAllRequired(user);
     await user.type(field("Revenus réels"), "2 500");
-    await user.click(screen.getByRole("button", { name: "Enregistrer le mois" }));
+    await user.click(screen.getByRole("button", { name: "Enregistrer mai 2026" }));
 
     await waitFor(() => expect(mocks.repo?.saveActual).toHaveBeenCalledTimes(1));
     expect(mocks.repo?.saveActual).toHaveBeenCalledWith({

@@ -43,7 +43,7 @@ export function LoginForm() {
 
   if (state.status === "sent") {
     return (
-      <div role="status" className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-900">
+      <div role="status" className="rounded-md border border-good-border bg-good-bg px-4 py-3 text-sm text-good">
         <p className="font-medium">Lien envoyé à {state.email}.</p>
         <p className="mt-1">
           Ouvrez l’e-mail et cliquez sur le lien pour vous connecter, <strong>sur cet appareil et dans ce navigateur</strong>.
@@ -55,7 +55,7 @@ export function LoginForm() {
   return (
     <>
       {linkError ? (
-        <p role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="rounded-md border border-bad-border bg-bad-bg px-3 py-2 text-sm text-bad">
           Ce lien de connexion est invalide, a expiré, ou a été ouvert dans un autre navigateur que celui où vous
           l’avez demandé. Demandez-en un nouveau.
         </p>
@@ -75,7 +75,7 @@ export function LoginForm() {
             aria-describedby={state.status === "error" ? "email-error" : undefined}
           />
           {state.status === "error" ? (
-            <p id="email-error" className="text-sm text-red-700">
+            <p id="email-error" className="text-sm text-bad">
               {state.message}
             </p>
           ) : null}

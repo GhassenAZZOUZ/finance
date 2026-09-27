@@ -1,115 +1,195 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { CircleCheck, Flag, PencilLine, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
+import { useFinance } from "@/components/app/finance-provider";
 import { Onboarding } from "@/components/app/onboarding";
 import { PageHeader } from "@/components/app/page-header";
+import { PHASE_STYLE } from "@/components/app/tones";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useFinance } from "@/components/app/finance-provider";
-import { HORIZON_MONTHS } from "@/lib/engine";
-import { formatMonthLong } from "@/lib/format";
+import type { ComputedPlan } from "@/lib/domain/plan";
+import { HORIZON_MONTHS, monthsBetween } from "@/lib/engine";
+import { formatEuros, formatMonthLong, formatMonthShort } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { type PlanPhase, phaseLabel, planPhases } from "../_dashboard/logic";
 import { exceptionsByPlanIndex } from "./exceptions";
-import { DEFAULT_ROW_COUNT, findMilestones, parseRowCount } from "./milestones";
+import { ROW_COUNTS, findMilestones, parseRowCount } from "./milestones";
 import { PlanTable } from "./plan-table";
+
+const TITLE = "Plan mois par mois";
 
 export function PlanView() {
   const { snapshot, plan } = useFinance();
-  const mois = useSearchParams().get("mois") ?? undefined;
+  const rowCount = parseRowCount(useSearchParams().get("mois"));
   if (!plan) {
     return (
       <>
-        <PageHeader title="Plan mois par mois" />
+        <PageHeader title={TITLE} />
         <Onboarding hasBudget={false} loanCount={snapshot.loans.length} />
       </>
     );
   }
 
   const milestones = findMilestones(plan.input, plan.result);
-  const rowCount = parseRowCount(mois);
-  const showAll = rowCount === HORIZON_MONTHS;
   const months = plan.result.months.slice(0, rowCount);
   const exceptions = exceptionsByPlanIndex(snapshot.exceptions, plan.input.budget.startMonth, plan.result.months.length);
+  const phases = planPhases(plan.result.months);
+  const todayIndex = monthsBetween(plan.input.budget.startMonth, plan.referenceMonth) + 1;
+  const next = ROW_COUNTS.find((r) => r.count > rowCount);
 
   return (
     <>
       <PageHeader
-        title="Plan mois par mois"
-        description="Chaque ligne = 1 mois. L'argent disponible est réparti dans l'ordre ① → ② → ③ → ④. Pour changer le résultat, modifiez Budget ou Crédits."
+        title={TITLE}
+        description="Chaque mois, le disponible remplit ① le déménagement, ② le fonds d’urgence, puis ③ se partage entre remboursement anticipé et épargne libre. Pour changer le résultat, modifiez le budget ou les crédits."
+        actions={<RangeControl rowCount={rowCount} />}
       />
 
       {milestones.negativeCount > 0 && milestones.firstNegativeMonth ? (
-        <Alert variant="destructive" className="border-red-300 bg-red-50 text-red-900">
+        <Alert variant="destructive" className="rounded-2xl border-bad-border bg-bad-bg text-bad">
           <TriangleAlert aria-hidden />
           <AlertTitle>
             {milestones.negativeCount} mois en budget négatif (premier : {formatMonthLong(milestones.firstNegativeMonth)})
           </AlertTitle>
-          <AlertDescription className="text-red-900">
-            Vos dépenses dépassent vos revenus : ces mois-là rien n&apos;est épargné.
+          <AlertDescription className="text-bad">
+            Vos dépenses dépassent vos revenus : ces mois-là rien n’est épargné.
           </AlertDescription>
         </Alert>
       ) : null}
 
-      <section aria-labelledby="plan-legend" className="flex flex-col gap-2 text-sm">
-        <h2 id="plan-legend" className="font-medium">
-          Légende
-        </h2>
-        <ul className="flex flex-wrap gap-x-5 gap-y-2">
-          <LegendItem swatch="bg-[#9C4409] text-white" icon={<CircleCheck aria-hidden className="size-3.5" />}>
-            Premier mois où un objectif est atteint (déménagement, fonds d&apos;urgence, plus de dettes)
-          </LegendItem>
-          <LegendItem swatch="bg-[#C65911]/15">Objectif déjà atteint (mois suivants)</LegendItem>
-          <LegendItem swatch="border border-[#A00000] bg-white text-[#A00000]" icon={<CircleCheck aria-hidden className="size-3.5" />}>
-            Crédit soldé ce mois-ci
-          </LegendItem>
-          <LegendItem swatch="text-[#9C4409]" icon={<Flag aria-hidden className="size-3.5" />}>
-            Date limite du déménagement
-          </LegendItem>
-          <LegendItem swatch="bg-red-100 text-red-800" icon={<TriangleAlert aria-hidden className="size-3.5" />}>
-            Budget négatif : rien n&apos;est épargné ce mois-là
-          </LegendItem>
-          <LegendItem swatch="border border-[#1F4E78] bg-white text-[#1F4E78]" icon={<PencilLine aria-hidden className="size-3.5" />}>
-            Mois avec une exception ponctuelle (revenu ou dépense en plus, voir{" "}
-            <Link href="/budget" className="underline underline-offset-2 hover:no-underline">
-              Budget
-            </Link>
-            )
-          </LegendItem>
-        </ul>
-      </section>
+      <Overview plan={plan} phases={phases} rowCount={rowCount} negativeCount={milestones.negativeCount} />
 
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <p className="text-muted-foreground">
-            {showAll ? `Les ${HORIZON_MONTHS} mois du plan (25 ans).` : `Les ${DEFAULT_ROW_COUNT} premiers mois sur ${HORIZON_MONTHS}.`}
-          </p>
-          <Link
-            href={showAll ? "/plan" : `/plan?mois=${HORIZON_MONTHS}`}
-            scroll={false}
-            className="inline-flex min-h-10 items-center rounded-md border px-3 font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          >
-            {showAll ? `Afficher ${DEFAULT_ROW_COUNT} mois` : `Afficher les ${HORIZON_MONTHS} mois`}
-          </Link>
-        </div>
+      <section aria-label="Tableau du plan" className="overflow-hidden rounded-2xl border bg-card">
         <PlanTable
           months={months}
           milestones={milestones}
           exceptions={exceptions}
-          caption={`Plan mois par mois, ${months.length} mois à partir de ${formatMonthLong(plan.input.budget.startMonth)}`}
+          phases={phases}
+          todayIndex={todayIndex}
+          earlyRepaymentPct={plan.input.budget.earlyRepaymentPct}
+          movingGoalMet={plan.result.kpis.movingGoalMet}
+          caption={`Plan mois par mois, ${months.length} mois à partir de ${formatMonthLong(plan.input.budget.startMonth)}, montants en euros`}
         />
-      </div>
+        {next ? (
+          <div className="flex justify-center border-t border-divider p-3.5">
+            <Link
+              href={`/plan?mois=${next.count}`}
+              scroll={false}
+              className="inline-flex min-h-11 items-center rounded-[10px] border border-input bg-card px-4.5 text-sm font-medium hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              Afficher {next.count === HORIZON_MONTHS ? "les 25 ans" : next.label}
+            </Link>
+          </div>
+        ) : null}
+      </section>
     </>
   );
 }
 
-function LegendItem({ swatch, icon, children }: { swatch: string; icon?: ReactNode; children: ReactNode }) {
+/** 18 mois / 5 ans / 25 ans, kept in the URL (`?mois=`). */
+function RangeControl({ rowCount }: { rowCount: number }) {
   return (
-    <li className="flex items-center gap-2">
-      <span aria-hidden className={`inline-flex h-5 w-8 shrink-0 items-center justify-center rounded ${swatch}`}>
-        {icon}
-      </span>
-      <span>{children}</span>
-    </li>
+    <nav aria-label="Période affichée" className="inline-flex overflow-hidden rounded-[10px] border border-input bg-card">
+      {ROW_COUNTS.map((r) => {
+        const active = r.count === rowCount;
+        return (
+          <Link
+            key={r.count}
+            href={`/plan?mois=${r.count}`}
+            scroll={false}
+            aria-current={active ? "true" : undefined}
+            className={cn(
+              "flex min-h-11 items-center px-3.5 text-sm font-medium focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+              active ? "bg-primary text-primary-foreground" : "text-sidebar-foreground hover:bg-secondary",
+            )}
+          >
+            {r.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** "Les 300 mois du plan": phases proportional to their length, with a bracket around the rows shown. */
+function Overview({
+  plan,
+  phases,
+  rowCount,
+  negativeCount,
+}: {
+  plan: ComputedPlan;
+  phases: PlanPhase[];
+  rowCount: number;
+  negativeCount: number;
+}) {
+  const { months } = plan.result;
+  const total = months.length;
+  const pct = plan.input.budget.earlyRepaymentPct;
+  const first = months[0];
+  const last = months.at(-1);
+  const length = (p: PlanPhase) => p.endIndex - p.startIndex + 1;
+  const summary = phases.map((p) => `${phaseLabel(p.kind, pct)} ${length(p)} mois`).join(", ");
+  return (
+    <section aria-labelledby="ov-title" className="flex flex-col gap-3 rounded-2xl border bg-card px-4 py-5 md:px-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="ov-title" className="text-[15px] font-semibold">
+          Les {total} mois du plan
+        </h2>
+        {first && last ? (
+          <span className="text-[13px] text-muted-foreground tabular-nums">
+            {formatMonthShort(first.month)} → {formatMonthShort(last.month)}
+          </span>
+        ) : null}
+      </div>
+      <div role="img" aria-label={`${summary}. Les ${rowCount} premiers mois sont affichés ci-dessous.`} className="relative flex h-8.5 gap-0.5">
+        {phases.map((p, i) => {
+          const width = (length(p) / total) * 100;
+          const free = months[p.startIndex - 1]?.toFreeSavings ?? 0;
+          return (
+            <div
+              key={`${p.kind}-${p.startIndex}`}
+              className={cn(
+                "flex min-w-1 items-center overflow-hidden rounded-[2px] text-[13px] font-medium whitespace-nowrap",
+                PHASE_STYLE[p.kind].band,
+                i === 0 && "rounded-l-md",
+                i === phases.length - 1 && "rounded-r-md",
+              )}
+              style={{ width: `${width}%` }}
+            >
+              {width >= 30 ? (
+                <span aria-hidden className="truncate px-3.5">
+                  {phaseLabel(p.kind, pct)}
+                  {p.kind === "free" && free > 0 ? ` · ${formatEuros(free)} par mois à partir de ${formatMonthLong(p.startMonth)}` : ""}
+                </span>
+              ) : null}
+            </div>
+          );
+        })}
+        <div
+          aria-hidden
+          className="absolute -top-1.5 -bottom-1.5 -left-1 rounded-lg border-2 border-foreground"
+          style={{ width: `calc(${(Math.min(rowCount, total) / total) * 100}% + 4px)` }}
+        />
+      </div>
+      <ul className="flex flex-wrap gap-x-5 gap-y-1.5 text-[13px] text-muted-foreground tabular-nums">
+        {phases
+          .filter((p) => p.kind !== "free" || phases.length === 1)
+          .map((p) => (
+            <li key={`${p.kind}-${p.startIndex}`} className="inline-flex items-center gap-1.5">
+              <span aria-hidden className={cn("size-2.5 rounded-[3px]", PHASE_STYLE[p.kind].swatch)} />
+              {phaseLabel(p.kind, pct)} · {length(p)} mois
+            </li>
+          ))}
+        <li className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="h-2.5 w-3.5 rounded-[3px] border-2 border-foreground" />
+          Mois affichés ci-dessous
+        </li>
+        <li className={cn("font-medium sm:ml-auto", negativeCount > 0 ? "text-bad" : "text-good")}>
+          {negativeCount} mois en budget négatif
+        </li>
+      </ul>
+    </section>
   );
 }

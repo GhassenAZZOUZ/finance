@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Tableau de bord</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;display=swap">
+<style>
+body{margin:0;font-family:"IBM Plex Sans",system-ui,sans-serif;background:#F3F0E8;color:#1D1C19}
+a{color:#1F4B3B}a:hover{color:#123126}
+.serif{font-family:Newsreader,Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.nav{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.nl{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px;border-radius:10px;color:#3A3832;text-decoration:none;font-weight:500;font-size:15px}
+.nl:hover{background:#E0DBCE;color:#1D1C19}
+.nl[aria-current=page]{background:#1D1C19;color:#F3F0E8}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;font:500 15px "IBM Plex Sans",sans-serif;text-decoration:none;cursor:pointer;border:1px solid transparent}
+.btn-p{background:#1D1C19;color:#F3F0E8}.btn-p:hover{background:#34322D;color:#F3F0E8}
+.btn-s{background:#FFFFFF;color:#1D1C19;border-color:#CFC8B8}.btn-s:hover{background:#F7F4EC;color:#1D1C19}
+.card{background:#FFFFFF;border:1px solid #DDD7CA;border-radius:16px}
+.lbl{font-size:13px;font-weight:500;color:#57534B;letter-spacing:.02em}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1840px; display: grid; grid-template-columns: 248px minmax(0, 1fr); background: #F3F0E8; overflow: hidden">
+
+<aside style="background: #EAE6DB; border-right: 1px solid #DDD7CA; padding: 28px 18px; display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 0 8px">
+<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect width="30" height="30" rx="8" fill="#1D1C19"></rect><path d="M8 20 L13 14 L17 17 L22 10" stroke="#D39A36" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<div>
+<div class="serif" style="font-size: 20px; font-weight: 600; line-height: 1.1">Plan financier</div>
+<div style="font-size: 12px; color: #57534B">Espace de Démo</div>
+</div>
+</div>
+<nav aria-label="Navigation principale">
+<ul class="nav">
+<li><a class="nl" href="Main.dc.html" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>Tableau de bord</a></li>
+<li><a class="nl" href="Budget.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>Budget</a></li>
+<li><a class="nl" href="Credits.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>Crédits</a></li>
+<li><a class="nl" href="Plan.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18"></path></svg>Plan</a></li>
+<li><a class="nl" href="Suivi.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"></path></svg><span style="flex-grow: 1">Suivi</span><span class="num" style="background: #D39A36; color: #1D1C19; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 1px 8px">2</span></a></li>
+</ul>
+</nav>
+<div style="flex-grow: 1"></div>
+<div style="background: #F3F0E8; border: 1px solid #D6CFBF; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div class="lbl">À faire</div>
+<div style="font-size: 15px; font-weight: 600; line-height: 1.35">2 mois de suivi à saisir</div>
+<div style="font-size: 13px; color: #57534B">Août et septembre 2026</div>
+<a class="btn btn-p" href="Suivi.dc.html" style="min-height: 40px; font-size: 14px">Saisir août 2026</a>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 8px">
+<span style="font-size: 13px; color: #57534B">demo@example.com</span>
+<button type="button" aria-label="Se déconnecter" style="width: 44px; height: 44px; border: 0; background: transparent; color: #57534B; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg></button>
+</div>
+</aside>
+
+<main style="padding: 40px 48px 56px; display: flex; flex-direction: column; gap: 24px; min-width: 0">
+
+<header style="display: flex; align-items: flex-end; justify-content: space-between; gap: 32px">
+<div style="display: flex; flex-direction: column; gap: 10px; max-width: 760px">
+<div class="lbl" style="text-transform: uppercase; letter-spacing: .08em; font-size: 12px">Septembre 2026 · mois 3 sur 300</div>
+<h1 class="serif" style="margin: 0; font-size: 42px; line-height: 1.12; font-weight: 500; letter-spacing: -0.01em">Plus de dettes en juin 2028. Le déménagement demande un ajustement.</h1>
+</div>
+<div style="display: flex; gap: 10px; flex-shrink: 0">
+<a class="btn btn-s" href="Plan.dc.html">Voir le plan</a>
+<a class="btn btn-p" href="Suivi.dc.html">Saisir août 2026</a>
+</div>
+</header>
+
+<section aria-label="Chiffres clés" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+<div class="card" style="padding: 24px; display: flex; flex-direction: column; gap: 14px">
+<div class="lbl">Marge mensuelle · sept. 2026</div>
+<div class="serif num" style="font-size: 44px; line-height: 1; font-weight: 500">443,55 €</div>
+<div style="display: flex; height: 10px; border-radius: 999px; overflow: hidden; gap: 2px" aria-hidden="true">
+<div style="width: 59.5%; background: #C9C1B1"></div>
+<div style="width: 25.2%; background: #8A8375"></div>
+<div style="width: 15.3%; background: #D39A36"></div>
+</div>
+<div class="num" style="font-size: 13px; color: #57534B; line-height: 1.5">2 900,00 € revenus − 1 725,00 € dépenses − 731,45 € mensualités</div>
+<div style="border-top: 1px solid #ECE7DC; padding-top: 12px; display: flex; justify-content: space-between; font-size: 14px">
+<span style="color: #57534B">Taux d’endettement</span>
+<span class="num" style="font-weight: 600; color: #2F6B4F; display: inline-flex; align-items: center; gap: 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>25,2 % · OK</span>
+</div>
+</div>
+
+<div class="card" style="padding: 24px; display: flex; flex-direction: column; gap: 14px">
+<div class="lbl">Dettes restantes</div>
+<div class="serif num" style="font-size: 44px; line-height: 1; font-weight: 500">14 445,60 €</div>
+<div style="height: 10px; border-radius: 999px; background: #F1D9D1; overflow: hidden" aria-hidden="true"><div style="width: 11.9%; height: 100%; background: #B04A32"></div></div>
+<div class="num" style="font-size: 13px; color: #57534B; line-height: 1.5">11,9 % remboursé depuis juillet · 6 crédits · TAEG moyen 6,01 %</div>
+<div style="border-top: 1px solid #ECE7DC; padding-top: 12px; display: flex; justify-content: space-between; font-size: 14px">
+<span style="color: #57534B">Sans dettes en</span>
+<span style="font-weight: 600">juin 2028 <span style="font-weight: 400; color: #57534B">· 13 mois plus tôt</span></span>
+</div>
+</div>
+
+<div class="card" style="padding: 24px; display: flex; flex-direction: column; gap: 14px">
+<div class="lbl">Épargne constituée</div>
+<div class="serif num" style="font-size: 44px; line-height: 1; font-weight: 500">2 630,65 €</div>
+<div style="display: flex; height: 10px; border-radius: 999px; overflow: hidden; gap: 2px; background: #EFEBE2" aria-hidden="true">
+<div style="width: 23.5%; background: #D39A36"></div>
+<div style="width: 10.3%; background: #24503F"></div>
+</div>
+<div class="num" style="font-size: 13px; color: #57534B; line-height: 1.5">Déménagement 1 830,65 € · Urgence 800,00 € · Libre 0,00 €</div>
+<div style="border-top: 1px solid #ECE7DC; padding-top: 12px; display: flex; justify-content: space-between; font-size: 14px">
+<span style="color: #57534B">Dans 12 mois (juin 2027)</span>
+<span class="num" style="font-weight: 600">7 775,82 €</span>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="alert-title" style="background: #FBF1DD; border: 1px solid #E8CF9C; border-radius: 16px; padding: 24px 28px; display: grid; grid-template-columns: minmax(0, 1fr) 560px; gap: 32px; align-items: center">
+<div style="display: flex; gap: 16px">
+<div style="width: 40px; height: 40px; border-radius: 12px; background: #F3DDAE; color: #7A4E0E; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"></path></svg></div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 id="alert-title" style="margin: 0; font-size: 18px; font-weight: 600; color: #5E3C0A">Déménagement : il manquera 488,70 € au 31 décembre</h2>
+<p class="num" style="margin: 0; font-size: 14px; line-height: 1.55; color: #6B4A15">Au rythme actuel, le fonds atteindra 3 511,30 € à la date limite, pour un objectif de 4 000,00 €. Deux façons de le tenir :</p>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<a href="Budget.dc.html" style="background: #FFFFFF; border: 1px solid #E8CF9C; border-radius: 12px; padding: 14px 16px; text-decoration: none; color: #1D1C19; display: flex; flex-direction: column; gap: 4px">
+<span class="num" style="font-weight: 600; font-size: 15px">+122,18 € / mois</span>
+<span style="font-size: 13px; color: #57534B">de moins en dépenses, de septembre à décembre</span>
+</a>
+<a href="Budget.dc.html" style="background: #FFFFFF; border: 1px solid #E8CF9C; border-radius: 12px; padding: 14px 16px; text-decoration: none; color: #1D1C19; display: flex; flex-direction: column; gap: 4px">
+<span style="font-weight: 600; font-size: 15px">Date limite en janvier 2027</span>
+<span style="font-size: 13px; color: #57534B">l’objectif est atteint ce mois-là</span>
+</a>
+</div>
+</section>
+
+<section class="card" aria-labelledby="road-title" style="padding: 28px 24px 24px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 id="road-title" class="serif" style="margin: 0; font-size: 26px; font-weight: 500">Feuille de route</h2>
+<p style="margin: 0; font-size: 14px; color: #57534B; max-width: 720px; line-height: 1.5">Chaque mois, l’argent disponible remplit d’abord le déménagement, puis le fonds d’urgence. Le reste part à 60 % en remboursement anticipé, à 40 % en épargne libre.</p>
+</div>
+<a href="Plan.dc.html" style="font-size: 14px; font-weight: 500; white-space: nowrap">Détail mois par mois →</a>
+</div>
+
+<div style="position: relative; height: 112px">
+<div style="position: absolute; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; font-size: 12px; color: #57534B" class="num">
+<span style="position: absolute; left: 0">2026</span><span style="position: absolute; left: 20%">2027</span><span style="position: absolute; left: 60%">2028</span>
+</div>
+<div style="position: absolute; left: 0; right: 0; top: 24px; height: 44px; display: flex; gap: 3px">
+<div style="width: 20%; background: #D39A36; color: #1D1C19; border-radius: 10px 4px 4px 10px; padding: 0 12px; display: flex; align-items: center; font-size: 13px; font-weight: 600">① Déménagement</div>
+<div style="width: 16.67%; background: #24503F; color: #FFFFFF; border-radius: 4px; padding: 0 12px; display: flex; align-items: center; font-size: 13px; font-weight: 600">② Fonds d’urgence</div>
+<div style="width: 43.33%; background: linear-gradient(90deg, #B04A32 0 60%, #8C86C9 60% 100%); border-radius: 4px; display: flex; align-items: center; padding: 0 12px; font-size: 13px; font-weight: 600; color: #FFFFFF">③ Remb. anticipé + épargne</div>
+<div style="width: 20%; background: #8C86C9; color: #1D1C19; border-radius: 4px 10px 10px 4px; padding: 0 12px; display: flex; align-items: center; font-size: 13px; font-weight: 600">④ Épargne libre</div>
+</div>
+<div style="position: absolute; left: 8.3%; top: 16px; bottom: 28px; width: 2px; transform: translateX(-1px); background: #1D1C19"></div>
+<div style="position: absolute; left: 8.3%; bottom: 4px; transform: translateX(-50%); background: #1D1C19; color: #F3F0E8; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 6px; white-space: nowrap">Aujourd’hui</div>
+<div style="position: absolute; left: 0; right: 0; top: 76px; height: 2px; background: #E6E0D3"></div>
+<div aria-hidden="true" style="position: absolute; top: 71px; left: 11.7%; width: 12px; height: 12px; border-radius: 50%; background: #FFFFFF; border: 2px solid #B04A32; transform: translateX(-50%)"></div>
+<div aria-hidden="true" style="position: absolute; top: 71px; left: 15%; width: 12px; height: 12px; border-radius: 50%; background: #FFFFFF; border: 2px solid #B04A32; transform: translateX(-50%)"></div>
+<div aria-hidden="true" style="position: absolute; top: 71px; left: 18.3%; width: 12px; height: 12px; border-radius: 2px; background: #D39A36; transform: translateX(-50%) rotate(45deg)"></div>
+<div aria-hidden="true" style="position: absolute; top: 71px; left: 35%; width: 12px; height: 12px; border-radius: 50%; background: #24503F; transform: translateX(-50%)"></div>
+<div aria-hidden="true" style="position: absolute; top: 71px; left: 45%; width: 12px; height: 12px; border-radius: 50%; background: #FFFFFF; border: 2px solid #B04A32; transform: translateX(-50%)"></div>
+<div aria-hidden="true" style="position: absolute; top: 71px; left: 58.3%; width: 12px; height: 12px; border-radius: 50%; background: #FFFFFF; border: 2px solid #B04A32; transform: translateX(-50%)"></div>
+<div aria-hidden="true" style="position: absolute; top: 71px; left: 75%; width: 12px; height: 12px; border-radius: 50%; background: #FFFFFF; border: 2px solid #B04A32; transform: translateX(-50%)"></div>
+<div aria-hidden="true" style="position: absolute; top: 67px; left: 78.3%; width: 20px; height: 20px; border-radius: 50%; background: #B04A32; border: 3px solid #FFFFFF; box-shadow: 0 0 0 1px #B04A32; transform: translateX(-50%)"></div>
+</div>
+
+<ol style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 24px; border-top: 1px solid #ECE7DC; padding-top: 18px">
+<li style="display: flex; flex-direction: column; gap: 2px"><span class="num" style="font-size: 13px; color: #57534B">oct. – nov. 2026</span><span style="font-size: 14px; font-weight: 500">Dettes perso A et B soldées</span></li>
+<li style="display: flex; flex-direction: column; gap: 2px"><span class="num" style="font-size: 13px; color: #8A5A12">déc. 2026 · date limite</span><span style="font-size: 14px; font-weight: 500">Déménagement : 3 511,30 € sur 4 000 €</span></li>
+<li style="display: flex; flex-direction: column; gap: 2px"><span class="num" style="font-size: 13px; color: #57534B">mai 2027</span><span style="font-size: 14px; font-weight: 500">Fonds d’urgence complet (4 000 €)</span></li>
+<li style="display: flex; flex-direction: column; gap: 2px"><span class="num" style="font-size: 13px; color: #57534B">août 2027</span><span style="font-size: 14px; font-weight: 500">Carte revolving soldée</span></li>
+<li style="display: flex; flex-direction: column; gap: 2px"><span class="num" style="font-size: 13px; color: #57534B">déc. 2027</span><span style="font-size: 14px; font-weight: 500">Prêt travaux soldé</span></li>
+<li style="display: flex; flex-direction: column; gap: 2px"><span class="num" style="font-size: 13px; color: #57534B">mai 2028</span><span style="font-size: 14px; font-weight: 500">Prêt étudiant soldé</span></li>
+<li style="display: flex; flex-direction: column; gap: 2px"><span class="num" style="font-size: 13px; color: #A2362A; font-weight: 600">juin 2028</span><span style="font-size: 14px; font-weight: 600">Prêt auto soldé · plus de dettes</span></li>
+<li style="display: flex; flex-direction: column; gap: 2px"><span class="num" style="font-size: 13px; color: #57534B">juil. 2028 →</span><span style="font-size: 14px; font-weight: 500">1 175 € / mois en épargne libre</span></li>
+</ol>
+</section>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 16px">
+<section class="card" aria-labelledby="chart-title" style="padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<h2 id="chart-title" style="margin: 0; font-size: 17px; font-weight: 600">Dettes et épargne libre, 24 mois</h2>
+<div style="display: flex; gap: 16px; font-size: 13px; color: #57534B">
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 14px; height: 3px; background: #B04A32; border-radius: 2px"></span>Dettes</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 14px; height: 3px; background: #6D67B3; border-radius: 2px"></span>Épargne libre</span>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px">
+<div class="num" style="display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; color: #57534B; text-align: right; height: 200px; margin-top: -6px">
+<span>16 k€</span><span>12 k€</span><span>8 k€</span><span>4 k€</span><span>0</span>
+</div>
+<svg width="640" height="200" viewBox="0 0 640 200" role="img" aria-label="Dettes restantes de 15 750 € en juillet 2026 à 0 € en juin 2028. Épargne libre de 0 € à 4 502 € sur la même période." style="overflow: visible">
+<g stroke="#ECE7DC" stroke-width="1"><line x1="0" y1="0" x2="640" y2="0"></line><line x1="0" y1="50" x2="640" y2="50"></line><line x1="0" y1="100" x2="640" y2="100"></line><line x1="0" y1="150" x2="640" y2="150"></line><line x1="0" y1="200" x2="640" y2="200"></line></g>
+<line x1="55.7" y1="0" x2="55.7" y2="200" stroke="#1D1C19" stroke-width="1" stroke-dasharray="3 3"></line>
+<polyline fill="none" stroke="#B04A32" stroke-width="2.5" stroke-linejoin="round" points="0.0,3.1 27.8,11.3 55.7,19.4 83.5,27.6 111.3,34.0 139.1,39.7 167.0,45.5 194.8,51.3 222.6,57.2 250.4,63.0 278.3,69.1 306.1,79.8 333.9,90.7 361.7,101.6 389.6,112.3 417.4,123.1 445.2,133.9 473.0,144.8 500.9,155.1 528.7,165.4 556.5,175.8 584.3,186.2 612.2,196.4 640.0,200.0"></polyline>
+<polyline fill="none" stroke="#6D67B3" stroke-width="2.5" stroke-linejoin="round" points="0.0,200.0 27.8,200.0 55.7,200.0 83.5,200.0 111.3,200.0 139.1,200.0 167.0,200.0 194.8,200.0 222.6,200.0 250.4,200.0 278.3,199.9 306.1,196.7 333.9,193.5 361.7,190.3 389.6,186.7 417.4,183.1 445.2,179.5 473.0,175.9 500.9,171.8 528.7,167.6 556.5,163.4 584.3,159.2 612.2,154.8 640.0,143.7"></polyline>
+<circle cx="55.7" cy="19.4" r="4.5" fill="#B04A32" stroke="#FFFFFF" stroke-width="2"></circle>
+<circle cx="640" cy="143.7" r="4.5" fill="#6D67B3" stroke="#FFFFFF" stroke-width="2"></circle>
+</svg>
+</div>
+<div class="num" style="display: flex; justify-content: space-between; font-size: 12px; color: #57534B; padding-left: 60px">
+<span>juil. 26</span><span>janv. 27</span><span>juil. 27</span><span>janv. 28</span><span>juin 28</span>
+</div>
+</section>
+
+<section class="card" aria-labelledby="goals-title" style="padding: 24px; display: flex; flex-direction: column; gap: 22px">
+<h2 id="goals-title" style="margin: 0; font-size: 17px; font-weight: 600">Objectifs d’épargne</h2>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; font-size: 14px"><span style="font-weight: 500">Déménagement</span><span class="num"><b>1 830,65</b> / 4 000,00 €</span></div>
+<div style="position: relative; height: 12px; border-radius: 999px; background: #F3ECDD">
+<div style="position: absolute; left: 0; top: 0; bottom: 0; width: 87.8%; border-radius: 999px; background: repeating-linear-gradient(135deg, #EBCB8E 0 4px, #F3ECDD 4px 8px)"></div>
+<div style="position: absolute; left: 0; top: 0; bottom: 0; width: 45.8%; border-radius: 999px; background: #D39A36"></div>
+</div>
+<div class="num" style="font-size: 13px; color: #8A5A12">Prévu au 31 déc. : 3 511,30 € (hachuré) · objectif non tenu</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; font-size: 14px"><span style="font-weight: 500">Fonds d’urgence</span><span class="num"><b>800,00</b> / 4 000,00 €</span></div>
+<div style="height: 12px; border-radius: 999px; background: #E3ECE7"><div style="width: 20%; height: 100%; border-radius: 999px; background: #24503F"></div></div>
+<div style="font-size: 13px; color: #57534B">Alimenté à partir de janvier 2027 · complet en mai 2027</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; font-size: 14px"><span style="font-weight: 500">Épargne libre</span><span class="num"><b>0,00 €</b></span></div>
+<div style="height: 12px; border-radius: 999px; background: #EDECF6"></div>
+<div style="font-size: 13px; color: #57534B">Démarre en mai 2027 · 264,52 € en juin 2027</div>
+</div>
+</section>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<section class="card" aria-labelledby="suivi-title" style="padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><h2 id="suivi-title" style="margin: 0; font-size: 17px; font-weight: 600">Suivi réel</h2><a href="Suivi.dc.html" style="font-size: 14px; font-weight: 500">Historique →</a></div>
+<ol style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+<li style="border: 1px solid #CFE0D6; background: #F1F7F3; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #57534B">Juillet 2026</span><span style="font-size: 14px; font-weight: 600; color: #2F6B4F; display: inline-flex; align-items: center; gap: 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Dans les temps</span><span class="num" style="font-size: 12px; color: #57534B">écarts 0,00 €</span></li>
+<li style="border: 1px dashed #CFC8B8; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #57534B">Août 2026</span><span style="font-size: 14px; font-weight: 600">À saisir</span><a href="Suivi.dc.html" style="font-size: 12px; font-weight: 500">Saisir →</a></li>
+<li style="border: 1px dashed #CFC8B8; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; color: #57534B">Septembre 2026</span><span style="font-size: 14px; font-weight: 600">En cours</span><span style="font-size: 12px; color: #57534B">à saisir fin de mois</span></li>
+</ol>
+</section>
+
+<section class="card" aria-labelledby="loans-title" style="padding: 24px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><h2 id="loans-title" style="margin: 0; font-size: 17px; font-weight: 600">Ordre de remboursement anticipé</h2><a href="Credits.dc.html" style="font-size: 14px; font-weight: 500">Crédits →</a></div>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+<li style="display: grid; grid-template-columns: 28px minmax(0, 1fr) 70px 100px; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid #ECE7DC; font-size: 14px"><span class="num" style="width: 24px; height: 24px; border-radius: 50%; background: #B04A32; color: #FFFFFF; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center">1</span><span style="font-weight: 500">Carte revolving</span><span class="num" style="text-align: right">18,9 %</span><span class="num" style="text-align: right; color: #57534B">août 2027</span></li>
+<li style="display: grid; grid-template-columns: 28px minmax(0, 1fr) 70px 100px; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid #ECE7DC; font-size: 14px"><span class="num" style="width: 24px; height: 24px; border-radius: 50%; background: #F1D9D1; color: #7E2B1B; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center">2</span><span style="font-weight: 500">Prêt travaux</span><span class="num" style="text-align: right">6,15 %</span><span class="num" style="text-align: right; color: #57534B">déc. 2027</span></li>
+<li style="display: grid; grid-template-columns: 28px minmax(0, 1fr) 70px 100px; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid #ECE7DC; font-size: 14px"><span class="num" style="width: 24px; height: 24px; border-radius: 50%; background: #F1D9D1; color: #7E2B1B; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center">3</span><span style="font-weight: 500">Prêt auto</span><span class="num" style="text-align: right">4,9 %</span><span class="num" style="text-align: right; color: #57534B">juin 2028</span></li>
+<li style="display: grid; grid-template-columns: 28px minmax(0, 1fr) 70px 100px; gap: 12px; align-items: center; padding: 9px 0; font-size: 14px; color: #57534B"><span style="text-align: center">—</span><span>Prêt étudiant · sous le taux seuil</span><span class="num" style="text-align: right">1,2 %</span><span class="num" style="text-align: right">mai 2028</span></li>
+</ol>
+<div class="num" style="font-size: 13px; color: #2F6B4F; font-weight: 500">394,37 € d’intérêts économisés grâce au plan (avant IRA)</div>
+</section>
+</div>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1840}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

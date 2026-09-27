@@ -1,24 +1,32 @@
 "use client";
 
-import { CheckCircle2, Info, TriangleAlert } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, CheckCircle2, Info, TriangleAlert } from "lucide-react";
 import { useActionState, useState } from "react";
 import { StatusBadge } from "@/components/app/status-badge";
+import { GAP_TONE, STATUS_TONE } from "@/components/app/tones";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import type { ActualForm } from "@/lib/domain/validation";
-import type { YearMonth } from "@/lib/engine";
+import { type ActualForm, parseAmount } from "@/lib/domain/validation";
+import type { ActualStatus, Cents, YearMonth } from "@/lib/engine";
 import { formatEuros, formatMonthLong } from "@/lib/format";
+import { STATUS_LABEL } from "@/lib/labels";
+import { cn } from "@/lib/utils";
 import { type SaveActualState, saveActualAction } from "./actions";
-import type { PlannedValues } from "./logic";
+import { type PlannedValues, isDebtGapGood, isSavingsGapGood, provisionalCheck } from "./logic";
 
 export interface CheckInFormProps {
-  /** Newest first; the first one (current month) is preselected. */
+  /** Newest first. */
   months: YearMonth[];
+  /** Month selected on load (e.g. from `?mois=`); defaults to the first of `months`. */
+  initialMonth?: YearMonth;
   /** Pre-filled values per month (existing entry or empty fields). */
   values: Record<YearMonth, ActualForm>;
   /** Months that already have an entry. */
   existing: YearMonth[];
+  /** Status of the months already entered (month buttons). */
+  statuses?: Record<YearMonth, ActualStatus | null>;
+  /** Month still running ("en cours"); defaults to the newest month. */
+  currentMonth?: YearMonth;
   planned: Record<YearMonth, PlannedValues | null>;
   /** Active loans, same order as `ActualForm.loanBalances` and `PlannedValues.loanBalances`. */
   loans: { id: string; label: string }[];
@@ -32,17 +40,32 @@ const SAVINGS_FIELDS: { name: SavingsField; label: string }[] = [
   { name: "freeSavings", label: "Épargne libre" },
 ];
 
-export function CheckInForm({ months, values, existing, planned, loans }: CheckInFormProps) {
+/** How a field's gap is judged: savings must not fall short, debts must not exceed; budget = information. */
+type GapRule = "savings" | "debt" | "info";
+
+const ROW_GRID = "sm:grid sm:grid-cols-[minmax(0,1fr)_7.5rem_10.5rem_8.5rem] sm:items-center sm:gap-3.5";
+
+function signed(cents: Cents): string {
+  return cents > 0 ? `+${formatEuros(cents)}` : formatEuros(cents);
+}
+
+export function CheckInForm({ months, initialMonth, values, existing, statuses = {}, currentMonth, planned, loans }: CheckInFormProps) {
   const [state, action, pending] = useActionState<SaveActualState, FormData>(saveActualAction, { status: "idle" });
-  const [form, setForm] = useState<ActualForm>(() => values[months[0] ?? ""]!);
+  const [form, setForm] = useState<ActualForm>(() => values[initialMonth ?? months[0] ?? ""]!);
   // Feedback of a previous submission is hidden once the user switches month.
   const [dismissed, setDismissed] = useState<SaveActualState | null>(null);
   const feedback = state === dismissed ? null : state;
   const errors = feedback?.status === "error" ? feedback.errors : {};
+  const [budgetOpen, setBudgetOpen] = useState(() => Boolean(form.income || form.expenses));
 
   const month = form.month;
   const plan = planned[month] ?? null;
   const alreadyEntered = existing.includes(month);
+  const running = currentMonth ?? months[0];
+  const check = provisionalCheck(form, plan);
+
+  // Months to enter first (oldest first), then the ones already entered (newest first).
+  const ordered = [...months.filter((m) => !existing.includes(m)).reverse(), ...months.filter((m) => existing.includes(m))];
 
   function selectMonth(next: YearMonth) {
     setForm(values[next] ?? { ...form, month: next });
@@ -56,30 +79,43 @@ export function CheckInForm({ months, values, existing, planned, loans }: CheckI
 
   const knownFields = new Set(["month", "income", "expenses", ...SAVINGS_FIELDS.map((f) => f.name), ...loans.map((l) => `loan.${l.id}`)]);
   const orphanErrors = Object.entries(errors).filter(([key]) => !knownFields.has(key));
+  const budgetOpenNow = budgetOpen || Boolean(errors.income || errors.expenses);
 
   return (
-    <form action={action} noValidate className="flex flex-col gap-6">
-      <p className="text-sm text-muted-foreground">Les champs marqués d’un * sont obligatoires. Montants en euros, ex. 1 234,56.</p>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="suivi-month">Mois</Label>
-        <select
-          id="suivi-month"
-          name="month"
-          value={month}
-          onChange={(e) => selectMonth(e.target.value)}
-          aria-invalid={errors.month ? true : undefined}
-          aria-describedby={[alreadyEntered ? "suivi-month-existing" : "", errors.month ? "suivi-month-error" : ""].join(" ").trim() || undefined}
-          className="h-11 w-full rounded-lg border border-input bg-background px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive"
-        >
-          {months.map((m) => (
-            <option key={m} value={m}>
-              {formatMonthLong(m)}
-              {existing.includes(m) ? " (saisi)" : ""}
-            </option>
-          ))}
-        </select>
+    <form action={action} noValidate className="flex flex-col gap-5.5">
+      <input type="hidden" name="month" value={month} />
+
+      <div className="flex flex-col gap-3">
+        <h2 id="suivi-month-title" className="text-[17px] font-semibold">
+          Mois à saisir
+        </h2>
+        <div role="group" aria-labelledby="suivi-month-title" className="flex gap-2.5 overflow-x-auto pb-1">
+          {ordered.map((m) => {
+            const entered = existing.includes(m);
+            const status = statuses[m] ?? null;
+            const selected = m === month;
+            return (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => selectMonth(m)}
+                className={cn(
+                  "flex min-h-11 min-w-40 shrink-0 flex-col items-start gap-0.5 rounded-xl border bg-card px-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  entered && status ? STATUS_TONE[status].tile : null,
+                  selected && "border-foreground ring-1 ring-foreground",
+                )}
+              >
+                <span className="font-semibold first-letter:uppercase">{formatMonthLong(m)}</span>
+                <span className={cn("text-[13px]", entered && status ? STATUS_TONE[status].text : "text-muted-foreground")}>
+                  {entered ? `saisi${status ? ` · ${STATUS_LABEL[status].toLowerCase()}` : ""}` : m === running ? "en cours" : "à saisir"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
         {alreadyEntered ? (
-          <p id="suivi-month-existing" className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p id="suivi-month-existing" className="flex items-start gap-2 rounded-xl border border-warning-border bg-warning-bg px-3 py-2 text-sm text-warning">
             <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
             Déjà saisi — la modification remplacera la saisie
           </p>
@@ -87,10 +123,13 @@ export function CheckInForm({ months, values, existing, planned, loans }: CheckI
         <FieldError id="suivi-month-error" message={errors.month} />
       </div>
 
-      <fieldset className="flex flex-col gap-4">
-        <legend className="mb-1 text-base font-semibold">Épargne (soldes réels en fin de mois)</legend>
+      <p className="text-sm text-muted-foreground">Les champs marqués d’un * sont obligatoires. Montants en euros, ex. 1 234,56.</p>
+
+      <fieldset className="flex flex-col">
+        <legend className="mb-1 text-[15px] font-semibold">Épargne en fin de mois</legend>
+        <ColumnHeads />
         {SAVINGS_FIELDS.map((field) => (
-          <AmountField
+          <AmountRow
             key={field.name}
             id={`suivi-${field.name}`}
             name={field.name}
@@ -99,16 +138,20 @@ export function CheckInForm({ months, values, existing, planned, loans }: CheckI
             value={form[field.name]}
             onChange={(v) => setField(field.name, v)}
             planned={plan ? plan[field.name] : null}
+            rule="savings"
             error={errors[field.name]}
           />
         ))}
       </fieldset>
 
       {loans.length > 0 ? (
-        <fieldset className="flex flex-col gap-4">
-          <legend className="mb-1 text-base font-semibold">Capital restant dû réel (relevé banque)</legend>
+        <fieldset className="flex flex-col">
+          <legend className="mb-1 text-[15px] font-semibold">
+            Capital restant dû <span className="font-normal text-muted-foreground">· relevés de crédit</span>
+          </legend>
+          <ColumnHeads />
           {loans.map((loan, j) => (
-            <AmountField
+            <AmountRow
               key={loan.id}
               id={`suivi-loan-${loan.id}`}
               name={`loan.${loan.id}`}
@@ -117,37 +160,48 @@ export function CheckInForm({ months, values, existing, planned, loans }: CheckI
               value={form.loanBalances.find((b) => b.loanId === loan.id)?.balance ?? ""}
               onChange={(v) => setLoan(loan.id, v)}
               planned={plan?.loanBalances[j] ?? null}
+              rule="debt"
               error={errors[`loan.${loan.id}`]}
             />
           ))}
         </fieldset>
       ) : null}
 
-      <fieldset className="flex flex-col gap-4">
-        <legend className="mb-1 text-base font-semibold">Budget du mois (facultatif, pour information)</legend>
-        <AmountField
-          id="suivi-income"
-          name="income"
-          label="Revenus réels"
-          value={form.income}
-          onChange={(v) => setField("income", v)}
-          planned={plan?.income ?? null}
-          error={errors.income}
-        />
-        <AmountField
-          id="suivi-expenses"
-          name="expenses"
-          label="Dépenses réelles (hors crédits)"
-          value={form.expenses}
-          onChange={(v) => setField("expenses", v)}
-          planned={plan?.expenses ?? null}
-          error={errors.expenses}
-        />
-      </fieldset>
+      <details
+        open={budgetOpenNow}
+        onToggle={(e) => setBudgetOpen(e.currentTarget.open)}
+        className="rounded-xl border border-divider px-4"
+      >
+        <summary className="flex min-h-12 cursor-pointer items-center text-[15px] font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+          Revenus et dépenses réels du mois <span className="ml-1.5 font-normal text-muted-foreground">· facultatif</span>
+        </summary>
+        <div className="flex flex-col pb-3">
+          <AmountRow
+            id="suivi-income"
+            name="income"
+            label="Revenus réels"
+            value={form.income}
+            onChange={(v) => setField("income", v)}
+            planned={plan?.income ?? null}
+            rule="info"
+            error={errors.income}
+          />
+          <AmountRow
+            id="suivi-expenses"
+            name="expenses"
+            label="Dépenses réelles (hors crédits)"
+            value={form.expenses}
+            onChange={(v) => setField("expenses", v)}
+            planned={plan?.expenses ?? null}
+            rule="info"
+            error={errors.expenses}
+          />
+        </div>
+      </details>
 
       <div id="suivi-form-feedback" aria-live="polite" className="empty:hidden">
         {feedback?.status === "saved" ? (
-          <div role="status" className="flex flex-col gap-2 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-900">
+          <div role="status" className="flex flex-col gap-2 rounded-xl border border-good-border bg-good-bg px-4 py-3 text-sm text-good">
             <p className="flex items-center gap-2 font-medium">
               <CheckCircle2 aria-hidden className="size-4 shrink-0" />
               Mois de {formatMonthLong(feedback.month)} enregistré.
@@ -158,7 +212,7 @@ export function CheckInForm({ months, values, existing, planned, loans }: CheckI
           </div>
         ) : null}
         {feedback?.status === "error" ? (
-          <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <div role="alert" className="rounded-xl border border-bad-border bg-bad-bg px-4 py-3 text-sm text-bad">
             <p className="flex items-center gap-2 font-medium">
               <TriangleAlert aria-hidden className="size-4 shrink-0" />
               {feedback.message}
@@ -170,17 +224,45 @@ export function CheckInForm({ months, values, existing, planned, loans }: CheckI
         ) : null}
       </div>
 
-      {/* Stays visible above the mobile tab bar while scrolling the form (the Card must not clip overflow). */}
-      <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-10 -mx-4 border-t bg-card/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
-        <Button type="submit" disabled={pending} className="h-12 w-full text-base md:w-auto md:px-6">
-          {pending ? "Enregistrement…" : "Enregistrer le mois"}
+      {/* Stays visible above the mobile tab bar (and at the bottom of the screen on desktop) while scrolling. */}
+      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 flex flex-col gap-3 rounded-xl bg-secondary px-4.5 py-4 shadow-[0_-8px_24px_-12px_rgb(0_0_0/0.15)] sm:flex-row sm:items-center sm:justify-between md:bottom-4">
+        <div className="flex flex-col gap-1">
+          <span className="text-[13px] font-medium text-muted-foreground">Statut provisoire</span>
+          <span className="flex flex-wrap items-center gap-2 text-sm">
+            {check.status ? <StatusBadge status={check.status} /> : <span className="font-semibold">—</span>}
+            <span className="text-muted-foreground tabular-nums">
+              {[
+                check.debtGap !== null ? `dettes ${signed(check.debtGap)}` : null,
+                check.savingsGap !== null ? `épargne ${signed(check.savingsGap)}` : null,
+                check.missing > 0 ? `${check.missing} solde${check.missing > 1 ? "s" : ""} à saisir` : null,
+                !plan ? "hors de l’horizon du plan" : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          </span>
+        </div>
+        <Button type="submit" disabled={pending} className="min-h-11 px-4.5 text-[15px]">
+          {pending ? "Enregistrement…" : `Enregistrer ${formatMonthLong(month)}`}
         </Button>
       </div>
     </form>
   );
 }
 
-function AmountField({
+/** "Prévu / Réel / Écart" above each group (desktop only; each row repeats them for screen readers). */
+function ColumnHeads() {
+  return (
+    <div aria-hidden className={cn("hidden pb-1.5 text-xs font-medium text-muted-foreground", ROW_GRID)}>
+      <span />
+      <span className="text-right">Prévu</span>
+      <span className="text-right">Réel</span>
+      <span className="text-right">Écart</span>
+    </div>
+  );
+}
+
+function AmountRow({
   id,
   name,
   label,
@@ -188,6 +270,7 @@ function AmountField({
   value,
   onChange,
   planned,
+  rule,
   error,
 }: {
   id: string;
@@ -197,54 +280,87 @@ function AmountField({
   value: string;
   onChange: (value: string) => void;
   planned: number | null;
+  rule: GapRule;
   error: string | undefined;
 }) {
   const hintId = `${id}-hint`;
+  const gapId = `${id}-gap`;
   const errorId = `${id}-error`;
-  const describedBy = [planned !== null ? hintId : "", error ? errorId : ""].join(" ").trim() || undefined;
+  const parsed = parseAmount(value);
+  const gap = planned !== null && parsed.ok && parsed.value !== null ? parsed.value - planned : null;
+  const describedBy = [planned !== null ? hintId : "", gap !== null ? gapId : "", error ? errorId : ""].join(" ").trim() || undefined;
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id}>
-        {label}
-        {required ? (
-          <span className="text-muted-foreground" aria-hidden>
-            *
-          </span>
-        ) : null}
-      </Label>
-      <div className="relative">
-        <Input
-          id={id}
-          name={name}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          inputMode="decimal"
-          autoComplete="off"
-          placeholder="0,00"
-          required={required}
-          aria-required={required || undefined}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={describedBy}
-          className="h-11 pr-8 text-base"
-        />
-        <span aria-hidden className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
-          €
-        </span>
-      </div>
-      {planned !== null ? (
-        <p id={hintId} className="text-sm text-muted-foreground">
-          Prévu : {formatEuros(planned)}
+    <div className="flex flex-col gap-1.5 border-b border-divider py-2.5 last:border-b-0">
+      <div className={ROW_GRID}>
+        <label htmlFor={id} className="text-[15px] font-medium">
+          {label}
+          {required ? (
+            <span className="text-muted-foreground" aria-hidden>
+              *
+            </span>
+          ) : null}
+        </label>
+        <p id={hintId} className={cn("text-sm text-muted-foreground tabular-nums sm:text-right", planned === null && "hidden")}>
+          <span className="sm:sr-only">Prévu : </span>
+          {planned !== null ? formatEuros(planned) : null}
         </p>
-      ) : null}
+        <div className="relative mt-1.5 sm:mt-0">
+          <Input
+            id={id}
+            name={name}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder="0,00"
+            required={required}
+            aria-required={required || undefined}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy}
+            className="h-11 pr-8 text-right text-base tabular-nums"
+          />
+          <span aria-hidden className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
+            €
+          </span>
+        </div>
+        <GapValue id={gapId} gap={gap} rule={rule} />
+      </div>
       <FieldError id={errorId} message={error} />
     </div>
+  );
+}
+
+/** Live gap: colour + arrow/check + words, never colour alone. */
+function GapValue({ id, gap, rule }: { id: string; gap: Cents | null; rule: GapRule }) {
+  if (gap === null) {
+    return (
+      <span aria-hidden className="mt-1 hidden text-right text-sm text-muted-foreground sm:mt-0 sm:block">
+        —
+      </span>
+    );
+  }
+  const good = rule === "savings" ? isSavingsGapGood(gap) : rule === "debt" ? isDebtGapGood(gap) : null;
+  const Icon = gap === 0 || good ? Check : gap > 0 ? ArrowUp : ArrowDown;
+  return (
+    <span
+      id={id}
+      className={cn(
+        "mt-1 flex items-center gap-1.5 text-sm font-semibold tabular-nums sm:mt-0 sm:justify-end",
+        good === null ? "font-normal text-muted-foreground" : good ? GAP_TONE.good : GAP_TONE.bad,
+      )}
+    >
+      <Icon aria-hidden className="size-3.5 shrink-0" strokeWidth={2.5} />
+      <span className="sm:sr-only">Écart : </span>
+      {signed(gap)}
+      {good !== null ? <span className="sr-only">{good ? " (dans la tolérance)" : " (hors tolérance)"}</span> : null}
+    </span>
   );
 }
 
 function FieldError({ id, message }: { id: string; message: string | undefined }) {
   if (!message) return null;
   return (
-    <p id={id} className="flex items-center gap-1.5 text-sm text-red-700">
+    <p id={id} className="flex items-center gap-1.5 text-sm text-bad">
       <TriangleAlert aria-hidden className="size-4 shrink-0" />
       {message}
     </p>

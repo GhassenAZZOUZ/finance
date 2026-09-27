@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Suivi mensuel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;display=swap">
+<style>
+body{margin:0;font-family:"IBM Plex Sans",system-ui,sans-serif;background:#F3F0E8;color:#1D1C19}
+a{color:#1F4B3B}a:hover{color:#123126}
+.serif{font-family:Newsreader,Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.nav{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.nl{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px;border-radius:10px;color:#3A3832;text-decoration:none;font-weight:500;font-size:15px}
+.nl:hover{background:#E0DBCE;color:#1D1C19}
+.nl[aria-current=page]{background:#1D1C19;color:#F3F0E8}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;font:500 15px "IBM Plex Sans",sans-serif;text-decoration:none;cursor:pointer;border:1px solid transparent}
+.btn-p{background:#1D1C19;color:#F3F0E8}.btn-p:hover{background:#34322D;color:#F3F0E8}
+.btn-s{background:#FFFFFF;color:#1D1C19;border-color:#CFC8B8}.btn-s:hover{background:#F7F4EC;color:#1D1C19}
+.card{background:#FFFFFF;border:1px solid #DDD7CA;border-radius:16px}
+.lbl{font-size:13px;font-weight:500;color:#57534B;letter-spacing:.02em}
+.hint{font-size:13px;color:#57534B;line-height:1.45}
+.ib{width:42px;height:42px;border:0;border-radius:10px;background:transparent;color:#6B665C;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.inp{box-sizing:border-box;height:42px;border:1px solid #D6CFBF;border-radius:10px;background:#FFFFFF;padding:0 30px 0 12px;font:15px "IBM Plex Sans",sans-serif;color:#1D1C19;width:100%;text-align:right;font-variant-numeric:tabular-nums}
+.inp::placeholder{color:#9A9384}
+.eur{position:relative}.eur::after{content:"€";position:absolute;right:12px;top:11px;color:#6B665C;font-size:14px}
+.ci{display:grid;grid-template-columns:minmax(0,1fr) 120px 170px 130px;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid #EFEBE2}
+.ci label{font-size:15px;font-weight:500}
+.pl{text-align:right;color:#57534B;font-variant-numeric:tabular-nums;font-size:14px}
+.gap{text-align:right;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:flex-end;gap:6px}
+.ok{color:#2F6B4F}.ko{color:#A2362A}.na{color:#9A9384;font-weight:400}
+.mt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 16px;border-radius:12px;border:1px solid #DDD7CA;background:#FFFFFF;cursor:pointer;font:inherit;color:#1D1C19;text-align:left;min-width:170px}
+.mt[aria-pressed=true]{border-color:#1D1C19;box-shadow:0 0 0 1px #1D1C19}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1340px; display: grid; grid-template-columns: 248px minmax(0, 1fr); background: #F3F0E8; overflow: hidden">
+
+<aside style="background: #EAE6DB; border-right: 1px solid #DDD7CA; padding: 28px 18px; display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 0 8px">
+<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect width="30" height="30" rx="8" fill="#1D1C19"></rect><path d="M8 20 L13 14 L17 17 L22 10" stroke="#D39A36" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<div>
+<div class="serif" style="font-size: 20px; font-weight: 600; line-height: 1.1">Plan financier</div>
+<div style="font-size: 12px; color: #57534B">Espace de Démo</div>
+</div>
+</div>
+<nav aria-label="Navigation principale">
+<ul class="nav">
+<li><a class="nl" href="Main.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>Tableau de bord</a></li>
+<li><a class="nl" href="Budget.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>Budget</a></li>
+<li><a class="nl" href="Credits.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>Crédits</a></li>
+<li><a class="nl" href="Plan.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18"></path></svg>Plan</a></li>
+<li><a class="nl" href="Suivi.dc.html" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"></path></svg><span style="flex-grow: 1">Suivi</span><span class="num" style="background: #D39A36; color: #1D1C19; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 1px 8px">2</span></a></li>
+</ul>
+</nav>
+<div style="flex-grow: 1"></div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 8px">
+<span style="font-size: 13px; color: #57534B">demo@example.com</span>
+<button type="button" class="ib" aria-label="Se déconnecter"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg></button>
+</div>
+</aside>
+
+<main style="padding: 40px 48px 56px; display: flex; flex-direction: column; gap: 24px; min-width: 0">
+<header style="display: flex; flex-direction: column; gap: 8px">
+<h1 class="serif" style="margin: 0; font-size: 42px; line-height: 1.1; font-weight: 500">Suivi mensuel</h1>
+<p style="margin: 0; font-size: 15px; color: #57534B">En fin de mois, reportez vos soldes réels. L’écart avec le plan s’affiche pendant la saisie.</p>
+</header>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start">
+<form class="card" aria-labelledby="f-title" style="padding: 24px 28px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h2 id="f-title" style="margin: 0; font-size: 17px; font-weight: 600">Mois à saisir</h2>
+<div role="group" aria-label="Choisir le mois" style="display: flex; gap: 10px">
+<button type="button" class="mt" aria-pressed="true"><span style="font-weight: 600">Août 2026</span><span class="hint">à saisir</span></button>
+<button type="button" class="mt" aria-pressed="false"><span style="font-weight: 600">Septembre 2026</span><span class="hint">en cours</span></button>
+<button type="button" class="mt" aria-pressed="false" style="background: #F1F7F3; border-color: #CFE0D6"><span style="font-weight: 600">Juillet 2026</span><span class="hint" style="color: #2F6B4F">saisi · dans les temps</span></button>
+</div>
+</div>
+
+<fieldset style="border: 0; margin: 0; padding: 0">
+<legend style="font-size: 15px; font-weight: 600; padding: 0; margin-bottom: 4px">Épargne en fin de mois</legend>
+<div class="ci" style="font-size: 12px; color: #57534B; font-weight: 500; padding-bottom: 6px" aria-hidden="true"><span></span><span style="text-align: right">Prévu</span><span style="text-align: right">Réel</span><span style="text-align: right">Écart</span></div>
+<div class="ci"><label for="s1">Épargne déménagement</label><span class="pl">1 387,10 €</span><div class="eur"><input id="s1" class="inp" value="1 387,10" readonly=""></div><span class="gap ok">0,00 €</span></div>
+<div class="ci"><label for="s2">Fonds d’urgence</label><span class="pl">800,00 €</span><div class="eur"><input id="s2" class="inp" value="800,00" readonly=""></div><span class="gap ok">0,00 €</span></div>
+<div class="ci" style="border-bottom: 0"><label for="s3">Épargne libre</label><span class="pl">0,00 €</span><div class="eur"><input id="s3" class="inp" value="0,00" readonly=""></div><span class="gap ok">0,00 €</span></div>
+</fieldset>
+
+<fieldset style="border: 0; margin: 0; padding: 0">
+<legend style="font-size: 15px; font-weight: 600; padding: 0; margin-bottom: 4px">Capital restant dû <span style="font-weight: 400; color: #57534B">· relevés de crédit</span></legend>
+<div class="ci"><label for="c1">Prêt auto</label><span class="pl">7 775,50 €</span><div class="eur"><input id="c1" class="inp" value="7 775,50" readonly=""></div><span class="gap ok">0,00 €</span></div>
+<div class="ci"><label for="c2">Carte revolving</label><span class="pl">1 762,80 €</span><div class="eur"><input id="c2" class="inp" value="1 762,80" readonly=""></div><span class="gap ok">0,00 €</span></div>
+<div class="ci"><label for="c3">Prêt travaux</label><span class="pl">3 196,84 €</span><div class="eur"><input id="c3" class="inp" value="3 210,00" readonly="" style="border-color: #D9A396" aria-describedby="c3-gap"></div><span id="c3-gap" class="gap ko"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12l7-7 7 7"></path></svg>+13,16 €</span></div>
+<div class="ci"><label for="c4">Prêt étudiant</label><span class="pl">1 914,11 €</span><div class="eur"><input id="c4" class="inp" value="" placeholder="0,00" readonly=""></div><span class="gap na">—</span></div>
+<div class="ci"><label for="c5">Dette perso A</label><span class="pl">300,00 €</span><div class="eur"><input id="c5" class="inp" value="" placeholder="0,00" readonly=""></div><span class="gap na">—</span></div>
+<div class="ci" style="border-bottom: 0"><label for="c6">Dette perso B</label><span class="pl">150,00 €</span><div class="eur"><input id="c6" class="inp" value="" placeholder="0,00" readonly=""></div><span class="gap na">—</span></div>
+</fieldset>
+
+<details style="border: 1px solid #E6E0D3; border-radius: 12px; padding: 0 16px">
+<summary style="min-height: 48px; display: flex; align-items: center; font-size: 15px; font-weight: 500; cursor: pointer">Revenus et dépenses réels du mois <span style="font-weight: 400; color: #57534B; margin-left: 6px">· facultatif</span></summary>
+</details>
+
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; background: #F6F3EC; border-radius: 12px; padding: 16px 18px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span class="lbl">Statut provisoire</span>
+<span style="font-size: 16px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px"><span style="background: #FBF1DD; color: #6B4A15; border-radius: 999px; padding: 2px 10px; font-size: 13px">Mitigé</span><span class="num" style="font-weight: 400; font-size: 14px; color: #57534B">dettes +13,16 € · épargne 0,00 € · 3 soldes à saisir</span></span>
+</div>
+<button type="submit" class="btn btn-p">Enregistrer août 2026</button>
+</div>
+</form>
+
+<div style="display: flex; flex-direction: column; gap: 16px">
+<section class="card" aria-labelledby="h-title" style="padding: 22px 24px; display: flex; flex-direction: column; gap: 14px">
+<h2 id="h-title" style="margin: 0; font-size: 17px; font-weight: 600">Historique</h2>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+<li style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 12px 0; border-bottom: 1px solid #EFEBE2"><span style="font-weight: 600">Septembre 2026</span><span class="hint">en cours</span></li>
+<li style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 12px 0; border-bottom: 1px solid #EFEBE2"><span style="font-weight: 600">Août 2026</span><span style="font-size: 13px; font-weight: 600; color: #8A5A12">à saisir</span></li>
+<li style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 12px 0"><span style="font-weight: 600">Juillet 2026</span><span style="font-size: 13px; font-weight: 600; color: #2F6B4F; display: inline-flex; align-items: center; gap: 5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Dans les temps</span><span class="num hint" style="grid-column: 1 / -1">Dettes 15 750,70 € (0,00) · Épargne 1 743,55 € (0,00)</span></li>
+</ol>
+<p class="hint" style="margin: 0; background: #F6F3EC; border-radius: 10px; padding: 10px 12px">Écart dettes vert si ≤ +10 €, écart épargne vert si ≥ −10 €. Les deux verts : dans les temps ; les deux rouges : en retard ; sinon mitigé.</p>
+</section>
+
+<section class="card" aria-labelledby="r-title" style="padding: 22px 24px; display: flex; flex-direction: column; gap: 12px">
+<h2 id="r-title" style="margin: 0; font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"></path></svg>Recaler le plan</h2>
+<p class="hint" style="margin: 0">Si vos soldes réels s’écartent durablement, faites repartir le plan de votre dernière saisie (juillet 2026) : début en août 2026, avec vos soldes réels.</p>
+<p class="hint" style="margin: 0">Les mois déjà saisis restent comparés à l’ancien plan.</p>
+<button type="button" class="btn btn-s" style="align-self: flex-start">Recaler le plan…</button>
+</section>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1340}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

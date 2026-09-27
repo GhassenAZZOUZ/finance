@@ -33,7 +33,7 @@ export function Onboarding({ hasBudget, loanCount }: { hasBudget: boolean; loanC
               >
                 <span className="flex items-center justify-between gap-2 font-medium">
                   {s.title}
-                  {s.done ? <span className="text-sm text-green-800">✓ Fait</span> : null}
+                  {s.done ? <span className="text-sm text-good">✓ Fait</span> : null}
                 </span>
                 <span className="mt-1 block text-sm text-muted-foreground">{s.text}</span>
               </Link>

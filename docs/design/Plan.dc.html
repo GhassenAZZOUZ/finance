@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Plan mois par mois</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;display=swap">
+<style>
+body{margin:0;font-family:"IBM Plex Sans",system-ui,sans-serif;background:#F3F0E8;color:#1D1C19}
+a{color:#1F4B3B}a:hover{color:#123126}
+.serif{font-family:Newsreader,Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.nav{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.nl{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px;border-radius:10px;color:#3A3832;text-decoration:none;font-weight:500;font-size:15px}
+.nl:hover{background:#E0DBCE;color:#1D1C19}
+.nl[aria-current=page]{background:#1D1C19;color:#F3F0E8}
+.card{background:#FFFFFF;border:1px solid #DDD7CA;border-radius:16px}
+.lbl{font-size:13px;font-weight:500;color:#57534B;letter-spacing:.02em}
+.ib{width:42px;height:42px;border:0;border-radius:10px;background:transparent;color:#6B665C;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.seg{display:inline-flex;border:1px solid #CFC8B8;border-radius:10px;overflow:hidden;background:#FFFFFF}
+.seg button{min-height:40px;padding:0 14px;border:0;background:transparent;font:500 14px "IBM Plex Sans",sans-serif;color:#3A3832;cursor:pointer}
+.seg button[aria-pressed=true]{background:#1D1C19;color:#F3F0E8}
+.pt{width:100%;border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums;font-size:14px}
+.pt thead th{position:sticky;top:0;background:#FFFFFF;font-size:12px;font-weight:500;color:#57534B;text-align:right;padding:10px 12px;border-bottom:1px solid #DDD7CA;vertical-align:bottom;line-height:1.3}
+.pt thead tr.grp th{font-size:12px;font-weight:600;text-align:left;padding:10px 12px 6px;border-bottom:0;letter-spacing:.03em;text-transform:uppercase}
+.pt tbody th{text-align:left;font-weight:400;padding:10px 12px;border-bottom:1px solid #EFEBE2;vertical-align:top}
+.pt tbody th b{font-weight:600;display:block}
+.pt td{text-align:right;padding:10px 12px;border-bottom:1px solid #EFEBE2;vertical-align:top;white-space:nowrap}
+.pt td small{display:block;font-size:12px;color:#6B665C;margin-top:2px}
+.pt .z{color:#B5AD9D}
+.pt .av{font-weight:600}
+.pt .db{font-weight:500;color:#7E2B1B}
+.pt .g1{border-left:1px solid #E6E0D3}
+.pt tr.yr th{background:#F6F3EC;font-size:13px;font-weight:600;padding:8px 12px;border-bottom:1px solid #E6E0D3}
+.pt tr.yr th span{font-weight:400;color:#57534B}
+.pt tr.now th,.pt tr.now td{background:#FBFAF6}
+.pt tr.now th{box-shadow:inset 3px 0 0 #1D1C19}
+.chip{display:inline-block;margin-top:4px;font-size:11.5px;font-weight:600;border-radius:6px;padding:2px 7px;white-space:nowrap}
+.hit-m{background:#FBF1DD}
+.hit-e{background:#E3ECE7}
+.pt td:nth-child(6),.pt td:nth-child(10){border-left:1px solid #E6E0D3}
+.pt td:nth-child(7){border-left:1px solid #E6E0D3}
+.pt td:nth-child(8){border-left:1px solid #E6E0D3}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1560px; display: grid; grid-template-columns: 248px minmax(0, 1fr); background: #F3F0E8; overflow: hidden">
+
+<aside style="background: #EAE6DB; border-right: 1px solid #DDD7CA; padding: 28px 18px; display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; align-items: center; gap: 10px; padding: 0 8px">
+<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect width="30" height="30" rx="8" fill="#1D1C19"></rect><path d="M8 20 L13 14 L17 17 L22 10" stroke="#D39A36" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<div>
+<div class="serif" style="font-size: 20px; font-weight: 600; line-height: 1.1">Plan financier</div>
+<div style="font-size: 12px; color: #57534B">Espace de Démo</div>
+</div>
+</div>
+<nav aria-label="Navigation principale">
+<ul class="nav">
+<li><a class="nl" href="Main.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>Tableau de bord</a></li>
+<li><a class="nl" href="Budget.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>Budget</a></li>
+<li><a class="nl" href="Credits.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>Crédits</a></li>
+<li><a class="nl" href="Plan.dc.html" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18"></path></svg>Plan</a></li>
+<li><a class="nl" href="Suivi.dc.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"></path></svg><span style="flex-grow: 1">Suivi</span><span class="num" style="background: #D39A36; color: #1D1C19; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 1px 8px">2</span></a></li>
+</ul>
+</nav>
+<div style="flex-grow: 1"></div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 8px">
+<span style="font-size: 13px; color: #57534B">demo@example.com</span>
+<button type="button" class="ib" aria-label="Se déconnecter"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg></button>
+</div>
+</aside>
+
+<main style="padding: 40px 48px 56px; display: flex; flex-direction: column; gap: 24px; min-width: 0">
+<header style="display: flex; justify-content: space-between; align-items: flex-end; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h1 class="serif" style="margin: 0; font-size: 42px; line-height: 1.1; font-weight: 500">Plan mois par mois</h1>
+<p style="margin: 0; font-size: 15px; color: #57534B; max-width: 680px">Chaque mois, le disponible remplit ① le déménagement, ② le fonds d’urgence, puis ③ se partage entre remboursement anticipé et épargne libre. Pour changer le résultat, modifiez le budget ou les crédits.</p>
+</div>
+<div class="seg" role="group" aria-label="Période affichée">
+<button type="button" aria-pressed="true">18 mois</button><button type="button" aria-pressed="false">5 ans</button><button type="button" aria-pressed="false">25 ans</button>
+</div>
+</header>
+
+<section class="card" aria-labelledby="ov-title" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><h2 id="ov-title" style="margin: 0; font-size: 15px; font-weight: 600">Les 300 mois du plan</h2><span class="num" style="font-size: 13px; color: #57534B">juil. 2026 → juin 2051</span></div>
+<div style="position: relative; height: 34px; display: flex; gap: 2px" role="img" aria-label="Déménagement 6 mois, fonds d’urgence 5 mois, remboursement anticipé 13 mois, puis 276 mois d’épargne libre">
+<div style="width: 2%; background: #D39A36; border-radius: 6px 2px 2px 6px"></div>
+<div style="width: 1.67%; background: #24503F; border-radius: 2px"></div>
+<div style="width: 4.33%; background: #B04A32; border-radius: 2px"></div>
+<div style="flex-grow: 1; background: #C9C6E6; border-radius: 2px 6px 6px 2px; display: flex; align-items: center; padding-left: 14px; font-size: 13px; font-weight: 500; color: #2C2A55">④ Épargne libre · 1 175,00 € par mois à partir de juillet 2028</div>
+<div style="position: absolute; left: -3px; top: -5px; bottom: -5px; width: 6%; border: 2px solid #1D1C19; border-radius: 8px"></div>
+</div>
+<div class="num" style="display: flex; gap: 20px; font-size: 13px; color: #57534B; flex-wrap: wrap">
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #D39A36"></span>① Déménagement · 6 mois</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #24503F"></span>② Fonds d’urgence · 5 mois</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #B04A32"></span>③ Remb. anticipé + épargne · 13 mois</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 14px; height: 10px; border-radius: 3px; border: 2px solid #1D1C19; box-sizing: border-box"></span>Mois affichés ci-dessous</span>
+<span style="margin-left: auto; color: #2F6B4F; font-weight: 500">0 mois en budget négatif</span>
+</div>
+</section>
+
+<section class="card" aria-label="Tableau du plan" style="overflow: hidden">
+<table class="pt">
+<caption style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Plan mois par mois, 18 mois à partir de juillet 2026, montants en euros</caption>
+<thead>
+<tr class="grp">
+<th scope="col" style="width: 188px"></th>
+<th scope="colgroup" colspan="4" style="color: #57534B">Budget du mois</th>
+<th scope="colgroup" style="color: #8A5A12; border-left: 1px solid #E6E0D3">① Déménag.</th>
+<th scope="colgroup" style="color: #24503F; border-left: 1px solid #E6E0D3">② Urgence</th>
+<th scope="colgroup" colspan="2" style="color: #7E2B1B; border-left: 1px solid #E6E0D3">③ Reste du mois</th>
+<th scope="colgroup" style="color: #7E2B1B; border-left: 1px solid #E6E0D3">Dettes</th>
+</tr>
+<tr>
+<th scope="col" style="text-align: left">Mois</th>
+<th scope="col">Revenus</th><th scope="col">Dépenses</th><th scope="col">Mensualités</th><th scope="col" style="color: #1D1C19">Disponible</th>
+<th scope="col" style="border-left: 1px solid #E6E0D3">Versé<br>cumul</th>
+<th scope="col" style="border-left: 1px solid #E6E0D3">Versé<br>cumul</th>
+<th scope="col" style="border-left: 1px solid #E6E0D3">Remb.<br>anticipé</th><th scope="col">Épargne libre<br>cumul</th>
+<th scope="col" style="border-left: 1px solid #E6E0D3">Restant dû</th>
+</tr>
+</thead>
+<tbody>
+<tr class="yr"><th scope="rowgroup" colspan="10">2026 <span>· ① Déménagement</span></th></tr>
+<tr><th scope="row"><b>juil.</b></th><td>2 900,00</td><td>1 725,00</td><td>731,45</td><td class="av">443,55</td><td>443,55<small>943,55</small></td><td><span class="z">—</span><small>800,00</small></td><td><span class="z">—</span></td><td><span class="z">—</span><small>0,00</small></td><td class="db">15 750,70</td></tr>
+<tr><th scope="row"><b>août</b></th><td>2 900,00</td><td>1 725,00</td><td>731,45</td><td class="av">443,55</td><td>443,55<small>1 387,10</small></td><td><span class="z">—</span><small>800,00</small></td><td><span class="z">—</span></td><td><span class="z">—</span><small>0,00</small></td><td class="db">15 099,25</td></tr>
+<tr class="now"><th scope="row"><b>sept.</b><span class="chip" style="background:#1D1C19;color:#F3F0E8">Aujourd’hui</span></th><td>2 900,00</td><td>1 725,00</td><td>731,45</td><td class="av">443,55</td><td>443,55<small>1 830,65</small></td><td><span class="z">—</span><small>800,00</small></td><td><span class="z">—</span></td><td><span class="z">—</span><small>0,00</small></td><td class="db">14 445,60</td></tr>
+<tr><th scope="row"><b>oct.</b><span class="chip" style="background:#F6E1DA;color:#7E2B1B">Dette perso A soldée</span></th><td>2 900,00</td><td>1 725,00</td><td>731,45</td><td class="av">443,55</td><td>443,55<small>2 274,20</small></td><td><span class="z">—</span><small>800,00</small></td><td><span class="z">—</span></td><td><span class="z">—</span><small>0,00</small></td><td class="db">13 789,77</td></tr>
+<tr><th scope="row"><b>nov.</b><span class="chip" style="background:#F6E1DA;color:#7E2B1B">Dette perso B soldée</span></th><td>2 900,00</td><td>1 725,00</td><td>581,45</td><td class="av">593,55</td><td>593,55<small>2 867,75</small></td><td><span class="z">—</span><small>800,00</small></td><td><span class="z">—</span></td><td><span class="z">—</span><small>0,00</small></td><td class="db">13 281,73</td></tr>
+<tr><th scope="row"><b>déc.</b><span class="chip" style="background:#FBF1DD;color:#6B4A15">Date limite · objectif non tenu</span></th><td>2 900,00</td><td>1 725,00</td><td>531,45</td><td class="av">643,55</td><td class="hit-m">643,55<small>3 511,30</small></td><td><span class="z">—</span><small>800,00</small></td><td><span class="z">—</span></td><td><span class="z">—</span><small>0,00</small></td><td class="db">12 821,45</td></tr>
+<tr class="yr"><th scope="rowgroup" colspan="10">2027 <span>· ② Fonds d’urgence, puis ③ remboursement anticipé</span></th></tr>
+<tr><th scope="row"><b>janv.</b></th><td>2 900,00</td><td>1 725,00</td><td>531,45</td><td class="av">643,55</td><td><span class="z">—</span><small>3 511,30</small></td><td>643,55<small>1 443,55</small></td><td><span class="z">—</span></td><td><span class="z">—</span><small>0,00</small></td><td class="db">12 358,93</td></tr>
+<tr><th scope="row"><b>févr.</b></th><td>2 900,00</td><td>1 725,00</td><td>531,45</td><td class="av">643,55</td><td><span class="z">—</span><small>3 511,30</small></td><td>643,55<small>2 087,10</small></td><td><span class="z">—</span></td><td><span class="z">—</span><small>0,00</small></td><td class="db">11 894,15</td></tr>
+<tr><th scope="row"><b>mars</b></th><td>2 900,00</td><td>1 725,00</td><td>531,45</td><td class="av">643,55</td><td><span class="z">—</span><small>3 511,30</small></td><td>643,55<small>2 730,65</small></td><td><span class="z">—</span></td><td><span class="z">—</span><small>0,00</small></td><td class="db">11 427,09</td></tr>
+<tr><th scope="row"><b>avr.</b></th><td>2 900,00</td><td>1 725,00</td><td>531,45</td><td class="av">643,55</td><td><span class="z">—</span><small>3 511,30</small></td><td>643,55<small>3 374,20</small></td><td><span class="z">—</span></td><td><span class="z">—</span><small>0,00</small></td><td class="db">10 957,72</td></tr>
+<tr><th scope="row"><b>mai</b><span class="chip" style="background:#24503F;color:#FFFFFF">Fonds d’urgence complet</span></th><td>2 900,00</td><td>1 725,00</td><td>531,45</td><td class="av">643,55</td><td><span class="z">—</span><small>3 511,30</small></td><td class="hit-e">625,80<small>4 000,00</small></td><td>10,65</td><td>7,10<small>7,10</small></td><td class="db">10 475,39</td></tr>
+<tr><th scope="row"><b>juin</b></th><td>2 900,00</td><td>1 725,00</td><td>531,45</td><td class="av">643,55</td><td><span class="z">—</span><small>3 511,30</small></td><td><span class="z">—</span><small>4 000,00</small></td><td>386,13</td><td>257,42<small>264,52</small></td><td class="db">9 615,07</td></tr>
+<tr><th scope="row"><b>juil.</b></th><td>2 900,00</td><td>1 725,00</td><td>531,45</td><td class="av">643,55</td><td><span class="z">—</span><small>3 511,30</small></td><td><span class="z">—</span><small>4 000,00</small></td><td>386,13</td><td>257,42<small>521,94</small></td><td class="db">8 746,31</td></tr>
+<tr><th scope="row"><b>août</b><span class="chip" style="background:#F6E1DA;color:#7E2B1B">Carte revolving soldée</span></th><td>2 900,00</td><td>1 725,00</td><td>531,45</td><td class="av">643,55</td><td><span class="z">—</span><small>3 511,30</small></td><td><span class="z">—</span><small>4 000,00</small></td><td>386,13</td><td>257,42<small>779,36</small></td><td class="db">7 869,00</td></tr>
+<tr><th scope="row"><b>sept.</b></th><td>2 900,00</td><td>1 725,00</td><td>459,05</td><td class="av">715,95</td><td><span class="z">—</span><small>3 511,30</small></td><td><span class="z">—</span><small>4 000,00</small></td><td>429,57</td><td>286,38<small>1 065,74</small></td><td class="db">7 012,08</td></tr>
+<tr><th scope="row"><b>oct.</b></th><td>2 900,00</td><td>1 725,00</td><td>459,05</td><td class="av">715,95</td><td><span class="z">—</span><small>3 511,30</small></td><td><span class="z">—</span><small>4 000,00</small></td><td>429,57</td><td>286,38<small>1 352,12</small></td><td class="db">6 151,39</td></tr>
+<tr><th scope="row"><b>nov.</b></th><td>2 900,00</td><td>1 725,00</td><td>459,05</td><td class="av">715,95</td><td><span class="z">—</span><small>3 511,30</small></td><td><span class="z">—</span><small>4 000,00</small></td><td>429,57</td><td>286,38<small>1 638,50</small></td><td class="db">5 286,90</td></tr>
+<tr><th scope="row"><b>déc.</b><span class="chip" style="background:#F6E1DA;color:#7E2B1B">Prêt travaux soldé</span></th><td>2 900,00</td><td>1 725,00</td><td>459,05</td><td class="av">715,95</td><td><span class="z">—</span><small>3 511,30</small></td><td><span class="z">—</span><small>4 000,00</small></td><td>429,57</td><td>286,38<small>1 924,88</small></td><td class="db">4 418,62</td></tr>
+</tbody>
+</table>
+<div style="display: flex; justify-content: center; padding: 14px; border-top: 1px solid #EFEBE2"><button type="button" style="min-height: 44px; padding: 0 18px; border: 1px solid #CFC8B8; border-radius: 10px; background: #FFFFFF; font: 500 14px 'IBM Plex Sans', sans-serif; cursor: pointer">Afficher 2028 · plus de dettes en juin</button></div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1560}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

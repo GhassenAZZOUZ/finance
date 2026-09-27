@@ -4,12 +4,19 @@
  */
 import { HORIZON_MONTHS, type PlanInput, type PlanResult, type YearMonth, monthsBetween } from "@/lib/engine";
 
-export const DEFAULT_ROW_COUNT = 24;
+/** Range control of the /plan page: `?mois=` value and label. */
+export const ROW_COUNTS = [
+  { count: 18, label: "18 mois" },
+  { count: 60, label: "5 ans" },
+  { count: HORIZON_MONTHS, label: "25 ans" },
+] as const;
 
-/** `?mois=300` shows the whole horizon; anything else shows the first 24 months. */
-export function parseRowCount(param: string | string[] | undefined): number {
+export const DEFAULT_ROW_COUNT = 18;
+
+/** `?mois=18|60|300` picks the rows shown; anything else shows the first 18 months. */
+export function parseRowCount(param: string | string[] | null | undefined): number {
   const value = Array.isArray(param) ? param[0] : param;
-  return value === String(HORIZON_MONTHS) ? HORIZON_MONTHS : DEFAULT_ROW_COUNT;
+  return ROW_COUNTS.find((r) => String(r.count) === value)?.count ?? DEFAULT_ROW_COUNT;
 }
 
 export interface PlanMilestones {
