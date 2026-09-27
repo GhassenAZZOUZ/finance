@@ -116,8 +116,9 @@ Column F (Durée restante) is **not used** (D5).
   5. balances after payment / after early repayment (already rounded in the spreadsheet; they are
      exact once the inputs are cents)
 - Rates (`apr`, `riskFreeRate`, `earlyRepaymentPct`, ratios) are not money and are not rounded.
-- Effect vs the unpatched spreadsheet: at most a few cents per month. The golden data already
-  contains the patched values.
+- Effect vs the unpatched spreadsheet: each rounding moves a value by at most half a cent, but the
+  effect can accumulate in cumulative columns over 300 months, so the app will not match the
+  original spreadsheet to the cent. The golden data contains the patched values.
 
 ### 4.1 Eligibility and priority (`Crédits!J:K`)
 
