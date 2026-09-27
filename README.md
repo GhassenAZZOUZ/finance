@@ -1,11 +1,13 @@
 # finance-plan
 
 Private, French-language personal-finance web app that reproduces the owner's spreadsheet
-(`plan_financier`): a monthly **budget**, up to 6 **loans** (crédits), a **month-by-month plan over
-300 months** (emergency fund, moving fund, avalanche early repayments) and **monthly check-ins**
-(suivi réel) compared to the plan.
+(`plan_financier`): a monthly **budget** with one-off exceptions (e.g. a bonus in December), up to 6
+**loans** (crédits), a **month-by-month plan over 300 months** (emergency fund, moving fund, avalanche
+early repayments) and **monthly check-ins** (suivi réel) compared to the plan.
 
 The business rules are specified in [docs/SPEC.md](docs/SPEC.md) and validated against Excel.
+Where the app deliberately differs from the spreadsheet, the decision is recorded in
+[SPEC §2](docs/SPEC.md#2-v1-decisions-owner-validated-2026-09-27) (D1–D14).
 
 **V1 stack:** Next.js 16 (App Router, React 19, TypeScript) · Tailwind CSS 4 + shadcn/ui ·
 Recharts · Supabase (Postgres + Auth magic link + RLS) · Vitest · target hosting: Vercel.
@@ -66,14 +68,14 @@ automatically in CI. The tests refuse to run against anything but `127.0.0.1`/`l
 
 | Path | Contents |
 |---|---|
-| `lib/engine/` | Pure simulation engine (money, months, simulate, actuals). No framework, I/O, clock or randomness: enforced by an ESLint rule in `eslint.config.mjs` |
+| `lib/engine/` | Pure simulation engine (money, months, simulate, projection of a principal to the plan start, normal payment rule, actuals). No framework, I/O, clock or randomness: enforced by an ESLint rule in `eslint.config.mjs` |
 | `lib/domain/` | Domain types, plan assembly, input validation |
 | `lib/data/` | `FinanceRepository` interface + Supabase implementation. Pages and server actions only use this interface, so the V2 import can reuse it |
 | `lib/supabase/`, `proxy.ts` | Server Supabase client; `proxy.ts` refreshes the session cookie and redirects signed-out visitors to `/login` |
 | `lib/labels.ts`, `lib/format.ts` | French UI labels; `fr-FR` formatting |
 | `app/(app)/` | Pages: `/` dashboard, `/budget`, `/credits`, `/plan`, `/suivi` |
 | `app/login/`, `app/auth/` | Magic-link login and `/auth/confirm` callback |
-| `supabase/migrations/` | Schema; RLS enabled on every table (`user_id = auth.uid()`) |
+| `supabase/migrations/` | Schema (7 tables: `profiles`, `budget_settings`, `budget_lines`, `budget_exceptions`, `loans`, `monthly_actuals`, `monthly_actual_loan_balances`); RLS on every table (`user_id = auth.uid()`) |
 | `tests/unit/` | Engine vs Excel golden data, edge cases, validation |
 | `tests/integration/` | RLS isolation and repository tests |
 | `scripts/` | Phase 0 tooling (Python/PowerShell): template, Excel recalculation, golden export |
@@ -86,12 +88,20 @@ automatically in CI. The tests refuse to run against anything but `127.0.0.1`/`l
   cent arithmetic. The database stores `numeric(12,2)` euros; the repository converts.
 - **Months are `YYYY-MM` strings.** The engine never uses `Date`.
 - **Engine output is language-neutral.** French labels live in `lib/labels.ts`.
+- **Loans (D5b, D5c, D13):** an optional contract end month is compared with the simulated end
+  (warning if > 1 month apart); a principal read before the plan start is rolled forward to it
+  using "Dernière mensualité déjà payée"; a residual under 1 € is added to the last payment, as
+  banks do.
+- **Budget (D14):** a regular monthly budget plus one-off exceptions (extra income or expense for a
+  single month). Dashboard KPIs describe the regular month; the plan includes the exceptions.
 
 ## Testing
 
 - **Unit** (`npm run test:unit`): the engine is checked against
   [tests/fixtures/golden.json](tests/fixtures/golden.json), values **computed by Excel** on the
-  anonymized template, across 15 scenarios (300 months each), to the cent.
+  anonymized template (with the D2/D13 rules patched into the formulas), across 16 scenarios
+  (300 months each), to the cent. Hand-checkable edge cases cover the rules Excel has no
+  equivalent for (principal projection, one-off exceptions).
 - **Integration** (`npm run test:integration`): needs `supabase start`. Proves that user B can
   neither read nor write user A's data on every table (RLS), and exercises the Supabase repository.
   Test users are created and deleted by the tests.
