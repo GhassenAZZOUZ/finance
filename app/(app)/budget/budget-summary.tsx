@@ -13,6 +13,7 @@ export const PARAM_LABEL: Record<ParamField, string> = {
   movingAlreadySaved: "Déjà épargné (déménagement)",
   emergencyTarget: "Objectif fonds d’urgence",
   emergencyExisting: "Fonds d’urgence existant",
+  freeSavingsExisting: "Épargne libre existante",
   riskFreeRate: "Taux seuil",
   earlyRepaymentPct: "Part du reste en remboursement anticipé",
 };

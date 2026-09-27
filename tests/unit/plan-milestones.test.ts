@@ -12,7 +12,7 @@ const baseInput: PlanInput = {
     movingDeadlineMonth: "2027-06",
     movingAlreadySaved: 0,
     emergencyTarget: 150_000,
-    emergencyExisting: 0,
+    emergencyExisting: 0, freeSavingsExisting: 0,
     riskFreeRate: 0.024,
     earlyRepaymentPct: 0.5,
   },

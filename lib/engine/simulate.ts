@@ -96,7 +96,7 @@ export function simulatePlan(input: PlanInput): PlanResult {
   let baselineBalances = [...balances];
   let movingPrev = budget.movingAlreadySaved;
   let emergencyPrev = budget.emergencyExisting;
-  let freePrev = 0;
+  let freePrev = budget.freeSavingsExisting ?? 0;
 
   const months: PlanMonth[] = [];
   for (let index = 1; index <= HORIZON_MONTHS; index++) {

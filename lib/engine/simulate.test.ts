@@ -303,3 +303,24 @@ describe("budget lines with a period (SPEC D15)", () => {
     expect(isLineActive({ startMonth: null, endMonth: "2027-06" }, "2027-07")).toBe(false);
   });
 });
+
+describe("re-basing support (SPEC D16)", () => {
+  it("starts free savings from the existing amount", () => {
+    const { months } = simulatePlan({ budget: budget({ freeSavingsExisting: 123_456, earlyRepaymentPct: 0 }), loans: [] });
+    expect(at(months, 1).freeSavingsCumulative).toBe(123_456 + at(months, 1).toFreeSavings);
+  });
+
+  it("compares a check-in with its frozen planned values, not the current plan", () => {
+    const input = { budget: budget(), loans: [loan("a", 100_000, 0.05, 10_000)] };
+    const plan = simulatePlan(input);
+    const c = compareActual(
+      {
+        month: "2027-01", income: null, expenses: 160_000, movingSavings: 0, emergencySavings: 0, freeSavings: 59_000,
+        loanBalances: [80_000], planned: { debt: 79_000, savings: 60_000, income: 200_000, expenses: 150_000 },
+      },
+      plan,
+      input.budget,
+    );
+    expect(c).toMatchObject({ plannedDebt: 79_000, debtGap: 1_000, plannedSavings: 60_000, savingsGap: -1_000, status: "onTrack", expensesGap: 10_000 });
+  });
+});

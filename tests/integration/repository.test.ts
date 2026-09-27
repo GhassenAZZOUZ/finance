@@ -13,7 +13,7 @@ const settings: BudgetSettings = {
   movingDeadlineMonth: "2027-06",
   movingAlreadySaved: 50000,
   emergencyTarget: 400000,
-  emergencyExisting: 80000,
+  emergencyExisting: 80000, freeSavingsExisting: 0,
   riskFreeRate: 0.024,
   earlyRepaymentPct: 0.6,
 };
@@ -92,6 +92,7 @@ describe("SupabaseFinanceRepository", () => {
         { loanId: a!.id, balance: 798818 },
         { loanId: b!.id, balance: 45000 },
       ],
+      frozen: null,
     };
     await repo.saveActual(draft);
     await repo.saveActual({ ...draft, freeSavings: 1234, loanBalances: [{ loanId: a!.id, balance: 700000 }, { loanId: b!.id, balance: 0 }] });
@@ -108,6 +109,14 @@ describe("SupabaseFinanceRepository", () => {
     expect(snap.archivedLoans.map((l) => l.id)).toEqual([b!.id]);
 
     await expect(repo.removeLoan(c.id)).rejects.toMatchObject({ code: "not_found" });
+
+    // Freezing never overwrites values already frozen (SPEC D16).
+    const frozen = { plannedDebt: 800000, plannedSavings: 174355, plannedIncome: 290000, plannedExpenses: 172500, planStartMonth: "2027-01" };
+    await repo.freezeActuals([{ month: "2027-01", frozen }]);
+    await repo.freezeActuals([{ month: "2027-01", frozen: { ...frozen, plannedDebt: 1 } }]);
+    expect((await repo.load()).actuals[0]!.frozen).toEqual(frozen);
+    await repo.saveSettings({ ...settings, freeSavingsExisting: 12345 });
+    expect((await repo.load()).settings?.freeSavingsExisting).toBe(12345);
 
     await repo.deleteActual("2027-01");
     expect((await repo.load()).actuals).toEqual([]);

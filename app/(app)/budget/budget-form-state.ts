@@ -34,6 +34,7 @@ export const PARAM_FIELDS = [
   "movingAlreadySaved",
   "emergencyTarget",
   "emergencyExisting",
+  "freeSavingsExisting",
   "riskFreeRate",
   "earlyRepaymentPct",
 ] as const;
@@ -73,6 +74,7 @@ export function initialFormState(settings: BudgetSettings | null, lines: readonl
         movingAlreadySaved: amountInputValue(settings.movingAlreadySaved),
         emergencyTarget: amountInputValue(settings.emergencyTarget),
         emergencyExisting: amountInputValue(settings.emergencyExisting),
+        freeSavingsExisting: amountInputValue(settings.freeSavingsExisting),
         riskFreeRate: percentInputValue(settings.riskFreeRate),
         earlyRepaymentPct: percentInputValue(settings.earlyRepaymentPct),
       }
@@ -83,6 +85,7 @@ export function initialFormState(settings: BudgetSettings | null, lines: readonl
         movingAlreadySaved: "0",
         emergencyTarget: "0",
         emergencyExisting: "0",
+        freeSavingsExisting: "0",
         riskFreeRate: "",
         earlyRepaymentPct: "",
       };
@@ -156,6 +159,7 @@ export function parsePayload(raw: unknown, maxLines = 200): BudgetPayload | null
       movingAlreadySaved: text(form.movingAlreadySaved),
       emergencyTarget: text(form.emergencyTarget),
       emergencyExisting: text(form.emergencyExisting),
+      freeSavingsExisting: text(form.freeSavingsExisting),
       riskFreeRate: text(form.riskFreeRate),
       earlyRepaymentPct: text(form.earlyRepaymentPct),
       lines: rawLines.map((l) => {

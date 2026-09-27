@@ -77,6 +77,8 @@ export interface BudgetForm {
   movingAlreadySaved: string;
   emergencyTarget: string;
   emergencyExisting: string;
+  /** Optional ("" or missing = 0). */
+  freeSavingsExisting?: string;
   riskFreeRate: string;
   earlyRepaymentPct: string;
   /** startMonth / endMonth: optional YYYY-MM period of the line (SPEC D15). */
@@ -92,6 +94,7 @@ export function validateBudget(form: BudgetForm): Validated<{ settings: BudgetSe
     movingAlreadySaved: c.take("movingAlreadySaved", parseAmount(form.movingAlreadySaved)) as Cents,
     emergencyTarget: c.take("emergencyTarget", parseAmount(form.emergencyTarget)) as Cents,
     emergencyExisting: c.take("emergencyExisting", parseAmount(form.emergencyExisting)) as Cents,
+    freeSavingsExisting: (c.take("freeSavingsExisting", parseAmount(form.freeSavingsExisting, { required: false })) ?? 0) as Cents,
     riskFreeRate: c.take("riskFreeRate", parsePercent(form.riskFreeRate)),
     earlyRepaymentPct: c.take("earlyRepaymentPct", parsePercent(form.earlyRepaymentPct)),
   };
@@ -221,5 +224,6 @@ export function validateActual(
     emergencySavings: c.take("emergencySavings", parseAmount(form.emergencySavings)) as Cents,
     freeSavings: c.take("freeSavings", parseAmount(form.freeSavings)) as Cents,
     loanBalances,
+    frozen: null,
   });
 }

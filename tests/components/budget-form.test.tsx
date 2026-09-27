@@ -106,6 +106,30 @@ describe("BudgetForm", () => {
     expect(mocks.notify).toHaveBeenCalledTimes(1);
   });
 
+  it("saves the existing free savings in cents and links its hint and error", async () => {
+    const user = renderForm();
+    const input = screen.getByLabelText(/Épargne libre existante/);
+    expect(input.getAttribute("inputmode")).toBe("decimal");
+    expect((input as HTMLInputElement).value).toBe("0,00");
+    expect(input.getAttribute("aria-describedby")).toBe("param-freeSavingsExisting-hint");
+    expect(
+      screen.getByText("Épargne disponible hors déménagement et fonds d’urgence au début du plan (0 si aucune)."),
+    ).toBeTruthy();
+
+    await user.clear(input);
+    await user.type(input, "-1");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(input.getAttribute("aria-invalid")).toBe("true"));
+    expect(input.getAttribute("aria-describedby")).toBe("param-freeSavingsExisting-hint param-freeSavingsExisting-error");
+    expect(mocks.repo?.saveBudget).not.toHaveBeenCalled();
+
+    await user.clear(input);
+    await user.type(input, "1 234,56");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(mocks.repo?.saveBudget).toHaveBeenCalledTimes(1));
+    expect(mocks.repo?.saveBudget).toHaveBeenCalledWith({ ...SETTINGS, freeSavingsExisting: 123_456 }, expect.any(Array));
+  });
+
   it("does not save when the session has expired", async () => {
     mocks.getSession.mockResolvedValue({ data: { session: null }, error: null });
     const user = renderForm();

@@ -4,6 +4,7 @@
  */
 import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
 import { computePlan, toActualInput } from "@/lib/domain/plan";
+import { frozenFor, planRebase } from "@/lib/domain/rebase";
 import { type ActualForm, type Errors, parseMonth, validateActual } from "@/lib/domain/validation";
 import { type ActualStatus, type YearMonth, compareActual } from "@/lib/engine";
 import { currentYearMonth } from "@/lib/format";
@@ -42,12 +43,12 @@ export async function saveActualAction(_prev: SaveActualState, formData: FormDat
       return { status: "error", message: "Certains champs sont à corriger.", errors: validated.errors };
     }
 
-    await repo.saveActual(validated.value);
-    // The plan does not depend on the check-ins, so the pre-save plan gives the new status.
+    // Freeze what the plan expects for that month (SPEC D16), keeping values already frozen.
     const plan = computePlan(snapshot);
-    const comparison = plan
-      ? compareActual(toActualInput({ id: "", ...validated.value }), plan.result, plan.input.budget)
-      : null;
+    const existing = snapshot.actuals.find((a) => a.month === validated.value.month);
+    const draft = { ...validated.value, frozen: plan ? frozenFor(validated.value.month, plan, existing) : null };
+    await repo.saveActual(draft);
+    const comparison = plan ? compareActual(toActualInput({ id: "", ...draft }), plan.result, plan.input.budget) : null;
     notifyDataChanged();
     return { status: "saved", month: validated.value.month, result: comparison?.status ?? null };
   } catch {
@@ -67,4 +68,28 @@ export async function deleteActualAction(month: string): Promise<DeleteActualRes
   }
   notifyDataChanged();
   return { ok: true };
+}
+
+export type RebaseResult = { ok: true; newStartMonth: YearMonth } | { ok: false; message: string };
+
+/**
+ * "Recaler le plan" (SPEC D16): freezes the history, then restarts the plan the month after the
+ * latest check-in with its real balances. Everything is recomputed from the saved data.
+ */
+export async function rebasePlanAction(): Promise<RebaseResult> {
+  try {
+    const repo = getRepository();
+    const snapshot = await repo.load();
+    const plan = computePlan(snapshot);
+    const rebase = plan ? planRebase(snapshot, plan) : null;
+    if (!rebase) return { ok: false, message: "Aucun mois de suivi après le début du plan : rien à recaler." };
+    await repo.freezeActuals(rebase.freezes);
+    await repo.saveSettings(rebase.settings);
+    for (const { id, draft } of rebase.loanUpdates) await repo.updateLoan(id, draft);
+    for (const id of rebase.loansToArchive) await repo.removeLoan(id);
+    notifyDataChanged();
+    return { ok: true, newStartMonth: rebase.newStartMonth };
+  } catch {
+    return { ok: false, message: "Recalage impossible pour le moment. Réessayez dans un instant." };
+  }
 }

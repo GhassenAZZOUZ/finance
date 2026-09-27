@@ -34,6 +34,8 @@ export interface BudgetSettings {
   movingAlreadySaved: Cents;
   emergencyTarget: Cents;
   emergencyExisting: Cents;
+  /** Free savings already available at the plan start (SPEC D16). */
+  freeSavingsExisting: Cents;
   riskFreeRate: number;
   earlyRepaymentPct: number;
 }
@@ -68,6 +70,16 @@ export interface BudgetException {
 
 export type BudgetExceptionDraft = Omit<BudgetException, "id">;
 
+/** The plan's expectation frozen with a check-in (SPEC D16). */
+export interface FrozenPlan {
+  plannedDebt: Cents;
+  plannedSavings: Cents;
+  plannedIncome: Cents;
+  plannedExpenses: Cents;
+  /** Start month of the plan it was compared with. */
+  planStartMonth: YearMonth;
+}
+
 export interface MonthlyActual {
   id: string;
   month: YearMonth;
@@ -77,6 +89,8 @@ export interface MonthlyActual {
   emergencySavings: Cents;
   freeSavings: Cents;
   loanBalances: { loanId: string; balance: Cents }[];
+  /** Null for check-ins saved before D16 (compared with the current plan). */
+  frozen: FrozenPlan | null;
 }
 
 export type MonthlyActualDraft = Omit<MonthlyActual, "id">;

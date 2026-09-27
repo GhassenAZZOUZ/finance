@@ -4,6 +4,7 @@ import type {
   BudgetLineDraft,
   BudgetSettings,
   FinanceSnapshot,
+  FrozenPlan,
   Loan,
   LoanDraft,
   MonthlyActualDraft,
@@ -18,6 +19,10 @@ export interface FinanceRepository {
   load(): Promise<FinanceSnapshot>;
   /** Saves the parameters and replaces the budget lines with `lines` (ids kept when present). */
   saveBudget(settings: BudgetSettings, lines: BudgetLineDraft[]): Promise<void>;
+  /** Saves the plan parameters only (lines untouched). */
+  saveSettings(settings: BudgetSettings): Promise<void>;
+  /** Freezes planned values on existing check-ins that have none yet (SPEC D16). */
+  freezeActuals(items: { month: string; frozen: FrozenPlan }[]): Promise<void>;
   addException(draft: BudgetExceptionDraft): Promise<BudgetException>;
   deleteException(id: string): Promise<void>;
   createLoan(draft: LoanDraft): Promise<Loan>;
