@@ -2,12 +2,19 @@
 import {
   type ActualComparison,
   type Cents,
+  type PlanInput,
+  type PlanKpis,
   type PlanMonth,
+  type PlanResult,
+  type YearMonth,
   GAP_TOLERANCE,
   addMonths,
   centsToEuros,
   compareMonths,
   latestActual,
+  monthsBetween,
+  roundHalfAwayFromZero,
+  simulatePlan,
 } from "@/lib/engine";
 import { formatEuros, formatEurosWhole, formatMonthLong, formatMonthShort } from "@/lib/format";
 
@@ -149,4 +156,264 @@ export function actualVsPlannedSummary(comparisons: readonly ActualComparison[],
   const count = comparisons.length;
   const plannedText = planned === null ? "hors période du plan" : `prévu ${formatEuros(planned)}`;
   return `${noun} réelles et prévues sur ${count} mois de suivi. Dernier mois, ${formatMonthLong(latest.month)} : réel ${formatEuros(actual)}, ${plannedText}.`;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Redesigned dashboard (docs/design/Main.dc.html): headline, moving-fund fixes, roadmap, strips.
+ * ---------------------------------------------------------------------------------------------- */
+
+/** Row of the plan for a calendar month, or undefined outside the simulated months. */
+export function planMonthAt(result: PlanResult, startMonth: YearMonth, month: YearMonth): PlanMonth | undefined {
+  const offset = monthsBetween(startMonth, month);
+  return offset >= 0 ? result.months[offset] : undefined;
+}
+
+/** One sentence per fact: debt-free month, then whether the moving fund holds (docs/design §3). */
+export function dashboardHeadline(k: PlanKpis): string {
+  const parts: string[] = [];
+  if (!k.hasDebt) parts.push("Aucune dette en cours.");
+  else if (k.debtFreeMonth) parts.push(`Plus de dettes en ${formatMonthLong(k.debtFreeMonth)}.`);
+  else parts.push("Dettes remboursées au-delà de 25 ans.");
+  if (k.movingGoal > 0) {
+    parts.push(k.movingGoalMet ? "Le déménagement est financé." : "Le déménagement demande un ajustement.");
+  }
+  if (k.negativeBudgetMonths > 0) {
+    parts.push(`${k.negativeBudgetMonths} mois en budget négatif à corriger.`);
+  }
+  return parts.join(" ");
+}
+
+/**
+ * Months saved on the debt-free date thanks to early repayment: the last payoff without the plan
+ * minus the debt-free month. Null when either date is beyond the horizon or there is no debt.
+ */
+export function monthsGained(result: PlanResult): number | null {
+  const { debtFreeMonth, hasDebt } = result.kpis;
+  if (!hasDebt || !debtFreeMonth || result.loans.length === 0) return null;
+  let baseline: YearMonth | null = null;
+  for (const loan of result.loans) {
+    if (!loan.payoffMonthWithoutPlan) return null;
+    if (!baseline || compareMonths(loan.payoffMonthWithoutPlan, baseline) > 0) baseline = loan.payoffMonthWithoutPlan;
+  }
+  return baseline ? monthsBetween(debtFreeMonth, baseline) : null;
+}
+
+export interface MovingShortfall {
+  goal: Cents;
+  amountAtDeadline: Cents;
+  /** goal − amountAtDeadline, > 0. */
+  shortfall: Cents;
+  deadlineMonth: YearMonth;
+  /** From the reference month to the deadline, inclusive; 0 when the deadline is already past. */
+  monthsLeft: number;
+  /** Extra saving needed per remaining month (cents, rounded); null when no month is left. */
+  extraPerMonth: Cents | null;
+  /** First later deadline (up to DEADLINE_TRIES months later) at which the goal is met, or null. */
+  deadlineThatWorks: YearMonth | null;
+}
+
+/** Later deadlines tried to find one that works. */
+export const DEADLINE_TRIES = 12;
+
+/**
+ * Two ways to fix a moving fund that misses its goal (docs/design §5): save `extraPerMonth` more
+ * until the deadline, or move the deadline to `deadlineThatWorks` (found by re-simulating the plan
+ * with later deadlines; the engine itself is untouched). Null when the goal is met or there is none.
+ */
+export function movingShortfallOptions(input: PlanInput, result: PlanResult, referenceMonth: YearMonth): MovingShortfall | null {
+  const k = result.kpis;
+  const shortfall = k.movingGoal - k.movingAmountAtDeadline;
+  if (k.movingGoal <= 0 || k.movingGoalMet || shortfall <= 0) return null;
+  const deadlineMonth = input.budget.movingDeadlineMonth;
+  const monthsLeft = Math.max(0, monthsBetween(referenceMonth, deadlineMonth) + 1);
+  let deadlineThatWorks: YearMonth | null = null;
+  for (let i = 1; i <= DEADLINE_TRIES && !deadlineThatWorks; i++) {
+    const later = addMonths(deadlineMonth, i);
+    const next = simulatePlan({ ...input, budget: { ...input.budget, movingDeadlineMonth: later } });
+    if (next.kpis.movingGoalMet) deadlineThatWorks = later;
+  }
+  return {
+    goal: k.movingGoal,
+    amountAtDeadline: k.movingAmountAtDeadline,
+    shortfall,
+    deadlineMonth,
+    monthsLeft,
+    extraPerMonth: monthsLeft > 0 ? roundHalfAwayFromZero(shortfall / monthsLeft) : null,
+    deadlineThatWorks,
+  };
+}
+
+/** Allocation phase of a month: which bucket receives the money available that month. */
+export type PhaseKind = "moving" | "emergency" | "repay" | "free";
+
+/** "① Déménagement", "② Fonds d’urgence", "③ Remb. anticipé + épargne", "④ Épargne libre". */
+export function phaseLabel(kind: PhaseKind, earlyRepaymentPct: number): string {
+  if (kind === "moving") return "① Déménagement";
+  if (kind === "emergency") return "② Fonds d’urgence";
+  if (kind === "repay") return earlyRepaymentPct > 0 ? "③ Remb. anticipé + épargne" : "③ Épargne libre, crédits en cours";
+  return "④ Épargne libre";
+}
+
+export interface PlanPhase {
+  kind: PhaseKind;
+  /** 1-based plan month indexes, inclusive. */
+  startIndex: number;
+  endIndex: number;
+  startMonth: YearMonth;
+  endMonth: YearMonth;
+}
+
+/**
+ * The plan cut into consecutive phases (moving → emergency → early repayment + free savings →
+ * free savings). A month without money available (negative budget) keeps the previous phase.
+ */
+export function planPhases(months: readonly PlanMonth[]): PlanPhase[] {
+  const phases: PlanPhase[] = [];
+  let previous: PhaseKind = "moving";
+  for (const m of months) {
+    let kind: PhaseKind;
+    if (m.available <= 0) kind = previous;
+    else if (m.toMoving > 0) kind = "moving";
+    else if (m.toEmergency > 0) kind = "emergency";
+    // Once the debts are gone the early-repayment share is "unused" and goes to free savings.
+    else if (m.remainingDebt > 0 || m.toEarlyRepayment - m.unusedEarlyRepayment > 0) kind = "repay";
+    else kind = "free";
+    previous = kind;
+    const last = phases.at(-1);
+    if (last && last.kind === kind) {
+      last.endIndex = m.index;
+      last.endMonth = m.month;
+    } else {
+      phases.push({ kind, startIndex: m.index, endIndex: m.index, startMonth: m.month, endMonth: m.month });
+    }
+  }
+  return phases;
+}
+
+export type RoadmapEventKind = "loanPaidOff" | "deadline" | "emergencyReached" | "debtFree" | "freeSavings";
+
+export interface RoadmapEvent {
+  kind: RoadmapEventKind;
+  /** 1-based plan month. */
+  index: number;
+  month: YearMonth;
+  text: string;
+  /** "warning" = moving deadline missed; "strong" = debt-free. */
+  tone?: "warning" | "strong";
+  /** Shown after the month ("date limite", "→"). */
+  monthSuffix?: string;
+}
+
+function joinNames(names: readonly string[]): string {
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} et ${names.at(-1)}`;
+}
+
+/** Milestones listed under the roadmap, in month order (docs/design §3 Dashboard 4). */
+export function roadmapEvents(input: PlanInput, result: PlanResult): RoadmapEvent[] {
+  const { months, kpis } = result;
+  const { budget } = input;
+  const events: RoadmapEvent[] = [];
+  const indexOf = (month: YearMonth) => {
+    const offset = monthsBetween(budget.startMonth, month);
+    return offset >= 0 && offset < months.length ? offset + 1 : null;
+  };
+
+  const payoffs = new Map<number, string[]>();
+  for (const loan of result.loans) {
+    const index = loan.payoffMonthWithPlan ? indexOf(loan.payoffMonthWithPlan) : null;
+    // Loans already repaid at the start (month 1) are not milestones.
+    if (index === null || index === 1) continue;
+    payoffs.set(index, [...(payoffs.get(index) ?? []), loan.displayName]);
+  }
+  const debtFreeIndex = kpis.hasDebt && kpis.debtFreeMonth ? indexOf(kpis.debtFreeMonth) : null;
+  for (const [index, names] of payoffs) {
+    const month = months[index - 1]!.month;
+    const verb = names.length > 1 ? "soldés" : "soldé";
+    if (index === debtFreeIndex) {
+      events.push({ kind: "debtFree", index, month, text: `${joinNames(names)} ${verb} · plus de dettes`, tone: "strong" });
+    } else {
+      events.push({ kind: "loanPaidOff", index, month, text: `${joinNames(names)} ${verb}` });
+    }
+  }
+  if (debtFreeIndex !== null && !payoffs.has(debtFreeIndex)) {
+    events.push({ kind: "debtFree", index: debtFreeIndex, month: kpis.debtFreeMonth!, text: "Plus de dettes", tone: "strong" });
+  }
+
+  const deadlineIndex = budget.movingGoal > 0 ? indexOf(budget.movingDeadlineMonth) : null;
+  if (deadlineIndex !== null) {
+    events.push({
+      kind: "deadline",
+      index: deadlineIndex,
+      month: budget.movingDeadlineMonth,
+      monthSuffix: "date limite",
+      text: kpis.movingGoalMet
+        ? `Déménagement financé (${formatEurosWhole(kpis.movingGoal)})`
+        : `Déménagement : ${formatEuros(kpis.movingAmountAtDeadline)} sur ${formatEurosWhole(kpis.movingGoal)}`,
+      tone: kpis.movingGoalMet ? undefined : "warning",
+    });
+  }
+
+  const emergencyIndex =
+    budget.emergencyTarget > 0 && kpis.emergencyReachedMonth ? indexOf(kpis.emergencyReachedMonth) : null;
+  if (emergencyIndex !== null && emergencyIndex > 1) {
+    events.push({
+      kind: "emergencyReached",
+      index: emergencyIndex,
+      month: kpis.emergencyReachedMonth!,
+      text: `Fonds d’urgence complet (${formatEurosWhole(kpis.emergencyTarget)})`,
+    });
+  }
+
+  if (debtFreeIndex !== null) {
+    const after = months[debtFreeIndex];
+    if (after && after.toFreeSavings > 0) {
+      events.push({
+        kind: "freeSavings",
+        index: after.index,
+        month: after.month,
+        monthSuffix: "→",
+        text: `${formatEurosWhole(after.toFreeSavings)} / mois en épargne libre`,
+      });
+    }
+  }
+
+  const order: RoadmapEventKind[] = ["loanPaidOff", "deadline", "emergencyReached", "debtFree", "freeSavings"];
+  return events.sort((a, b) => a.index - b.index || order.indexOf(a.kind) - order.indexOf(b.kind));
+}
+
+/** Months drawn on the roadmap band: up to 6 months past the last milestone, 18 to `total` months. */
+export function roadmapWindow(events: readonly RoadmapEvent[], referenceIndex: number, total: number): number {
+  const last = Math.max(referenceIndex, ...events.filter((e) => e.kind !== "freeSavings").map((e) => e.index));
+  return Math.min(total, Math.max(18, last + 6));
+}
+
+export type CheckInSlotState = "entered" | "pending" | "current";
+
+export interface CheckInSlot {
+  month: YearMonth;
+  state: CheckInSlotState;
+  comparison: ActualComparison | null;
+}
+
+/**
+ * The last `count` months open to a check-in (up to the current month), oldest first: entered
+ * (with its comparison), pending (past, not entered) or current (not entered, still running).
+ */
+export function checkInStrip(
+  startMonth: YearMonth,
+  currentMonth: YearMonth,
+  comparisons: readonly ActualComparison[],
+  count = 3,
+): CheckInSlot[] {
+  if (compareMonths(startMonth, currentMonth) > 0) return [];
+  const byMonth = new Map(comparisons.map((c) => [c.month, c]));
+  const slots: CheckInSlot[] = [];
+  const open = Math.min(count, monthsBetween(startMonth, currentMonth) + 1);
+  for (let i = open - 1; i >= 0; i--) {
+    const month = addMonths(currentMonth, -i);
+    const comparison = byMonth.get(month) ?? null;
+    slots.push({ month, comparison, state: comparison ? "entered" : month === currentMonth ? "current" : "pending" });
+  }
+  return slots;
 }

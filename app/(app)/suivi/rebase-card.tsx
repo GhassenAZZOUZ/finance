@@ -107,7 +107,7 @@ export function RebaseCard({ preview, startMonth, loanLabels }: RebaseCardProps)
             </div>
 
             {confirming ? (
-              <div role="group" aria-label="Confirmer le recalage du plan" className="flex flex-col gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-950">
+              <div role="group" aria-label="Confirmer le recalage du plan" className="flex flex-col gap-3 rounded-md border border-warning-border bg-warning-bg p-3 text-warning">
                 <p className="font-medium">Recaler le plan ?</p>
                 <ul className="flex list-disc flex-col gap-1 pl-5">
                   <li>
@@ -163,14 +163,14 @@ export function RebaseCard({ preview, startMonth, loanLabels }: RebaseCardProps)
               ref={successRef}
               tabIndex={-1}
               role="status"
-              className="flex items-center gap-2 rounded-md border border-green-300 bg-green-50 px-3 py-2 font-medium text-green-900 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="flex items-center gap-2 rounded-md border border-good-border bg-good-bg px-3 py-2 font-medium text-good outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <CheckCircle2 aria-hidden className="size-4 shrink-0" />
               Plan recalé : il démarre en {formatMonthLong(outcome.newStartMonth)}.
             </p>
           ) : null}
           {outcome && !outcome.ok ? (
-            <p role="alert" className="flex items-center gap-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-red-900">
+            <p role="alert" className="flex items-center gap-2 rounded-md border border-bad-border bg-bad-bg px-3 py-2 text-bad">
               <TriangleAlert aria-hidden className="size-4 shrink-0" />
               {outcome.message}
             </p>

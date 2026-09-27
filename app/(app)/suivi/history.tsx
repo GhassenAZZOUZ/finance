@@ -110,11 +110,11 @@ export function History({ entries }: { entries: HistoryEntry[] }) {
   return (
     <>
       {/* Below lg: one card per month (the table needs ≈ 960 px to fit without scrolling). */}
-      <ul className="grid gap-3 md:grid-cols-2 lg:hidden">
+      <ul className="grid gap-3 md:grid-cols-2 xl:hidden">
         {entries.map((entry) => {
           const c = entry.comparison;
           return (
-            <li key={c.month} className="rounded-lg border bg-card p-4">
+            <li key={c.month} className="rounded-2xl border bg-card p-4">
               <article aria-labelledby={`suivi-card-${c.month}`} className="flex flex-col gap-3">
                 <div className="flex flex-col gap-0.5">
                   <div className="flex items-center justify-between gap-2">
@@ -157,7 +157,7 @@ export function History({ entries }: { entries: HistoryEntry[] }) {
       </ul>
 
       {/* lg and up: compact table, fully visible from a 1024 px viewport. */}
-      <div className="hidden lg:block">
+      <div className="hidden xl:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -229,5 +229,48 @@ export function History({ entries }: { entries: HistoryEntry[] }) {
         </Table>
       </div>
     </>
+  );
+}
+
+/** Right-column summary (docs/design Suivi): every open month, newest first, with its status. */
+export function HistoryList({
+  months,
+  entries,
+  currentMonth,
+}: {
+  /** Months open to a check-in, newest first. */
+  months: string[];
+  entries: HistoryEntry[];
+  currentMonth: string;
+}) {
+  const byMonth = new Map(entries.map((e) => [e.comparison.month, e]));
+  // Entries outside the open months (e.g. before a re-based plan's start) are listed too.
+  const all = [...new Set([...months, ...entries.map((e) => e.comparison.month)])].sort((a, b) => b.localeCompare(a));
+  if (all.length === 0) return <p className="text-sm text-muted-foreground">Aucune saisie pour l’instant.</p>;
+  return (
+    <ol className="flex flex-col">
+      {all.map((month) => {
+        const entry = byMonth.get(month);
+        const c = entry?.comparison;
+        return (
+          <li key={month} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-b border-divider py-3 last:border-b-0">
+            <span className="font-semibold first-letter:uppercase">{formatMonthLong(month)}</span>
+            {c ? (
+              <StatusBadge status={c.status} />
+            ) : month === currentMonth ? (
+              <span className="text-[13px] text-muted-foreground">en cours</span>
+            ) : (
+              <span className="text-[13px] font-semibold text-warning">à saisir</span>
+            )}
+            {c ? (
+              <span className="col-span-2 text-[13px] text-muted-foreground tabular-nums">
+                Dettes {formatEuros(c.actualDebt)} ({c.debtGap === null ? "—" : signedEuros(c.debtGap)}) · Épargne{" "}
+                {formatEuros(c.actualSavings)} ({c.savingsGap === null ? "—" : signedEuros(c.savingsGap)})
+              </span>
+            ) : null}
+          </li>
+        );
+      })}
+    </ol>
   );
 }

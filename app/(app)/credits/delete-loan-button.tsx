@@ -44,14 +44,14 @@ export function DeleteLoanButton({
       action={formAction}
       role="group"
       aria-label={`Confirmer la suppression de « ${loanName} »`}
-      className="flex max-w-44 flex-col gap-2 whitespace-normal rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-900"
+      className="flex max-w-44 flex-col gap-2 whitespace-normal rounded-md border border-bad-border bg-bad-bg p-2 text-sm text-bad"
     >
       <input type="hidden" name="id" value={loanId} />
       <p>
         Supprimer « {loanName} » ? S’il a un historique de suivi, il sera archivé au lieu d’être supprimé.
       </p>
       {state.status === "error" ? (
-        <p id={errorId} role="alert" className="font-medium text-red-800">
+        <p id={errorId} role="alert" className="font-medium text-bad">
           {state.message}
         </p>
       ) : null}
@@ -59,7 +59,7 @@ export function DeleteLoanButton({
         <Button
           type="submit"
           disabled={pending}
-          className="h-auto min-h-10 whitespace-normal bg-red-700 px-3 py-1 text-white hover:bg-red-800"
+          className="h-auto min-h-10 whitespace-normal bg-bad px-3 py-1 text-white hover:bg-bad/90"
           aria-describedby={state.status === "error" ? errorId : undefined}
         >
           {pending ? "Suppression…" : "Confirmer la suppression"}

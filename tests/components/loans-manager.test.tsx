@@ -2,7 +2,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildLoanRows, computeLoanTotals } from "@/app/(app)/credits/loan-view";
+import { buildLoanRows } from "@/app/(app)/credits/loan-view";
 import { LoansManager } from "@/app/(app)/credits/loans-manager";
 import { type RepositoryMock, createRepositoryMock, makeLoan } from "./helpers";
 
@@ -18,7 +18,6 @@ function renderManager(count: number) {
   render(
     <LoansManager
       rows={buildLoanRows(loans, null)}
-      totals={computeLoanTotals(loans, null)}
       hasPlan={false}
       currentMonth="2026-09"
     />,
@@ -44,12 +43,21 @@ describe("LoansManager", () => {
     expect(within(section).queryByLabelText("Capital restant dû (€)")).toBeNull();
   });
 
-  it("still allows editing an existing loan at the limit", async () => {
+  it("still allows editing an existing loan at the limit, inline under its row", async () => {
     const section = renderManager(6);
     const user = userEvent.setup();
-    // The loan appears in the desktop table and in the mobile cards: either button works.
-    await user.click(screen.getAllByRole("button", { name: "Modifier « Prêt 1 »" })[0]!);
-    expect(within(section).getByRole("form", { name: "Modifier « Prêt 1 »" })).toBeTruthy();
-    expect(within(section).queryByText("6 crédits maximum.")).toBeNull();
+    const edit = screen.getByRole("button", { name: "Modifier « Prêt 1 »" });
+    expect(edit.getAttribute("aria-expanded")).toBe("false");
+    await user.click(edit);
+    expect(edit.getAttribute("aria-expanded")).toBe("true");
+    const row = screen.getByRole("article", { name: /Prêt 1/ }).closest("li")!;
+    expect(within(row).getByRole("form", { name: "Modifier « Prêt 1 »" })).toBeTruthy();
+    // The add section keeps the limit message; editing does not need a free slot.
+    expect(within(section).getByText("6 crédits maximum.")).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "Supprimer « Prêt 1 »" })).toBeTruthy();
+
+    await user.click(within(row).getByRole("button", { name: "Annuler" }));
+    expect(screen.queryByRole("form", { name: "Modifier « Prêt 1 »" })).toBeNull();
+    expect(document.activeElement).toBe(edit);
   });
 });

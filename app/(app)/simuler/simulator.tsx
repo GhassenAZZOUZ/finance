@@ -273,7 +273,7 @@ export function Simulator({ base, currentMonth }: { base: SimulationBase; curren
           <CardContent className="flex flex-col gap-4">
             <div aria-live="polite" className="flex flex-col gap-2 empty:hidden">
               {hasErrors ? (
-                <p className="flex items-start gap-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+                <p className="flex items-start gap-2 rounded-md border border-bad-border bg-bad-bg px-3 py-2 text-sm text-bad">
                   <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
                   Certaines valeurs sont invalides : la simulation garde les dernières valeurs valides.
                 </p>
@@ -286,10 +286,10 @@ export function Simulator({ base, currentMonth }: { base: SimulationBase; curren
               ) : null}
             </div>
             {negativeFrom ? (
-              <Alert className="border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+              <Alert className="border-warning-border bg-warning-bg px-4 py-3 text-warning">
                 <CircleAlert aria-hidden />
                 <AlertTitle>Épargne libre négative dès {formatMonthLong(negativeFrom)}</AlertTitle>
-                <AlertDescription className="text-amber-900">
+                <AlertDescription className="text-warning">
                   Le montant prélevé dépasse ce que vous aurez mis de côté en épargne libre à ce moment-là.
                 </AlertDescription>
               </Alert>
@@ -460,7 +460,7 @@ function Field({
 function FieldError({ id, error }: { id: string; error?: string }) {
   if (!error) return null;
   return (
-    <p id={id} className="text-sm text-red-700">
+    <p id={id} className="text-sm text-bad">
       {error}
     </p>
   );

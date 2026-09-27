@@ -1,6 +1,6 @@
 "use client";
 
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipContentProps } from "recharts";
+import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipContentProps } from "recharts";
 import { formatEuros, formatEurosWhole } from "@/lib/format";
 
 /** "ring" = hollow circle, for planned values next to filled actual markers. */
@@ -85,11 +85,14 @@ export function PlanLineChart({
   series,
   summary,
   tableCaption,
+  todayLabel,
 }: {
   data: Row[];
   series: ChartSeries[];
   summary: string;
   tableCaption: string;
+  /** x label of the current month: drawn as a dashed "Aujourd’hui" line. */
+  todayLabel?: string;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -105,7 +108,7 @@ export function PlanLineChart({
       <div role="img" aria-label={summary} className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }} accessibilityLayer={false}>
-            <CartesianGrid vertical={false} stroke="var(--border)" />
+            <CartesianGrid vertical={false} stroke="var(--divider)" />
             <XAxis
               dataKey="label"
               tick={{ fill: MUTED, fontSize: 12 }}
@@ -123,6 +126,14 @@ export function PlanLineChart({
               domain={[(dataMin: number) => Math.min(0, dataMin), "auto"]}
               tickFormatter={(v: number) => formatEurosWhole(eurosToCents(v))}
             />
+            {todayLabel ? (
+              <ReferenceLine
+                x={todayLabel}
+                stroke="var(--foreground)"
+                strokeDasharray="3 3"
+                label={{ value: "Aujourd’hui", position: "insideTopLeft", fill: "var(--foreground)", fontSize: 12 }}
+              />
+            ) : null}
             <Tooltip
               cursor={{ stroke: MUTED, strokeWidth: 1 }}
               content={(props) => <ChartTooltip {...props} series={series} />}
@@ -134,7 +145,7 @@ export function PlanLineChart({
                 dataKey={s.key}
                 name={s.name}
                 stroke={s.color}
-                strokeWidth={2}
+                strokeWidth={2.5}
                 strokeDasharray={s.dashed ? "6 4" : undefined}
                 strokeLinecap="round"
                 strokeLinejoin="round"

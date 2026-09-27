@@ -1,25 +1,41 @@
 "use client";
 
-import { Check, Minus, TriangleAlert } from "lucide-react";
-import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
+import { Check, Pencil, TriangleAlert } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MAX_ACTIVE_LOANS } from "@/lib/domain/types";
-import type { LoanAdvice, YearMonth } from "@/lib/engine";
+import { type Cents, type LoanAdvice, type YearMonth, addMonths } from "@/lib/engine";
 import { formatEuros, formatMonthLong, formatMonthShort, formatPercent } from "@/lib/format";
 import { ADVICE_LABEL } from "@/lib/labels";
+import { cn } from "@/lib/utils";
 import { DeleteLoanButton } from "./delete-loan-button";
 import { LoanFormPanel } from "./loan-form";
-import type { ContractEndCheck, LoanRow, LoanTotals } from "./loan-view";
+import {
+  type ContractEndCheck,
+  type LoanRow,
+  type TimelineScale,
+  payoffGain,
+  sortByPriority,
+  timelinePosition,
+} from "./loan-view";
 
 const BELOW_INTEREST_TEXT = "La mensualité ne couvre pas les intérêts : le capital augmente.";
+
+/** Row grid from lg: priority | name | balance | APR | payment | timeline | edit. */
+const ROW_GRID =
+  "lg:grid lg:grid-cols-[2.5rem_minmax(9rem,1fr)_7rem_4.5rem_6rem_minmax(12rem,25rem)_2.75rem] lg:items-center lg:gap-3";
+
+const ADVICE_TAG: Record<LoanAdvice, string> = {
+  highRate: "bg-bucket-debts-tint text-bucket-debts-ink",
+  worthIt: "bg-secondary text-sidebar-foreground",
+  keep: "bg-good-bg text-good",
+};
 
 /** Entered principal, plus its projection at the plan start when it differs (SPEC D5c). */
 function PrincipalNote({ row }: { row: LoanRow }) {
   if (row.paidOffBeforeStart) {
     return (
-      <span className="mt-1 flex items-start justify-end gap-1 whitespace-normal text-xs font-medium text-green-800">
+      <span className="mt-1 flex items-start gap-1 text-xs font-medium text-good">
         <Check aria-hidden className="mt-px size-3.5 shrink-0" />
         Soldé en {formatMonthShort(row.paidOffBeforeStart)}, avant le début du plan. Vous pouvez le supprimer.
       </span>
@@ -27,14 +43,15 @@ function PrincipalNote({ row }: { row: LoanRow }) {
   }
   if (row.principalAtStart) {
     return (
-      <span className="block whitespace-normal text-xs font-normal text-muted-foreground">
-        ≈ {formatEuros(row.principalAtStart.amount)} au début du plan ({formatMonthShort(row.principalAtStart.month)})
+      <span className="block text-xs text-muted-foreground">
+        Saisi : {formatEuros(row.principal)} · ≈ {formatEuros(row.principalAtStart.amount)} au début du plan (
+        {formatMonthShort(row.principalAtStart.month)})
       </span>
     );
   }
   if (row.principalReadAfterStart) {
     return (
-      <span className="mt-1 flex items-start gap-1 whitespace-normal text-xs font-medium text-amber-800">
+      <span className="mt-1 flex items-start gap-1 text-xs font-medium text-warning">
         <TriangleAlert aria-hidden className="mt-px size-3.5 shrink-0" />
         Capital relevé après le début du plan ({formatMonthShort(row.principalReadAfterStart)}) : utilisé tel quel.
       </span>
@@ -43,20 +60,15 @@ function PrincipalNote({ row }: { row: LoanRow }) {
   return null;
 }
 
-function contractEndText(row: LoanRow): string {
-  return row.contractEndMonth ? formatMonthShort(row.contractEndMonth) : "—";
-}
-
 /** Contract end differs from the simulated end (SPEC D5b): the capital, APR or payment is probably off. */
 function ContractEndWarning({ check }: { check: ContractEndCheck }) {
   if (check.consistent) return null;
   const simulated = check.simulatedEndMonth
     ? `se termine en ${formatMonthLong(check.simulatedEndMonth)}`
     : "ne se termine pas avant 25 ans";
-  const gap =
-    check.gapMonths === null ? "" : ` (${check.gapMonths > 0 ? "+" : "−"}${Math.abs(check.gapMonths)} mois)`;
+  const gap = check.gapMonths === null ? "" : ` (${check.gapMonths > 0 ? "+" : "−"}${Math.abs(check.gapMonths)} mois)`;
   return (
-    <p className="mt-1 flex items-start gap-1 text-xs font-medium text-amber-800">
+    <p className="mt-1 flex items-start gap-1 text-xs font-medium text-warning">
       <TriangleAlert aria-hidden className="mt-px size-3.5 shrink-0" />
       <span>
         Fin du contrat : {formatMonthLong(check.contractEndMonth)}, mais avec cette mensualité le crédit {simulated}
@@ -66,123 +78,132 @@ function ContractEndWarning({ check }: { check: ContractEndCheck }) {
   );
 }
 
-/** End month shown for "Fin avec / sans plan". */
-function endText(row: LoanRow, month: YearMonth | null): string {
-  if (row.paidOffBeforeStart) return `Soldé (${formatMonthShort(row.paidOffBeforeStart)})`;
-  return payoffText(month);
-}
-
-function payoffText(month: YearMonth | null): string {
-  return month ? formatMonthShort(month) : "Au-delà de 25 ans";
-}
-
-function EligibleBadge({ eligible }: { eligible: boolean }) {
-  return eligible ? (
-    <span className="inline-flex items-center gap-1 rounded-full border border-green-300 bg-green-100 px-2 py-0.5 text-xs font-medium text-green-900">
-      <Check aria-hidden className="size-3" />
-      Oui
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
-      <Minus aria-hidden className="size-3" />
-      Non
-    </span>
-  );
-}
-
-function Advice({ advice }: { advice: LoanAdvice }) {
-  if (advice === "highRate") {
+function PriorityBadge({ priority }: { priority: number | null }) {
+  if (priority === null) {
     return (
-      <span className="inline-flex items-start gap-1 rounded-md border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-800">
-        <TriangleAlert aria-hidden className="mt-px size-3.5 shrink-0" />
-        {ADVICE_LABEL[advice]}
+      <span className="flex size-7 items-center justify-center rounded-full border border-dashed border-[#bdb5a5] text-muted-foreground">
+        <span aria-hidden>—</span>
+        <span className="sr-only">Pas de remboursement anticipé</span>
       </span>
     );
   }
-  return <span className={advice === "worthIt" ? "text-green-800" : "text-muted-foreground"}>{ADVICE_LABEL[advice]}</span>;
-}
-
-/** Early-repayment verdict with the priority rank underneath (desktop table). */
-function EligibleWithPriority({ eligible, priority }: { eligible: boolean; priority: number | null }) {
   return (
-    <div className="flex flex-col items-start gap-1">
-      <EligibleBadge eligible={eligible} />
-      {priority !== null ? <span className="whitespace-nowrap tabular-nums">Priorité {priority}</span> : null}
-    </div>
-  );
-}
-
-/** Several labelled values in one cell (e.g. "avec plan : … / sans plan : …"). */
-function LabelledValues({ items, align = "start" }: { items: { label: string; value: ReactNode }[]; align?: "start" | "end" }) {
-  return (
-    <dl
-      className={`grid grid-cols-[auto_auto] items-baseline gap-x-2 gap-y-0.5 ${align === "end" ? "justify-end" : "justify-start"}`}
+    <span
+      className={cn(
+        "flex size-7 items-center justify-center rounded-full text-[13px] font-semibold tabular-nums",
+        priority === 1 ? "bg-bucket-debts text-white" : "bg-bucket-debts-tint text-bucket-debts-ink",
+      )}
     >
-      {items.map((item) => (
-        <Fragment key={item.label}>
-          <dt className="whitespace-nowrap text-xs text-muted-foreground">{item.label}</dt>
-          <dd className={`whitespace-nowrap tabular-nums ${align === "end" ? "text-right" : ""}`}>{item.value}</dd>
-        </Fragment>
-      ))}
-    </dl>
+      <span className="sr-only">Priorité </span>
+      {priority}
+    </span>
   );
 }
 
-function BelowInterestWarning() {
+/** Payoff with the plan (●) vs without (○) on a shared time axis ("dumbbell"). */
+function PayoffTimeline({ row, scale }: { row: LoanRow; scale: TimelineScale | null }) {
+  const d = row.derived;
+  if (row.paidOffBeforeStart) {
+    return <span className="text-xs text-muted-foreground">Soldé ({formatMonthShort(row.paidOffBeforeStart)})</span>;
+  }
+  if (!d || !scale) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {row.contractEndMonth ? `Fin du contrat : ${formatMonthShort(row.contractEndMonth)}` : "Fin : renseignez le budget"}
+      </span>
+    );
+  }
+  const withPlan = d.payoffMonthWithPlan;
+  const without = d.payoffMonthWithoutPlan;
+  if (!withPlan) return <span className="text-xs text-bad">Non soldé en 25 ans</span>;
+  const gain = payoffGain(d);
+  const pos = (m: YearMonth) => `${timelinePosition(scale, m) * 100}%`;
+  const gained = gain !== null && gain > 0;
+  const aprZero = row.apr === 0;
+  const label = gained
+    ? `Soldé en ${formatMonthLong(withPlan)} avec le plan, ${formatMonthLong(without!)} sans : ${gain} mois plus tôt`
+    : `Soldé en ${formatMonthLong(withPlan)}${without ? ", avec ou sans le plan" : ""}`;
+  const text = gained
+    ? `${formatMonthShort(withPlan)} · −${gain} mois`
+    : `${formatMonthShort(withPlan)} · ${d.eligible ? "avec ou sans plan" : aprZero ? "dernière échéance" : "sous le taux seuil"}`;
   return (
-    <p className="mt-1 flex items-start gap-1 text-xs font-medium text-red-700">
-      <TriangleAlert aria-hidden className="mt-px size-3.5 shrink-0" />
-      {BELOW_INTEREST_TEXT}
-    </p>
-  );
-}
-
-interface RowActionsProps {
-  row: LoanRow;
-  editing: boolean;
-  /** Buttons one above the other (narrow table column). */
-  stacked?: boolean;
-  onEdit: () => void;
-  onDeleted: (message: string) => void;
-}
-
-function RowActions({ row, editing, stacked, onEdit, onDeleted }: RowActionsProps) {
-  return (
-    <div className={stacked ? "flex flex-col items-stretch gap-2" : "flex flex-wrap items-start gap-2"}>
-      <Button
-        type="button"
-        variant="outline"
-        className="min-h-10 px-3"
-        onClick={onEdit}
-        aria-pressed={editing}
-        aria-label={`Modifier « ${row.displayName} »`}
+    <div role="img" aria-label={label} className="relative h-9 w-full">
+      <div className="absolute inset-x-0 top-[21px] h-0.5 bg-divider" />
+      {gained ? (
+        <div
+          className="absolute top-5 h-1 bg-bucket-debts-tint"
+          style={{ left: pos(withPlan), width: `calc(${pos(without!)} - ${pos(withPlan)})` }}
+        />
+      ) : null}
+      <div
+        className={cn("absolute top-4 size-3 -translate-x-1/2 rounded-full", gained ? "bg-bucket-debts" : "bg-bucket-payments")}
+        style={{ left: pos(withPlan) }}
+      />
+      {gained ? (
+        <div
+          className="absolute top-4 size-3 -translate-x-1/2 rounded-full border-2 border-bucket-payments bg-card"
+          style={{ left: pos(without!) }}
+        />
+      ) : null}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute top-0 text-xs whitespace-nowrap tabular-nums",
+          gained ? "font-semibold text-bucket-debts-ink" : "text-muted-foreground",
+          timelinePosition(scale, withPlan) > 0.6 ? "-translate-x-full" : "",
+        )}
+        style={{ left: pos(withPlan) }}
       >
-        Modifier
-      </Button>
-      <DeleteLoanButton loanId={row.id} loanName={row.displayName} onDeleted={onDeleted} />
+        {text}
+      </span>
     </div>
   );
 }
 
-/** Active loans (table on large screens, cards below), totals, and the add / edit form. */
+/** Years above the timelines column (decorative). */
+function TimelineAxis({ scale }: { scale: TimelineScale }) {
+  const ticks: { month: YearMonth; left: number }[] = [];
+  for (let i = 0; i < scale.months; i++) {
+    const month = addMonths(scale.start, i);
+    if (i === 0 || month.endsWith("-01")) ticks.push({ month, left: i / scale.months });
+  }
+  return (
+    <div className="relative h-4">
+      {ticks.map((t) => (
+        <span key={t.month} className="absolute" style={{ left: `${t.left * 100}%` }}>
+          {t.month.slice(0, 4)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Active loans in repayment order, inline edit under a row, and the add form. */
 export function LoansManager({
   rows,
-  totals,
   hasPlan,
   currentMonth,
+  balances,
+  scale = null,
+  referenceMonth = null,
 }: {
   rows: LoanRow[];
-  totals: LoanTotals;
   hasPlan: boolean;
   currentMonth: string;
+  /** Plan balance of each loan in the reference month (shown instead of the entered principal). */
+  balances?: ReadonlyMap<string, Cents>;
+  scale?: TimelineScale | null;
+  referenceMonth?: YearMonth | null;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ message: string; focus: boolean; seq: number } | null>(null);
   const noticeRef = useRef<HTMLParagraphElement>(null);
+  const editButtons = useRef(new Map<string, HTMLButtonElement | null>());
 
   // A loan deleted elsewhere (other tab) simply drops out of edit mode.
   const editing = rows.find((r) => r.id === editingId) ?? null;
   const canAdd = rows.length < MAX_ACTIVE_LOANS;
+  const sorted = sortByPriority(rows);
 
   useEffect(() => {
     if (notice?.focus) noticeRef.current?.focus();
@@ -192,19 +213,9 @@ export function LoansManager({
     setNotice((prev) => ({ message, focus, seq: (prev?.seq ?? 0) + 1 }));
   }
 
-  function actionsFor(row: LoanRow, stacked = false) {
-    return (
-      <RowActions
-        row={row}
-        editing={row.id === editingId}
-        stacked={stacked}
-        onEdit={() => setEditingId(row.id)}
-        onDeleted={(message) => {
-          if (row.id === editingId) setEditingId(null);
-          announce(message, true);
-        }}
-      />
-    );
+  function closeEdit(id: string) {
+    setEditingId(null);
+    editButtons.current.get(id)?.focus();
   }
 
   return (
@@ -215,7 +226,7 @@ export function LoansManager({
         role="status"
         className={
           notice
-            ? "rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            ? "rounded-xl border border-good-border bg-good-bg px-3 py-2 text-sm text-good focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             : "sr-only"
         }
       >
@@ -223,194 +234,141 @@ export function LoansManager({
       </p>
 
       {rows.length === 0 ? (
-        <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-2xl border border-dashed border-input p-6 text-center text-sm text-muted-foreground">
           Aucun crédit en cours. Ajoutez-en un avec le formulaire ci-dessous (facultatif si vous n’en avez pas).
         </p>
       ) : (
-        <>
-          {/* From 1280px: full table, compacted so it fits without horizontal scrolling. */}
-          <div className="hidden rounded-lg border xl:block">
-            <Table>
-              <caption className="sr-only">Crédits en cours et totaux</caption>
-              <TableHeader>
-                <TableRow className="[&>th]:whitespace-normal [&>th]:align-bottom [&>th]:py-2">
-                  <TableHead scope="col">Nom</TableHead>
-                  <TableHead scope="col" className="text-right">
-                    Capital restant dû
-                  </TableHead>
-                  <TableHead scope="col" className="text-right">
-                    TAEG
-                  </TableHead>
-                  <TableHead scope="col" className="text-right">
-                    Mensualité
-                  </TableHead>
-                  {hasPlan ? (
-                    <>
-                      <TableHead scope="col" className="min-w-28">
-                        Remb. anticipé rentable (priorité)
-                      </TableHead>
-                      <TableHead scope="col">Conseil</TableHead>
-                      <TableHead scope="col">Fin du crédit</TableHead>
-                      <TableHead scope="col" className="text-right">
-                        Intérêts
-                      </TableHead>
-                    </>
-                  ) : (
-                    <TableHead scope="col">Fin du contrat</TableHead>
-                  )}
-                  <TableHead scope="col">
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id} data-state={row.id === editingId ? "selected" : undefined}>
-                    <TableHead scope="row" className="h-auto min-w-36 whitespace-normal py-2 align-top font-medium">
-                      {row.displayName}
-                      {row.type ? (
-                        <span className="block text-xs font-normal text-muted-foreground">{row.type}</span>
-                      ) : null}
-                      {row.paymentBelowInterest ? <BelowInterestWarning /> : null}
-                      {row.endCheck ? <ContractEndWarning check={row.endCheck} /> : null}
-                    </TableHead>
-                    <TableCell className="min-w-28 text-right align-top tabular-nums">
-                      {formatEuros(row.principal)}
-                      <PrincipalNote row={row} />
-                    </TableCell>
-                    <TableCell className="text-right align-top tabular-nums">{formatPercent(row.apr)}</TableCell>
-                    <TableCell className="text-right align-top tabular-nums">{formatEuros(row.monthlyPayment)}</TableCell>
-                    {hasPlan ? (
-                      row.derived ? (
-                        <>
-                          <TableCell className="align-top">
-                            <EligibleWithPriority eligible={row.derived.eligible} priority={row.derived.priority} />
-                          </TableCell>
-                          <TableCell className="min-w-32 whitespace-normal align-top">
-                            <Advice advice={row.derived.advice} />
-                          </TableCell>
-                          <TableCell className="align-top">
-                            <LabelledValues
-                              items={[
-                                ...(row.contractEndMonth
-                                  ? [{ label: "contrat", value: contractEndText(row) }]
-                                  : []),
-                                { label: "avec plan", value: endText(row, row.derived.payoffMonthWithPlan) },
-                                { label: "sans plan", value: endText(row, row.derived.payoffMonthWithoutPlan) },
-                              ]}
-                            />
-                          </TableCell>
-                          <TableCell className="align-top">
-                            <LabelledValues
-                              align="end"
-                              items={[
-                                { label: "avec plan", value: formatEuros(row.derived.interestWithPlan) },
-                                { label: "sans plan", value: formatEuros(row.derived.interestWithoutPlan) },
-                              ]}
-                            />
-                          </TableCell>
-                        </>
-                      ) : (
-                        <TableCell colSpan={4} className="align-top text-muted-foreground">
-                          —
-                        </TableCell>
-                      )
-                    ) : (
-                      <TableCell className="align-top">{contractEndText(row)}</TableCell>
-                    )}
-                    <TableCell className="align-top">{actionsFor(row, true)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-              <TableFooter>
-                <TableRow>
-                  <TableHead scope="row">Total</TableHead>
-                  <TableCell className="text-right font-semibold tabular-nums">
-                    {formatEuros(totals.totalPrincipal)}
-                  </TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums">
-                    <span className="sr-only">TAEG moyen pondéré : </span>
-                    {formatPercent(totals.weightedApr)}
-                  </TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums">
-                    {formatEuros(totals.monthlyPayments)}
-                  </TableCell>
-                  <TableCell colSpan={hasPlan ? 5 : 2} />
-                </TableRow>
-              </TableFooter>
-            </Table>
+        <section aria-labelledby="list-title" className="flex flex-col overflow-hidden rounded-2xl border bg-card">
+          <div className="flex flex-wrap items-baseline justify-between gap-3 px-4 pt-5 pb-2 md:px-5">
+            <h2 id="list-title" className="text-[17px] font-semibold">
+              {hasPlan ? "Dans l’ordre de remboursement" : "Crédits en cours"}
+            </h2>
+            {hasPlan ? (
+              <div className="flex gap-4.5 text-[13px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <span aria-hidden className="size-3 rounded-full bg-bucket-debts" />
+                  Fin avec le plan
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span aria-hidden className="size-3 rounded-full border-2 border-bucket-payments" />
+                  Fin sans le plan
+                </span>
+              </div>
+            ) : null}
           </div>
-
-          {/* Below 1280px: one card per loan (two columns from 768px), never a horizontal scrollbar. */}
-          <ul className="flex flex-col gap-3 md:grid md:grid-cols-2 xl:hidden" aria-label="Crédits en cours">
-            {rows.map((row) => (
-              <li key={row.id}>
-                <Card className={row.id === editingId ? "h-full ring-2 ring-ring" : "h-full"}>
-                  <CardContent className="flex flex-col gap-3">
-                    <div>
-                      <h3 className="font-semibold">{row.displayName}</h3>
-                      {row.type ? <p className="text-sm text-muted-foreground">{row.type}</p> : null}
-                      {row.paymentBelowInterest ? <BelowInterestWarning /> : null}
-                      {row.endCheck ? <ContractEndWarning check={row.endCheck} /> : null}
-                    </div>
-                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                      <CardItem
-                        label="Capital restant dû"
-                        value={
-                          <>
-                            {formatEuros(row.principal)}
-                            <PrincipalNote row={row} />
-                          </>
-                        }
-                      />
-                      <CardItem label="TAEG" value={formatPercent(row.apr)} />
-                      <CardItem label="Mensualité" value={formatEuros(row.monthlyPayment)} />
-                      <CardItem label="Fin du contrat" value={contractEndText(row)} />
+          <div aria-hidden className={cn("hidden border-b border-divider px-5 py-2 text-xs font-medium text-muted-foreground", ROW_GRID)}>
+            <span>Prio.</span>
+            <span>Crédit</span>
+            <span className="text-right">Restant dû</span>
+            <span className="text-right">TAEG</span>
+            <span className="text-right">Mensualité</span>
+            {scale ? <TimelineAxis scale={scale} /> : <span>Fin</span>}
+            <span />
+          </div>
+          <ul aria-label="Crédits en cours">
+            {sorted.map((row) => {
+              const isEditing = row.id === editingId;
+              const balance = balances?.get(row.id);
+              return (
+                <li key={row.id} className={cn("border-b border-divider last:border-b-0", isEditing && "bg-[#fbfaf6]")}>
+                  <article aria-labelledby={`loan-${row.id}-name`} className={cn("grid grid-cols-[2.5rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2 px-4 py-3.5 md:px-5", ROW_GRID)}>
+                    <PriorityBadge priority={row.derived?.priority ?? null} />
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <h3 id={`loan-${row.id}-name`} className="font-semibold">
+                        {row.displayName}
+                        {row.type ? <span className="font-normal text-muted-foreground"> · {row.type}</span> : null}
+                      </h3>
                       {row.derived ? (
-                        <>
-                          <CardItem
-                            label="Remb. anticipé rentable"
-                            value={<EligibleBadge eligible={row.derived.eligible} />}
-                          />
-                          <CardItem label="Priorité" value={row.derived.priority ?? "—"} />
-                          <CardItem label="Fin avec plan" value={endText(row, row.derived.payoffMonthWithPlan)} />
-                          <CardItem label="Fin sans plan" value={endText(row, row.derived.payoffMonthWithoutPlan)} />
-                          <CardItem label="Intérêts avec plan" value={formatEuros(row.derived.interestWithPlan)} />
-                          <CardItem label="Intérêts sans plan" value={formatEuros(row.derived.interestWithoutPlan)} />
-                          <CardItem label="Conseil" value={<Advice advice={row.derived.advice} />} wide />
-                        </>
+                        <span>
+                          <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium", ADVICE_TAG[row.derived.advice])}>
+                            {ADVICE_LABEL[row.derived.advice]}
+                          </span>
+                        </span>
                       ) : null}
+                      {row.paymentBelowInterest ? (
+                        <p className="flex items-start gap-1 text-xs font-medium text-bad">
+                          <TriangleAlert aria-hidden className="mt-px size-3.5 shrink-0" />
+                          {BELOW_INTEREST_TEXT}
+                        </p>
+                      ) : null}
+                      {row.endCheck ? <ContractEndWarning check={row.endCheck} /> : null}
+                      <PrincipalNote row={row} />
+                    </div>
+                    <Button
+                      ref={(el) => {
+                        editButtons.current.set(row.id, el);
+                      }}
+                      type="button"
+                      variant={isEditing ? "default" : "ghost"}
+                      size="icon"
+                      className="size-11 justify-self-end text-muted-foreground aria-expanded:bg-primary aria-expanded:text-primary-foreground lg:order-last"
+                      onClick={() => (isEditing ? closeEdit(row.id) : setEditingId(row.id))}
+                      aria-expanded={isEditing}
+                      aria-controls={isEditing ? `loan-${row.id}-edit` : undefined}
+                      aria-label={`Modifier « ${row.displayName} »`}
+                    >
+                      <Pencil aria-hidden className="size-4.5" />
+                    </Button>
+                    <dl className="col-span-3 grid grid-cols-3 gap-3 text-sm lg:contents">
+                      <div className="lg:text-right">
+                        <dt className="text-xs text-muted-foreground lg:sr-only">
+                          Restant dû{referenceMonth && balance !== undefined ? ` (${formatMonthShort(referenceMonth)})` : ""}
+                        </dt>
+                        <dd className="tabular-nums">{formatEuros(balance ?? row.principal)}</dd>
+                      </div>
+                      <div className="lg:text-right">
+                        <dt className="text-xs text-muted-foreground lg:sr-only">TAEG</dt>
+                        <dd className="font-semibold tabular-nums">{formatPercent(row.apr)}</dd>
+                      </div>
+                      <div className="lg:text-right">
+                        <dt className="text-xs text-muted-foreground lg:sr-only">Mensualité</dt>
+                        <dd className="tabular-nums">{formatEuros(row.monthlyPayment)}</dd>
+                      </div>
                     </dl>
-                    {actionsFor(row)}
-                  </CardContent>
-                </Card>
-              </li>
-            ))}
+                    <div className="col-span-3 lg:col-span-1">
+                      <PayoffTimeline row={row} scale={scale} />
+                    </div>
+                  </article>
+                  {isEditing && editing ? (
+                    <div id={`loan-${row.id}-edit`} className="mx-4 mb-5 flex flex-col gap-4 rounded-[14px] border bg-card p-4 md:p-5 lg:ml-[4.75rem]">
+                      <LoanFormPanel
+                        key={editing.id}
+                        idPrefix={`credit-edit-${editing.id}`}
+                        editing={editing}
+                        defaultPaidThroughMonth={currentMonth}
+                        onSaved={(message) => {
+                          announce(message, true);
+                          setEditingId(null);
+                        }}
+                        onCancel={() => closeEdit(row.id)}
+                      />
+                      <div className="border-t border-divider pt-3.5">
+                        <DeleteLoanButton
+                          loanId={row.id}
+                          loanName={row.displayName}
+                          onDeleted={(message) => {
+                            setEditingId(null);
+                            announce(message, true);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
-          <Card className="xl:hidden">
-            <CardContent>
-              <h3 className="mb-2 font-semibold">Total</h3>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                <CardItem label="Capital restant dû" value={formatEuros(totals.totalPrincipal)} />
-                <CardItem label="TAEG moyen pondéré" value={formatPercent(totals.weightedApr)} />
-                <CardItem label="Mensualités" value={formatEuros(totals.monthlyPayments)} />
-              </dl>
-            </CardContent>
-          </Card>
-        </>
+        </section>
       )}
 
-      <section id="formulaire-credit" className="rounded-lg border p-4" aria-label="Formulaire crédit">
-        {editing || canAdd ? (
+      <section id="formulaire-credit" className="rounded-2xl border bg-card p-4 md:p-6" aria-label="Formulaire crédit">
+        {canAdd ? (
           <LoanFormPanel
-            key={editing?.id ?? "nouveau"}
-            editing={editing}
+            key={`nouveau-${rows.length}`}
+            editing={null}
             defaultPaidThroughMonth={currentMonth}
-            onSaved={(message) => {
-              announce(message, editing !== null);
-              setEditingId(null);
-            }}
-            onCancel={() => setEditingId(null)}
+            onSaved={(message) => announce(message, false)}
+            onCancel={() => undefined}
           />
         ) : (
           <p className="text-sm">
@@ -418,15 +376,6 @@ export function LoansManager({
           </p>
         )}
       </section>
-    </div>
-  );
-}
-
-function CardItem({ label, value, wide }: { label: string; value: ReactNode; wide?: boolean }) {
-  return (
-    <div className={wide ? "col-span-2" : undefined}>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="tabular-nums">{value}</dd>
     </div>
   );
 }

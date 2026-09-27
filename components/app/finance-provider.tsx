@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { getRepository, onDataChanged } from "@/lib/data/client-store";
 import { type ComputedPlan, computePlan } from "@/lib/domain/plan";
 import type { FinanceSnapshot } from "@/lib/domain/types";
@@ -16,12 +16,15 @@ export interface FinanceData {
   reload: () => void;
 }
 
-const FinanceContext = createContext<FinanceData | null>(null);
-
 type State =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; email: string | null; snapshot: FinanceSnapshot; plan: ComputedPlan | null };
+
+/** Ready data, or null while loading / on error. */
+const FinanceContext = createContext<FinanceData | null>(null);
+/** Loading state for <FinanceGate>. */
+const LoadStateContext = createContext<{ state: State; reload: () => void } | null>(null);
 
 /** Loads the session, the user's data and the plan; "signed-out" when there is no session. */
 async function fetchFinance(): Promise<State | "signed-out"> {
@@ -37,7 +40,8 @@ async function fetchFinance(): Promise<State | "signed-out"> {
 
 /**
  * Signed-in area of the static app: checks the session (redirects to /login), loads the user's
- * data through the repository, computes the plan, and reloads after every write.
+ * data through the repository, computes the plan, and reloads after every write. The whole shell
+ * sits inside it (the sidebar shows the pending check-ins); pages sit inside <FinanceGate>.
  */
 export function FinanceProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -62,6 +66,24 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     };
   }, [load, router]);
 
+  const data = useMemo<FinanceData | null>(
+    () => (state.status === "ready" ? { email: state.email, snapshot: state.snapshot, plan: state.plan, reload: load } : null),
+    [state, load],
+  );
+  const loadState = useMemo(() => ({ state, reload: load }), [state, load]);
+
+  return (
+    <LoadStateContext.Provider value={loadState}>
+      <FinanceContext.Provider value={data}>{children}</FinanceContext.Provider>
+    </LoadStateContext.Provider>
+  );
+}
+
+/** Renders the page once the data is loaded; a status line while loading, a retry on error. */
+export function FinanceGate({ children }: { children: ReactNode }) {
+  const value = useContext(LoadStateContext);
+  if (!value) throw new Error("FinanceGate must be used inside <FinanceProvider>");
+  const { state, reload } = value;
   if (state.status === "loading") {
     return (
       <p role="status" className="py-16 text-center text-sm text-muted-foreground">
@@ -71,24 +93,25 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   }
   if (state.status === "error") {
     return (
-      <div role="alert" className="flex flex-col items-start gap-3 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900">
+      <div role="alert" className="flex flex-col items-start gap-3 rounded-2xl border border-bad-border bg-bad-bg p-4 text-sm text-bad">
         <p>{state.message}</p>
-        <Button type="button" variant="outline" onClick={load}>
+        <Button type="button" variant="outline" onClick={reload}>
           Réessayer
         </Button>
       </div>
     );
   }
-  return (
-    <FinanceContext.Provider value={{ email: state.email, snapshot: state.snapshot, plan: state.plan, reload: load }}>
-      {children}
-    </FinanceContext.Provider>
-  );
+  return children;
 }
 
-/** The signed-in user's data; only usable inside the (app) pages. */
+/** The signed-in user's data; only usable inside the (app) pages (below <FinanceGate>). */
 export function useFinance(): FinanceData {
   const value = useContext(FinanceContext);
-  if (!value) throw new Error("useFinance must be used inside <FinanceProvider>");
+  if (!value) throw new Error("useFinance must be used inside <FinanceProvider> and <FinanceGate>");
   return value;
+}
+
+/** Same data for the shell, which also renders while loading: null until it is ready. */
+export function useOptionalFinance(): FinanceData | null {
+  return useContext(FinanceContext);
 }

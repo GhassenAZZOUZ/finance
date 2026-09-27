@@ -7,9 +7,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  /* next/font variables are set on <html> in app/layout.tsx. */
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-newsreader), Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -39,6 +40,39 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+
+  /* Hairlines inside cards (lighter than --border) and the link colour. */
+  --color-divider: var(--divider);
+  --color-link: var(--link);
+
+  /* Allocation buckets (docs/design/README.md §1): fill, text on tint, tint. */
+  --color-bucket-moving: var(--bucket-moving);
+  --color-bucket-moving-ink: var(--bucket-moving-ink);
+  --color-bucket-moving-tint: var(--bucket-moving-tint);
+  --color-bucket-emergency: var(--bucket-emergency);
+  --color-bucket-emergency-ink: var(--bucket-emergency-ink);
+  --color-bucket-emergency-tint: var(--bucket-emergency-tint);
+  --color-bucket-debts: var(--bucket-debts);
+  --color-bucket-debts-ink: var(--bucket-debts-ink);
+  --color-bucket-debts-tint: var(--bucket-debts-tint);
+  --color-bucket-remainder: var(--bucket-remainder);
+  --color-bucket-remainder-line: var(--bucket-remainder-line);
+  --color-bucket-remainder-ink: var(--bucket-remainder-ink);
+  --color-bucket-remainder-tint: var(--bucket-remainder-tint);
+  --color-bucket-expenses: var(--bucket-expenses);
+  --color-bucket-payments: var(--bucket-payments);
+
+  /* Statuses: text / background / border. */
+  --color-good: var(--good);
+  --color-good-bg: var(--good-bg);
+  --color-good-border: var(--good-border);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-border: var(--warning-border);
+  --color-bad: var(--bad);
+  --color-bad-bg: var(--bad-bg);
+  --color-bad-border: var(--bad-border);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -49,40 +83,70 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #f3f0e8;
+  --foreground: #1d1c19;
+  --card: #ffffff;
+  --card-foreground: #1d1c19;
+  --popover: #ffffff;
+  --popover-foreground: #1d1c19;
+  --primary: #1d1c19;
+  --primary-foreground: #f3f0e8;
+  --secondary: #f1eee6;
+  --secondary-foreground: #1d1c19;
+  --muted: #f1eee6;
+  --muted-foreground: #57534b;
+  --accent: #e0dbce;
+  --accent-foreground: #1d1c19;
+  --destructive: #a2362a;
+  --border: #ddd7ca;
+  --input: #d6cfbf;
+  --ring: #1f4b3b;
+  --divider: #ece7dc;
+  --link: #1f4b3b;
+  --chart-1: #b04a32;
+  --chart-2: #6d67b3;
+  --chart-3: #d39a36;
+  --chart-4: #24503f;
+  --chart-5: #8a8375;
+  /* 12px: cards are rounded-2xl (≈ 16px), inputs rounded-lg (≈ 10px). */
+  --radius: 0.75rem;
+  --sidebar: #eae6db;
+  --sidebar-foreground: #3a3832;
+  --sidebar-primary: #1d1c19;
+  --sidebar-primary-foreground: #f3f0e8;
+  --sidebar-accent: #e0dbce;
+  --sidebar-accent-foreground: #1d1c19;
+  --sidebar-border: #ddd7ca;
+  --sidebar-ring: #1f4b3b;
+
+  --bucket-moving: #d39a36;
+  --bucket-moving-ink: #8a5a12;
+  --bucket-moving-tint: #fbf1dd;
+  --bucket-emergency: #24503f;
+  --bucket-emergency-ink: #24503f;
+  --bucket-emergency-tint: #e3ece7;
+  --bucket-debts: #b04a32;
+  --bucket-debts-ink: #7e2b1b;
+  --bucket-debts-tint: #f6e1da;
+  --bucket-remainder: #8c86c9;
+  --bucket-remainder-line: #6d67b3;
+  --bucket-remainder-ink: #2c2a55;
+  --bucket-remainder-tint: #c9c6e6;
+  --bucket-expenses: #c9c1b1;
+  --bucket-payments: #8a8375;
+
+  --good: #2f6b4f;
+  --good-bg: #f1f7f3;
+  --good-border: #cfe0d6;
+  --warning: #8a5a12;
+  --warning-bg: #fbf1dd;
+  --warning-border: #e8cf9c;
+  --bad: #a2362a;
+  --bad-bg: #fbece8;
+  --bad-border: #e6c3b9;
 }
 
+/* Dark palette kept from shadcn for now (the redesign is light only); bucket colours are shared. */
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -102,19 +166,25 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --divider: oklch(1 0 0 / 8%);
+  --link: oklch(0.85 0.05 160);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.922 0 0);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --good: oklch(0.8 0.1 160);
+  --good-bg: oklch(0.3 0.05 160);
+  --good-border: oklch(0.45 0.06 160);
+  --warning: oklch(0.85 0.1 80);
+  --warning-bg: oklch(0.3 0.05 80);
+  --warning-border: oklch(0.45 0.06 80);
+  --bad: oklch(0.8 0.1 30);
+  --bad-bg: oklch(0.3 0.06 30);
+  --bad-border: oklch(0.45 0.08 30);
 }
 
 @layer base {
@@ -126,5 +196,18 @@
   }
   html {
     @apply font-sans;
+  }
+  /* Every amount lines up (SPEC D12). */
+  h1,
+  h2,
+  h3 {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* Diagonal hatching for projected amounts (dashboard moving meter). */
+  .bg-hatch-moving {
+    background: repeating-linear-gradient(135deg, #ebcb8e 0 4px, var(--bucket-moving-tint) 4px 8px);
   }
 }
