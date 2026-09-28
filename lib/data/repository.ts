@@ -11,6 +11,10 @@ import type {
   SavingsGoal,
   SavingsGoalDraft,
 } from "@/lib/domain/types";
+import type { RebasePlan } from "@/lib/domain/rebase";
+
+/** The writes of a re-base (`planRebase`), without its preview-only fields. */
+export type RebaseChanges = Pick<RebasePlan, "freezes" | "settings" | "loanUpdates" | "loansToArchive" | "goalUpdates">;
 
 /**
  * Data access for the signed-in user. Pages and server actions only talk to this interface,
@@ -25,6 +29,11 @@ export interface FinanceRepository {
   saveSettings(settings: BudgetSettings): Promise<void>;
   /** Freezes planned values on existing check-ins that have none yet (SPEC D16). */
   freezeActuals(items: { month: string; frozen: FrozenPlan }[]): Promise<void>;
+  /**
+   * « Recaler le plan » (SPEC D16), all-or-nothing: freezes the history, saves the settings,
+   * updates / archives the loans and updates the goals.
+   */
+  rebasePlan(changes: RebaseChanges): Promise<void>;
   addException(draft: BudgetExceptionDraft): Promise<BudgetException>;
   deleteException(id: string): Promise<void>;
   createLoan(draft: LoanDraft): Promise<Loan>;

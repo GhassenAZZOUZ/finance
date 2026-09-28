@@ -16,7 +16,7 @@ import type {
   SavingsGoal,
   SavingsGoalDraft,
 } from "@/lib/domain/types";
-import { type FinanceRepository, RepositoryError } from "./repository";
+import { type FinanceRepository, type RebaseChanges, RepositoryError } from "./repository";
 
 // Row shapes as returned by PostgREST (numeric columns arrive as JSON numbers).
 interface SettingsRow {
@@ -164,6 +164,23 @@ function loanColumns(d: LoanDraft) {
   };
 }
 
+function settingsColumns(s: BudgetSettings) {
+  return {
+    start_month: s.startMonth,
+    moving_goal: euros(s.movingGoal),
+    moving_deadline_month: s.movingDeadlineMonth,
+    moving_already_saved: euros(s.movingAlreadySaved),
+    emergency_target: euros(s.emergencyTarget),
+    emergency_existing: euros(s.emergencyExisting),
+    free_savings_existing: euros(s.freeSavingsExisting),
+    risk_free_rate: s.riskFreeRate,
+    early_repayment_pct: s.earlyRepaymentPct,
+  };
+}
+
+const freezeRows = (items: { month: string; frozen: FrozenPlan }[]) =>
+  items.map(({ month, frozen }) => ({ month, ...frozenColumns(frozen) }));
+
 function goalColumns(d: SavingsGoalDraft) {
   return {
     name: d.name.trim(),
@@ -292,34 +309,25 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   }
 
   async saveSettings(settings: BudgetSettings): Promise<void> {
-    checkMaybe(
-      await this.db.from("budget_settings").upsert(
-        {
-          start_month: settings.startMonth,
-          moving_goal: euros(settings.movingGoal),
-          moving_deadline_month: settings.movingDeadlineMonth,
-          moving_already_saved: euros(settings.movingAlreadySaved),
-          emergency_target: euros(settings.emergencyTarget),
-          emergency_existing: euros(settings.emergencyExisting),
-          free_savings_existing: euros(settings.freeSavingsExisting),
-          risk_free_rate: settings.riskFreeRate,
-          early_repayment_pct: settings.earlyRepaymentPct,
-        },
-        { onConflict: "user_id" },
-      ),
-    );
+    checkMaybe(await this.db.from("budget_settings").upsert(settingsColumns(settings), { onConflict: "user_id" }));
   }
 
+  /** One statement (Postgres function `freeze_actuals`), whatever the number of months. */
   async freezeActuals(items: { month: string; frozen: FrozenPlan }[]): Promise<void> {
-    for (const { month, frozen } of items) {
-      checkMaybe(
-        await this.db
-          .from("monthly_actuals")
-          .update(frozenColumns(frozen))
-          .eq("month", month)
-          .is("planned_debt", null),
-      );
-    }
+    checkMaybe(await this.db.rpc("freeze_actuals", { p_freezes: freezeRows(items) }));
+  }
+
+  /** One transaction (Postgres function `rebase_plan`). */
+  async rebasePlan(changes: RebaseChanges): Promise<void> {
+    checkMaybe(
+      await this.db.rpc("rebase_plan", {
+        p_settings: settingsColumns(changes.settings),
+        p_freezes: freezeRows(changes.freezes),
+        p_loan_updates: changes.loanUpdates.map(({ id, draft }) => ({ id, ...loanColumns(draft) })),
+        p_loans_to_archive: changes.loansToArchive,
+        p_goal_updates: changes.goalUpdates.map(({ id, draft }) => ({ id, ...goalColumns(draft) })),
+      }),
+    );
   }
 
   async saveBudget(settings: BudgetSettings, lines: BudgetLineDraft[]): Promise<void> {

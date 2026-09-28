@@ -4,7 +4,8 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { SupabaseFinanceRepository } from "@/lib/data/supabase-repository";
-import type { BudgetSettings, MonthlyActualDraft } from "@/lib/domain/types";
+import type { RebaseChanges } from "@/lib/data/repository";
+import type { BudgetSettings, FrozenPlan, LoanDraft, MonthlyActualDraft } from "@/lib/domain/types";
 import { anonClient, createTestUser, deleteTestUser, type TestUser } from "./supabase-env";
 
 const settings: BudgetSettings = {
@@ -19,6 +20,19 @@ const settings: BudgetSettings = {
   earlyRepaymentPct: 0.6,
 };
 const UNKNOWN_ID = "00000000-0000-4000-8000-000000000000";
+const LOAN: LoanDraft = {
+  name: "Prêt",
+  type: null,
+  principal: 500000,
+  principalPaidThroughMonth: null,
+  apr: 0.05,
+  monthlyPayment: 20000,
+  contractEndMonth: null,
+  penaltyPct: null,
+  penaltyCapMonths: null,
+  kind: "loan",
+  creditLimit: null,
+};
 
 let a: TestUser;
 let b: TestUser;
@@ -30,21 +44,7 @@ beforeAll(async () => {
   [a, b] = await Promise.all([createTestUser("atomic-a"), createTestUser("atomic-b")]);
   repo = new SupabaseFinanceRepository(a.client);
   await repo.saveBudget(settings, []);
-  loanId = (
-    await repo.createLoan({
-      name: "Prêt",
-      type: null,
-      principal: 500000,
-      principalPaidThroughMonth: null,
-      apr: 0.05,
-      monthlyPayment: 20000,
-      contractEndMonth: null,
-      penaltyPct: null,
-      penaltyCapMonths: null,
-      kind: "loan",
-      creditLimit: null,
-    })
-  ).id;
+  loanId = (await repo.createLoan(LOAN)).id;
   goalId = (await repo.createGoal({ name: "Voyage", target: 300000, deadlineMonth: "2027-12", alreadySaved: 0 }, 2)).id;
 });
 afterAll(() => Promise.all([deleteTestUser(a), deleteTestUser(b)]));
@@ -108,5 +108,98 @@ describe("saveActual", () => {
   it("is not callable without a session", async () => {
     const { error } = await anonClient().rpc("save_actual", { p_actual: {}, p_loan_balances: [], p_goal_balances: [] });
     expect(error?.code).toBe("42501");
+  });
+});
+
+describe("rebasePlan / freezeActuals", () => {
+  let user: TestUser;
+  let r: SupabaseFinanceRepository;
+  let kept: string;
+  let repaid: string;
+  let goal: string;
+  const frozen = (planStartMonth: string): FrozenPlan => ({
+    plannedDebt: 900000,
+    plannedSavings: 100000,
+    plannedIncome: 290000,
+    plannedExpenses: 170000,
+    planStartMonth,
+  });
+  const actual = (month: string): MonthlyActualDraft => ({
+    month,
+    income: null,
+    expenses: null,
+    movingSavings: 10000,
+    emergencySavings: 20000,
+    freeSavings: 3000,
+    loanBalances: [
+      { loanId: kept, balance: 450000 },
+      { loanId: repaid, balance: 0 },
+    ],
+    goalBalances: [{ goalId: goal, balance: 7000 }],
+    frozen: null,
+  });
+
+  beforeAll(async () => {
+    user = await createTestUser("atomic-rebase");
+    r = new SupabaseFinanceRepository(user.client);
+    await r.saveBudget(settings, []);
+    kept = (await r.createLoan(LOAN)).id;
+    repaid = (await r.createLoan({ ...LOAN, name: "Soldé", principal: 1000 })).id;
+    goal = (await r.createGoal({ name: "Voyage", target: 300000, deadlineMonth: "2027-12", alreadySaved: 0 }, 2)).id;
+    await r.saveActual(actual("2027-01"));
+    await r.saveActual(actual("2027-02"));
+  });
+  afterAll(() => deleteTestUser(user));
+
+  const changes = (): RebaseChanges => ({
+    freezes: [
+      { month: "2027-01", frozen: frozen("2027-01") },
+      { month: "2027-02", frozen: frozen("2027-01") },
+    ],
+    settings: { ...settings, startMonth: "2027-03", movingAlreadySaved: 10000, emergencyExisting: 20000, freeSavingsExisting: 3000 },
+    loanUpdates: [{ id: kept, draft: { ...LOAN, principal: 450000, principalPaidThroughMonth: "2027-02" } }],
+    loansToArchive: [repaid],
+    goalUpdates: [{ id: goal, draft: { name: "Voyage", target: 300000, deadlineMonth: "2027-12", alreadySaved: 7000 } }],
+  });
+
+  it("writes nothing when the last update is refused", async () => {
+    const before = await r.load();
+    const bad = changes();
+    bad.goalUpdates.push({ id: UNKNOWN_ID, draft: { name: "Fantôme", target: 1000, deadlineMonth: "2027-12", alreadySaved: 0 } });
+    await expect(r.rebasePlan(bad)).rejects.toMatchObject({ code: "P0002" });
+    expect(await r.load()).toEqual(before);
+  });
+
+  it("writes nothing when an amount is invalid part-way", async () => {
+    const before = await r.load();
+    const bad = changes();
+    bad.loanUpdates[0]!.draft.principal = -100;
+    await expect(r.rebasePlan(bad)).rejects.toMatchObject({ code: "23514" });
+    expect(await r.load()).toEqual(before);
+  });
+
+  it("applies the whole re-base", async () => {
+    await r.rebasePlan(changes());
+    const snap = await r.load();
+    expect(snap.settings).toMatchObject({ startMonth: "2027-03", movingAlreadySaved: 10000, freeSavingsExisting: 3000 });
+    expect(snap.actuals.map((a) => a.frozen)).toEqual([frozen("2027-01"), frozen("2027-01")]);
+    expect(snap.loans).toEqual([expect.objectContaining({ id: kept, principal: 450000, principalPaidThroughMonth: "2027-02" })]);
+    expect(snap.archivedLoans.map((l) => l.id)).toEqual([repaid]);
+    expect(snap.goals.find((g) => g.id === goal)?.alreadySaved).toBe(7000);
+  });
+
+  it("freezes several months in one call and never overwrites a frozen month", async () => {
+    await r.saveActual({ ...actual("2027-03"), loanBalances: [{ loanId: kept, balance: 440000 }] });
+    await r.freezeActuals([
+      { month: "2027-02", frozen: frozen("2099-01") },
+      { month: "2027-03", frozen: frozen("2027-03") },
+    ]);
+    expect((await r.load()).actuals.map((a) => a.frozen?.planStartMonth)).toEqual(["2027-01", "2027-01", "2027-03"]);
+  });
+
+  it("is not callable without a session", async () => {
+    const empty = { p_settings: {}, p_freezes: [], p_loan_updates: [], p_loans_to_archive: [], p_goal_updates: [] };
+    expect((await anonClient().rpc("rebase_plan", empty)).error?.code).toBe("42501");
+    expect((await anonClient().rpc("freeze_actuals", { p_freezes: [] })).error?.code).toBe("42501");
   });
 });

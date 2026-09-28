@@ -90,11 +90,7 @@ export async function rebasePlanAction(): Promise<RebaseResult> {
     const plan = computePlan(snapshot);
     const rebase = plan ? planRebase(snapshot, plan) : null;
     if (!rebase) return { ok: false, message: "Aucun mois de suivi après le début du plan : rien à recaler." };
-    await repo.freezeActuals(rebase.freezes);
-    await repo.saveSettings(rebase.settings);
-    for (const { id, draft } of rebase.loanUpdates) await repo.updateLoan(id, draft);
-    for (const id of rebase.loansToArchive) await repo.removeLoan(id);
-    for (const { id, draft } of rebase.goalUpdates) await repo.updateGoal(id, draft);
+    await repo.rebasePlan(rebase);
     notifyDataChanged();
     return { ok: true, newStartMonth: rebase.newStartMonth };
   } catch (error) {

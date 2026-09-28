@@ -1,6 +1,6 @@
 /**
  * RebaseCard (/suivi, issue #5): previews the re-based plan, asks for an inline confirmation, then
- * freezes the history, saves the new settings and updates / archives the loans, in that order.
+ * applies it in one repository call (freeze the history, new settings, loans; all-or-nothing).
  */
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -110,10 +110,10 @@ describe("RebaseCard", () => {
     expect(screen.queryByRole("group", { name: "Confirmer le recalage du plan" })).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Recaler le plan…" }));
     expect(mocks.repo?.load).not.toHaveBeenCalled();
-    expect(mocks.repo?.saveSettings).not.toHaveBeenCalled();
+    expect(mocks.repo?.rebasePlan).not.toHaveBeenCalled();
   });
 
-  it("freezes the history, then saves the settings, updates and archives the loans", async () => {
+  it("freezes the history, saves the settings, updates and archives the loans in one call", async () => {
     const { user } = renderCard();
     await user.click(screen.getByRole("button", { name: "Recaler le plan…" }));
     await user.click(screen.getByRole("button", { name: "Confirmer le recalage" }));
@@ -123,10 +123,11 @@ describe("RebaseCard", () => {
     expect(document.activeElement).toBe(status);
 
     const repo = mocks.repo!;
-    expect(repo.freezeActuals).toHaveBeenCalledTimes(1);
-    expect(repo.freezeActuals.mock.calls[0]?.[0].map((f) => f.month)).toEqual(["2026-02", "2026-03"]);
-    expect(repo.freezeActuals.mock.calls[0]?.[0][0]?.frozen).toEqual(expect.objectContaining({ planStartMonth: "2026-01" }));
-    expect(repo.saveSettings).toHaveBeenCalledWith(
+    expect(repo.rebasePlan).toHaveBeenCalledTimes(1);
+    const changes = repo.rebasePlan.mock.calls[0]![0];
+    expect(changes.freezes.map((f) => f.month)).toEqual(["2026-02", "2026-03"]);
+    expect(changes.freezes[0]?.frozen).toEqual(expect.objectContaining({ planStartMonth: "2026-01" }));
+    expect(changes.settings).toEqual(
       expect.objectContaining({
         startMonth: "2026-04",
         movingAlreadySaved: 150_000,
@@ -134,16 +135,14 @@ describe("RebaseCard", () => {
         freeSavingsExisting: 5_000,
       }),
     );
-    expect(repo.updateLoan).toHaveBeenCalledTimes(1);
-    expect(repo.updateLoan).toHaveBeenCalledWith(
-      "loan-1",
-      expect.objectContaining({ principal: 400_000, principalPaidThroughMonth: "2026-03" }),
-    );
-    expect(repo.removeLoan).toHaveBeenCalledTimes(1);
-    expect(repo.removeLoan).toHaveBeenCalledWith("loan-2");
-
-    const order = [repo.freezeActuals, repo.saveSettings, repo.updateLoan, repo.removeLoan].map((fn) => fn.mock.invocationCallOrder[0]!);
-    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(changes.loanUpdates).toEqual([
+      { id: "loan-1", draft: expect.objectContaining({ principal: 400_000, principalPaidThroughMonth: "2026-03" }) },
+    ]);
+    expect(changes.loansToArchive).toEqual(["loan-2"]);
+    // Nothing is written piece by piece any more.
+    for (const fn of [repo.freezeActuals, repo.saveSettings, repo.updateLoan, repo.removeLoan, repo.updateGoal]) {
+      expect(fn).not.toHaveBeenCalled();
+    }
     expect(mocks.notify).toHaveBeenCalledTimes(1);
   });
 
@@ -161,15 +160,14 @@ describe("RebaseCard", () => {
     expect(screen.queryByRole("button", { name: "Recaler le plan…" })).toBeNull();
   });
 
-  it("shows the error and writes nothing more when the first write fails", async () => {
-    mocks.repo!.freezeActuals.mockRejectedValueOnce(new Error("network"));
+  it("shows the error when the re-base is refused", async () => {
+    mocks.repo!.rebasePlan.mockRejectedValueOnce(new Error("boom"));
     const { user } = renderCard();
     await user.click(screen.getByRole("button", { name: "Recaler le plan…" }));
     await user.click(screen.getByRole("button", { name: "Confirmer le recalage" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("Recalage impossible pour le moment.");
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmer le recalage" })).toHaveProperty("disabled", false));
-    expect(mocks.repo?.saveSettings).not.toHaveBeenCalled();
     expect(mocks.notify).not.toHaveBeenCalled();
   });
 });
