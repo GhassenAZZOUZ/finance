@@ -49,6 +49,10 @@
   --color-bucket-moving: var(--bucket-moving);
   --color-bucket-moving-ink: var(--bucket-moving-ink);
   --color-bucket-moving-tint: var(--bucket-moving-tint);
+  /* Text on the ochre fill: dark ink in both themes. */
+  --color-on-bucket-moving: var(--on-bucket-moving);
+  /* Logo tile: ink in light, a raised dark surface in dark (the ochre line stays readable). */
+  --color-brand-tile: var(--brand-tile);
   --color-bucket-emergency: var(--bucket-emergency);
   --color-bucket-emergency-ink: var(--bucket-emergency-ink);
   --color-bucket-emergency-tint: var(--bucket-emergency-tint);
@@ -61,6 +65,14 @@
   --color-bucket-remainder-tint: var(--bucket-remainder-tint);
   --color-bucket-expenses: var(--bucket-expenses);
   --color-bucket-payments: var(--bucket-payments);
+  --color-bucket-fixed: var(--bucket-fixed);
+  --color-bucket-payments-strong: var(--bucket-payments-strong);
+
+  /* Surfaces and marks that used to be hard-coded: highlighted row, faint glyphs, dashed outline. */
+  --color-row-highlight: var(--row-highlight);
+  --color-faint: var(--faint);
+  --color-placeholder: var(--placeholder);
+  --color-good-subtle: var(--good-subtle);
 
   /* Statuses: text / background / border. */
   --color-good: var(--good);
@@ -122,6 +134,8 @@
   --bucket-moving: #d39a36;
   --bucket-moving-ink: #8a5a12;
   --bucket-moving-tint: #fbf1dd;
+  --on-bucket-moving: #1d1c19;
+  --brand-tile: #1d1c19;
   --bucket-emergency: #24503f;
   --bucket-emergency-ink: #24503f;
   --bucket-emergency-tint: #e3ece7;
@@ -134,6 +148,14 @@
   --bucket-remainder-tint: #c9c6e6;
   --bucket-expenses: #c9c1b1;
   --bucket-payments: #8a8375;
+  --bucket-fixed: #a69d8b;
+  --bucket-payments-strong: #6b665c;
+  --hatch-moving: #ebcb8e;
+
+  --row-highlight: #fbfaf6;
+  --faint: #b5ad9d;
+  --placeholder: #bdb5a5;
+  --good-subtle: #f6f8f6;
 
   --good: #2f6b4f;
   --good-bg: #f1f7f3;
@@ -146,45 +168,81 @@
   --bad-border: #e6c3b9;
 }
 
-/* Dark palette kept from shadcn for now (the redesign is light only); bucket colours are shared. */
+/*
+ * Dark theme (issue #11): warm near-black surfaces, the same hues lifted for contrast. Applied by
+ * the `.dark` class on <html> (system setting or the manual choice, see lib/theme.ts).
+ */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --divider: oklch(1 0 0 / 8%);
-  --link: oklch(0.85 0.05 160);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.922 0 0);
-  --sidebar-primary-foreground: oklch(0.205 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-  --good: oklch(0.8 0.1 160);
-  --good-bg: oklch(0.3 0.05 160);
-  --good-border: oklch(0.45 0.06 160);
-  --warning: oklch(0.85 0.1 80);
-  --warning-bg: oklch(0.3 0.05 80);
-  --warning-border: oklch(0.45 0.06 80);
-  --bad: oklch(0.8 0.1 30);
-  --bad-bg: oklch(0.3 0.06 30);
-  --bad-border: oklch(0.45 0.08 30);
+  color-scheme: dark;
+  --background: #161512;
+  --foreground: #ece8df;
+  --card: #201e1a;
+  --card-foreground: #ece8df;
+  --popover: #201e1a;
+  --popover-foreground: #ece8df;
+  --primary: #ece8df;
+  --primary-foreground: #161512;
+  --secondary: #2a2823;
+  --secondary-foreground: #ece8df;
+  --muted: #2a2823;
+  --muted-foreground: #aaa396;
+  --accent: #36332c;
+  --accent-foreground: #ece8df;
+  --destructive: #f0907c;
+  --border: #3a3730;
+  --input: #4d4940;
+  --ring: #8fcfb0;
+  --divider: #2e2c26;
+  --link: #8fcfb0;
+  --chart-1: #e07a60;
+  --chart-2: #a9a4e0;
+  --chart-3: #e0ad52;
+  --chart-4: #5fae8c;
+  --chart-5: #a39c8e;
+  --sidebar: #1b1a16;
+  --sidebar-foreground: #d6d1c5;
+  --sidebar-primary: #ece8df;
+  --sidebar-primary-foreground: #161512;
+  --sidebar-accent: #2e2b26;
+  --sidebar-accent-foreground: #ece8df;
+  --sidebar-border: #2e2b26;
+  --sidebar-ring: #8fcfb0;
+
+  --bucket-moving: #e0ad52;
+  --bucket-moving-ink: #f0c67a;
+  --bucket-moving-tint: #372c17;
+  --on-bucket-moving: #1d1c19;
+  --brand-tile: #34312b;
+  --bucket-emergency: #2f7458;
+  --bucket-emergency-ink: #8fcfb0;
+  --bucket-emergency-tint: #19302a;
+  --bucket-debts: #b04a32;
+  --bucket-debts-ink: #f3a58f;
+  --bucket-debts-tint: #3a211b;
+  --bucket-remainder: #8c86c9;
+  --bucket-remainder-line: #a9a4e0;
+  --bucket-remainder-ink: #dcd9f7;
+  --bucket-remainder-tint: #33315a;
+  --bucket-expenses: #5a5448;
+  --bucket-payments: #a39c8e;
+  --bucket-fixed: #7d7566;
+  --bucket-payments-strong: #b8b1a3;
+  --hatch-moving: #6b5220;
+
+  --row-highlight: #26241f;
+  --faint: #6f685c;
+  --placeholder: #5a5448;
+  --good-subtle: #1b2620;
+
+  --good: #8fd6b0;
+  --good-bg: #172a21;
+  --good-border: #2f4d3e;
+  --warning: #f0c67a;
+  --warning-bg: #2e2515;
+  --warning-border: #5a4722;
+  --bad: #f5a08c;
+  --bad-bg: #321c17;
+  --bad-border: #5c3027;
 }
 
 @layer base {
@@ -208,6 +266,6 @@
 @layer components {
   /* Diagonal hatching for projected amounts (dashboard moving meter). */
   .bg-hatch-moving {
-    background: repeating-linear-gradient(135deg, #ebcb8e 0 4px, var(--bucket-moving-tint) 4px 8px);
+    background: repeating-linear-gradient(135deg, var(--hatch-moving) 0 4px, var(--bucket-moving-tint) 4px 8px);
   }
 }

@@ -39,7 +39,7 @@ const SECTIONS: { category: BudgetCategory; title: string; note?: string; lineNa
     note: "hors mensualités de crédit",
     lineName: "Charge",
     add: "Ajouter une charge",
-    dot: "bg-[#a69d8b]",
+    dot: "bg-bucket-fixed",
   },
   {
     category: "variable",
@@ -470,7 +470,7 @@ function LineRow({
         role="group"
         aria-label={`Période de ${shown}`}
         hidden={!expanded}
-        className="col-span-full rounded-xl border border-good-border bg-[#f6f8f6] p-3.5"
+        className="col-span-full rounded-xl border border-good-border bg-good-subtle p-3.5"
       >
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-start">
           <PeriodInput

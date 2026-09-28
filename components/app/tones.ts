@@ -53,7 +53,7 @@ export type PlanGroup = keyof typeof PLAN_GROUP;
 
 /** Allocation phases (dashboard roadmap, plan overview): small swatch and band fill. */
 export const PHASE_STYLE = {
-  moving: { swatch: "bg-bucket-moving", band: "bg-bucket-moving text-foreground" },
+  moving: { swatch: "bg-bucket-moving", band: "bg-bucket-moving text-on-bucket-moving" },
   emergency: { swatch: "bg-bucket-emergency", band: "bg-bucket-emergency text-white" },
   repay: { swatch: "bg-bucket-debts", band: "bg-bucket-debts text-white" },
   free: { swatch: "bg-bucket-remainder", band: "bg-bucket-remainder-tint text-bucket-remainder-ink" },

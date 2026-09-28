@@ -81,7 +81,7 @@ function ContractEndWarning({ check }: { check: ContractEndCheck }) {
 function PriorityBadge({ priority }: { priority: number | null }) {
   if (priority === null) {
     return (
-      <span className="flex size-7 items-center justify-center rounded-full border border-dashed border-[#bdb5a5] text-muted-foreground">
+      <span className="flex size-7 items-center justify-center rounded-full border border-dashed border-placeholder text-muted-foreground">
         <span aria-hidden>—</span>
         <span className="sr-only">Pas de remboursement anticipé</span>
       </span>
@@ -270,7 +270,7 @@ export function LoansManager({
               const isEditing = row.id === editingId;
               const balance = balances?.get(row.id);
               return (
-                <li key={row.id} className={cn("border-b border-divider last:border-b-0", isEditing && "bg-[#fbfaf6]")}>
+                <li key={row.id} className={cn("border-b border-divider last:border-b-0", isEditing && "bg-row-highlight")}>
                   <article aria-labelledby={`loan-${row.id}-name`} className={cn("grid grid-cols-[2.5rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2 px-4 py-3.5 md:px-5", ROW_GRID)}>
                     <PriorityBadge priority={row.derived?.priority ?? null} />
                     <div className="flex min-w-0 flex-col gap-1">

@@ -10,6 +10,7 @@ import { currentYearMonth, formatMonthLong } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useOptionalFinance } from "./finance-provider";
 import { SignOutButton } from "./sign-out-button";
+import { ThemeToggle } from "./theme-toggle";
 
 export const NAV_ITEMS = [
   { href: "/", label: "Tableau de bord", short: "Accueil", icon: LayoutDashboard },
@@ -55,7 +56,7 @@ export function checkInHref(month: YearMonth): string {
 export function BrandMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 30 30" aria-hidden className={cn("size-7.5 shrink-0", className)}>
-      <rect width="30" height="30" rx="8" className="fill-primary" />
+      <rect width="30" height="30" rx="8" className="fill-brand-tile" />
       <path
         d="M8 20 L13 14 L17 17 L22 10"
         stroke="var(--bucket-moving)"
@@ -74,7 +75,7 @@ function PendingBadge({ count, className }: { count: number; className?: string 
   return (
     <span
       className={cn(
-        "rounded-full bg-bucket-moving px-2 text-xs leading-5 font-semibold text-foreground tabular-nums",
+        "rounded-full bg-bucket-moving px-2 text-xs leading-5 font-semibold text-on-bucket-moving tabular-nums",
         className,
       )}
     >
@@ -154,6 +155,7 @@ export function Sidebar() {
       ) : null}
 
       <div className="flex flex-col gap-1">
+        <ThemeToggle className="mb-2" />
         <Link
           href={DATA_HREF}
           aria-current={isDataPage(pathname) ? "page" : undefined}
@@ -246,6 +248,7 @@ export function MobileHeader() {
             <Database aria-hidden className="size-4" />
             Mes données
           </Link>
+          <ThemeToggle />
           <SignOutButton />
         </div>
       </div>
