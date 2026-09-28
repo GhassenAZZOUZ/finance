@@ -195,7 +195,7 @@ function PlanRow({
   const emergencyHit = milestones.emergencyIndex === m.index;
   const debtFree = milestones.debtFreeIndex === m.index;
   const paidOff = milestones.loanPayoffs.get(m.index) ?? [];
-  const rowBg = negative ? "bg-bad-bg" : today ? "bg-[#fbfaf6]" : "bg-card";
+  const rowBg = negative ? "bg-bad-bg" : today ? "bg-row-highlight" : "bg-card";
   return (
     <tr className={negative ? "text-bad" : undefined}>
       <th
@@ -226,7 +226,7 @@ function PlanRow({
               {movingGoalMet === undefined ? "" : movingGoalMet ? " · objectif tenu" : " · objectif non tenu"}
             </Chip>
           ) : null}
-          {movingHit ? <Chip className="bg-bucket-moving text-foreground">Déménagement financé</Chip> : null}
+          {movingHit ? <Chip className="bg-bucket-moving text-on-bucket-moving">Déménagement financé</Chip> : null}
           {emergencyHit ? <Chip className="bg-bucket-emergency text-white">Fonds d’urgence complet</Chip> : null}
           {m.extraIncome > 0 ? <ExceptionChip amount={m.extraIncome} list={exceptions.income} kind="income" /> : null}
           {m.extraExpenses > 0 ? <ExceptionChip amount={m.extraExpenses} list={exceptions.expense} kind="expense" /> : null}
@@ -251,7 +251,7 @@ function PlanRow({
           >
             {c.allocation && value === 0 ? (
               <>
-                <span aria-hidden className="text-[#b5ad9d]">
+                <span aria-hidden className="text-faint">
                   —
                 </span>
                 <span className="sr-only">{formatEuros(0)}</span>

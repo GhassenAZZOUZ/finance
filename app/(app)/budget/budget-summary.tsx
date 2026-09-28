@@ -99,13 +99,13 @@ export function BudgetSummary({
         <Step label="Revenus" bar={income > 0 ? { offset: 0, width: 1, className: "bg-good" } : undefined}>
           {formatEuros(preview.income)}
         </Step>
-        <Step label="Charges fixes" bar={{ offset: 0, width: fixed, className: "bg-[#a69d8b]" }}>
+        <Step label="Charges fixes" bar={{ offset: 0, width: fixed, className: "bg-bucket-fixed" }}>
           {formatEuros(preview.fixed)}
         </Step>
         <Step label="Dépenses variables" bar={{ offset: fixed, width: variable, className: "bg-bucket-expenses" }}>
           {formatEuros(preview.variable)}
         </Step>
-        <Step label="Mensualités de crédit" bar={{ offset: fixed + variable, width: payments, className: "bg-[#6b665c]" }}>
+        <Step label="Mensualités de crédit" bar={{ offset: fixed + variable, width: payments, className: "bg-bucket-payments-strong" }}>
           {formatEuros(preview.loanPayments)}
         </Step>
         <Step
