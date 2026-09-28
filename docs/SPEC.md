@@ -48,6 +48,7 @@ from our code.
 | D3 | Dates | `startMonth` and `movingDeadlineMonth` are `YYYY-MM` months. Month granularity everywhere |
 | D4 | Personal debts | No special rule. A 0 % personal debt behaves exactly as in the spreadsheet: normal payments only, never eligible for early repayment. "Dette personnelle" is just a loan type label |
 | D5 | Remaining months | **Dropped** (the input and its 3 derived columns). Replaced by simulated payoff months and per-loan interest (§5) |
+| D20 | Template import (issue #8) | Page `/import` (from « Mes données »): the `.xlsx` template (≤ 5 MB) is read **in the browser** (no upload, no dependency, no macro or formula executed: cached values only), previewed, and saved only on « Importer ». Cells are validated with the form rules; any error (sheet + cell) blocks the import. Import **replaces** the parameters, the budget lines and the active loans; check-ins and one-off exceptions are kept. Idempotent: line slots (category, rank) and loans (same name, case-insensitive) are reused, active loans absent from the file are removed (archived when check-ins use them, D8). Details in §11 |
 | D19 | Installable app (issue #6) | Web app manifest (`app/manifest.ts`): name « Plan financier », `display: standalone`, `start_url` = `scope` = the app root **with the Pages base path** (`/finance/`), icons 192 / 512 / maskable 512, a « Suivi » shortcut; iOS: `apple-touch-icon` + `apple-mobile-web-app-*` tags. No service worker: offline mode is out of scope. On iOS the installed app does not share Safari's storage, so a magic link opened from the mail signs in Safari, not the app (the 6-digit code, #3, fixes this). The monthly e-mail reminder is **not built yet** (needs an e-mail provider) |
 | D18 | Export (issue #7) | Page « Mes données » (account area): a versioned **JSON backup** of every input (settings, budget lines, exceptions, active and archived loans, check-ins with frozen values; the plan is not included since it is recomputed) and the **300-month plan as CSV** (French format by default: `;` and decimal comma; international: `,` and dot). Both are built in the browser from a fresh repository load (RLS applies); a failed load downloads nothing. Format in §10 |
 | D17 | "Et si…" simulator (issue #2) | A page compares the saved plan with a simulation that is **never saved**: early-repayment %, risk-free threshold and budget line amounts can be changed, and one-off **extra repayments** added (loan, month within the plan, amount > 0). An extra repayment is paid after that month's normal payment and **before** the avalanche (which then works on the reduced balance), capped at the balance left; the simulator refuses a larger amount. Its money comes either from the **free savings** (deducted from `freeSavingsCum` that month, which may then go negative: the UI warns) or from **outside the plan** (bonus, gift: no other effect). The monthly allocation (§6) is unchanged. Not stored and not used by the dashboard: without extra repayments the engine is unchanged (golden data unchanged) |
@@ -403,3 +404,23 @@ independent reference engine disagrees with Excel on any cell.
   international: `,` and decimal dot.
 - Text cells are quoted when they contain the separator, a quote or a line break; a text cell
   starting with `=`, `+`, `-`, `@`, tab or CR is prefixed with `'` (formula injection).
+
+---
+
+## 11. Template import (D20)
+
+- Sheets `Budget` and `Crédits`; other sheets are ignored. Rows are located by their column-A labels
+  (accents, case and spacing ignored), so inserted rows are tolerated; a missing section or label
+  → « Ce fichier n’est pas le modèle attendu ».
+- Budget lines: every non-empty row between a section header (`REVENUS…`, `CHARGES FIXES…`,
+  `DÉPENSES VARIABLES…`) and its `Total…` row; label = column A, amount = column B (blank = 0).
+- Parameters: column B of the rows labelled as in §3.1. Dates may be Excel dates or text
+  (`2027-01`, `15/01/2027`, `01/2027`) → `YYYY-MM`. Rates are fractions (`0,049`) or text with `%`.
+  `freeSavingsExisting` is not in the template: the current value is kept (0 for a new user).
+- Loans: rows under the `Capital restant dû` header until `TOTAL`, blank rows skipped, at most 6.
+  The principal is read as the balance at the plan start (`principalPaidThroughMonth` empty, D5c);
+  an existing loan's `contractEndMonth` is kept.
+- Amounts: numbers or French text (`1 100,50`); floating-point noise is removed before checking the
+  2-decimal rule.
+- Writes (not atomic): budget, then loan removals, updates, creations. A failure shows an error;
+  re-importing the same file converges to the same data.

@@ -1,5 +1,8 @@
+import { FileSpreadsheet } from "lucide-react";
 import type { Metadata } from "next";
+import { ArrowLink } from "@/components/app/nav";
 import { PageHeader } from "@/components/app/page-header";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExportCard } from "./export-card";
 
 export const metadata: Metadata = { title: "Mes données · Plan financier" };
@@ -8,8 +11,20 @@ export const metadata: Metadata = { title: "Mes données · Plan financier" };
 export default function Page() {
   return (
     <>
-      <PageHeader title="Mes données" description="Téléchargez une sauvegarde de vos saisies ou le plan calculé." />
+      <PageHeader title="Mes données" description="Téléchargez une sauvegarde de vos saisies ou le plan calculé, ou importez votre classeur." />
       <ExportCard />
+      <Card className="w-full max-w-2xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileSpreadsheet aria-hidden className="size-5 shrink-0" />
+            <h2>Importer</h2>
+          </CardTitle>
+          <CardDescription>Reprenez le budget, les paramètres et les crédits du classeur Excel « plan_financier ».</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ArrowLink href="/import">Importer le classeur</ArrowLink>
+        </CardContent>
+      </Card>
     </>
   );
 }
