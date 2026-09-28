@@ -110,7 +110,8 @@ export function scenarioInput(base: SimulationBase, scenario: Scenario): PlanInp
   const settings = { ...base.settings, earlyRepaymentPct: scenario.earlyRepaymentPct, riskFreeRate: scenario.riskFreeRate };
   const lines = base.lines.map((l) => ({ ...l, amount: scenario.lineAmounts[l.id] ?? l.amount }));
   const input = buildPlanInput(settings, lines, base.loans, base.exceptions, base.kpiMonth, base.goals);
-  return { ...input, extraRepayments: scenario.extras.map(({ key: _key, ...extra }) => extra) };
+  const extraRepayments = scenario.extras.map(({ loanId, month, amount, source }) => ({ loanId, month, amount, source }));
+  return { ...input, extraRepayments };
 }
 
 export function planBounds(base: SimulationBase): { first: YearMonth; last: YearMonth } {
