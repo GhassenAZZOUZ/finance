@@ -3,20 +3,18 @@
  * keep the priorities 1..n contiguous, then reload the data.
  */
 import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
-import { RepositoryError } from "@/lib/data/repository";
 import { MAX_GOALS, type SavingsGoal } from "@/lib/domain/types";
 import { type Errors, type GoalForm, validateGoal } from "@/lib/domain/validation";
 import type { YearMonth } from "@/lib/engine";
+import { errorMessage, reportError } from "@/lib/errors";
 
 export type GoalActionResult = { ok: true; message: string } | { ok: false; errors: Errors };
 
 const FAILED = "L’enregistrement a échoué. Réessayez dans un instant.";
-const failure = (error: unknown): GoalActionResult => ({
-  ok: false,
-  errors: {
-    form: error instanceof RepositoryError && error.code === "not_found" ? "Objectif introuvable : rechargez la page." : FAILED,
-  },
-});
+function failure(error: unknown, context: string): GoalActionResult {
+  reportError(error, context);
+  return { ok: false, errors: { form: errorMessage(error, FAILED, { not_found: "Objectif introuvable : rechargez la page." }) } };
+}
 
 /** Priority order as the engine uses it. */
 export function byPriority(goals: readonly SavingsGoal[]): SavingsGoal[] {
@@ -36,7 +34,7 @@ export async function addGoal(form: GoalForm, goals: readonly SavingsGoal[], cur
     notifyDataChanged();
     return { ok: true, message: `« ${valid.value.name} » a été ajouté.` };
   } catch (error) {
-    return failure(error);
+    return failure(error, "goals.add");
   }
 }
 
@@ -56,7 +54,7 @@ export async function updateGoal(goal: SavingsGoal, form: GoalForm, currentMonth
     notifyDataChanged();
     return { ok: true, message: `« ${valid.value.name} » a été modifié.` };
   } catch (error) {
-    return failure(error);
+    return failure(error, "goals.update");
   }
 }
 
@@ -69,7 +67,7 @@ export async function deleteGoal(goal: SavingsGoal, goals: readonly SavingsGoal[
     notifyDataChanged();
     return { ok: true, message: `« ${goal.name} » a été supprimé.` };
   } catch (error) {
-    return failure(error);
+    return failure(error, "goals.delete");
   }
 }
 
@@ -85,6 +83,6 @@ export async function moveGoal(goal: SavingsGoal, goals: readonly SavingsGoal[],
     notifyDataChanged();
     return { ok: true, message: `« ${goal.name} » est maintenant en position ${to + 1}.` };
   } catch (error) {
-    return failure(error);
+    return failure(error, "goals.move");
   }
 }

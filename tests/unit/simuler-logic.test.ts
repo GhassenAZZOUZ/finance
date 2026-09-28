@@ -58,7 +58,7 @@ const SNAPSHOT: FinanceSnapshot = {
   lines: [line("salary", "income", "Salaire", 300_000), line("rent", "fixed", "Loyer", 120_000), line("food", "variable", "Courses", 40_000)],
   exceptions: [],
   loans: [loan("auto", "Prêt auto", 500_000, 0.06, 20_000), loan("perso", "Prêt perso", 300_000, 0.04, 15_000)],
-  archivedLoans: [], goals: [],
+  archivedLoans: [], goals: [], reminderEnabled: true,
   actuals: [],
 };
 const CURRENT = "2027-01";

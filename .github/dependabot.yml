@@ -1,0 +1,20 @@
+# Monthly dependency updates. Minor and patch bumps come in one grouped PR; each major on its own,
+# since majors (TypeScript, ESLint, @types/node…) need a deliberate upgrade.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

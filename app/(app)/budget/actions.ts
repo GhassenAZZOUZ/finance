@@ -2,7 +2,7 @@
  * Form actions, run in the browser (static app). Validation happens here for the UI; the
  * database constraints and RLS remain the real safeguards.
  */
-import { RepositoryError } from "@/lib/data/repository";
+import { errorMessage, reportError } from "@/lib/errors";
 import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
 import { type Errors, type ExceptionForm, validateBudget, validateException } from "@/lib/domain/validation";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -38,8 +38,10 @@ export async function saveBudgetAction(_prev: BudgetActionState, formData: FormD
 
   try {
     await getRepository().saveBudget(result.value.settings, result.value.lines);
-  } catch {
-    return { status: "error", message: "Enregistrement impossible pour le moment. Réessayez.", errors: {}, lineKeys: payload.keys };
+  } catch (error) {
+    reportError(error, "budget.save");
+    const message = errorMessage(error, "Enregistrement impossible pour le moment. Réessayez.");
+    return { status: "error", message, errors: {}, lineKeys: payload.keys };
   }
   notifyDataChanged();
   return { status: "success", message: "Budget enregistré.", errors: {}, lineKeys: payload.keys };
@@ -63,8 +65,10 @@ export async function addExceptionAction(_prev: ExceptionFormState, formData: Fo
   }
   try {
     await getRepository().addException(validated.value);
-  } catch {
-    return { status: "error", message: "Ajout impossible pour le moment. Réessayez dans un instant.", errors: {}, values };
+  } catch (error) {
+    reportError(error, "budget.addException");
+    const message = errorMessage(error, "Ajout impossible pour le moment. Réessayez dans un instant.");
+    return { status: "error", message, errors: {}, values };
   }
   notifyDataChanged();
   return { status: "success", message: `« ${validated.value.label} » a été ajouté.`, values: EMPTY_EXCEPTION_FORM };
@@ -77,8 +81,9 @@ export async function deleteExceptionAction(_prev: DeleteExceptionState, formDat
   try {
     await getRepository().deleteException(id);
   } catch (error) {
-    const notFound = error instanceof RepositoryError && error.code === "not_found";
-    return { status: "error", message: notFound ? EXCEPTION_NOT_FOUND : "Suppression impossible pour le moment. Réessayez dans un instant." };
+    reportError(error, "budget.deleteException");
+    const fallback = "Suppression impossible pour le moment. Réessayez dans un instant.";
+    return { status: "error", message: errorMessage(error, fallback, { not_found: EXCEPTION_NOT_FOUND }) };
   }
   notifyDataChanged();
   return { status: "success" };

@@ -2,9 +2,9 @@
  * Form actions, run in the browser (static app). Validation happens here for the UI; the
  * database constraints and RLS remain the real safeguards.
  */
-import { RepositoryError } from "@/lib/data/repository";
 import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
 import { type Errors, type LoanForm, validateLoan } from "@/lib/domain/validation";
+import { errorMessage, reportError } from "@/lib/errors";
 import { EMPTY_LOAN_FORM, loanDisplayName, readLoanForm, readLoanId } from "./loan-view";
 
 export type LoanFormState =
@@ -44,8 +44,8 @@ export async function saveLoan(_prev: LoanFormState, formData: FormData): Promis
       values: EMPTY_LOAN_FORM,
     };
   } catch (error) {
-    const notFound = error instanceof RepositoryError && error.code === "not_found";
-    return { status: "error", errors: { form: notFound ? NOT_FOUND : SAVE_FAILED }, values };
+    reportError(error, "credits.save");
+    return { status: "error", errors: { form: errorMessage(error, SAVE_FAILED, { not_found: NOT_FOUND }) }, values };
   }
 }
 
@@ -69,7 +69,8 @@ export async function deleteLoan(_prev: DeleteLoanState, formData: FormData): Pr
           ? `« ${name} » a été supprimé.`
           : `« ${name} » a été archivé (il a un historique de suivi).`,
     };
-  } catch {
-    return { status: "error", message: "La suppression a échoué. Réessayez dans un instant." };
+  } catch (error) {
+    reportError(error, "credits.delete");
+    return { status: "error", message: errorMessage(error, "La suppression a échoué. Réessayez dans un instant.", { not_found: NOT_FOUND }) };
   }
 }

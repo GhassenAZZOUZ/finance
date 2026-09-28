@@ -26,6 +26,15 @@ jobs:
           node-version: 24
           cache: npm
 
+      # npm on Windows drops the optional @emnapi/* packages from the lockfile; npm ci then fails
+      # on Linux with an unclear error. Catch it here with a clear one.
+      - name: Check the lockfile keeps @emnapi
+        run: |
+          if ! grep -q '"node_modules/@emnapi/' package-lock.json; then
+            echo "::error file=package-lock.json::package-lock.json has no @emnapi/* entries (dropped by npm on Windows). Restore them from main: git checkout origin/main -- package-lock.json, then rerun npm install on Linux/WSL or re-add the entries by hand."
+            exit 1
+          fi
+
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
@@ -175,6 +184,10 @@ jobs:
       # Applies only the migrations missing from the remote history; a failure stops the deploy.
       - name: Push migrations
         run: supabase db push --linked --yes
+
+      # Edge Functions (issue #6: monthly reminder). Guarded by its own secret header, not a user JWT.
+      - name: Deploy Edge Functions
+        run: supabase functions deploy monthly-reminder --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
 
   deploy:
     name: Deploy to GitHub Pages

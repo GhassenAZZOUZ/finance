@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
 import type { BudgetCategory } from "@/lib/domain/types";
+import { reportError } from "@/lib/errors";
 import { formatEuros, formatMonthLong, formatPercent } from "@/lib/format";
 import { applyImport, planImport } from "@/lib/import/apply";
 import { type CellError, type TemplateData, readTemplateFile } from "@/lib/import/template";
@@ -60,7 +61,8 @@ export function ImportView() {
       await applyImport(repo, planImport(await repo.load(), data));
       notifyDataChanged();
       setState({ status: "done", lines: data.lines.length, loans: data.loans.length });
-    } catch {
+    } catch (error) {
+      reportError(error, "import.apply");
       notifyDataChanged();
       setState({ status: "saveFailed", fileName, data });
     }
