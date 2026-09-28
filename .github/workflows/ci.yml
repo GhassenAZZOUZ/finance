@@ -26,6 +26,15 @@ jobs:
           node-version: 24
           cache: npm
 
+      # npm on Windows drops the optional @emnapi/* packages from the lockfile; npm ci then fails
+      # on Linux with an unclear error. Catch it here with a clear one.
+      - name: Check the lockfile keeps @emnapi
+        run: |
+          if ! grep -q '"node_modules/@emnapi/' package-lock.json; then
+            echo "::error file=package-lock.json::package-lock.json has no @emnapi/* entries (dropped by npm on Windows). Restore them from main: git checkout origin/main -- package-lock.json, then rerun npm install on Linux/WSL or re-add the entries by hand."
+            exit 1
+          fi
+
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
