@@ -29,6 +29,11 @@ function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
+/** « Mes données » and the import page it links to. */
+function isDataPage(pathname: string) {
+  return isActive(pathname, DATA_HREF) || isActive(pathname, "/import");
+}
+
 /** Check-in months still to enter (oldest first); empty while loading or before the plan. */
 export function usePendingCheckIns(): YearMonth[] {
   const finance = useOptionalFinance();
@@ -151,11 +156,11 @@ export function Sidebar() {
       <div className="flex flex-col gap-1">
         <Link
           href={DATA_HREF}
-          aria-current={isActive(pathname, DATA_HREF) ? "page" : undefined}
+          aria-current={isDataPage(pathname) ? "page" : undefined}
           className={cn(
             "flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-sm font-medium transition-colors",
             FOCUS_RING,
-            isActive(pathname, DATA_HREF)
+            isDataPage(pathname)
               ? "bg-sidebar-primary text-sidebar-primary-foreground"
               : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
           )}
