@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getRepository } from "@/lib/data/client-store";
 import { computePlan } from "@/lib/domain/plan";
+import { errorMessage, reportError } from "@/lib/errors";
 import { backupFileName, buildBackup, serializeBackup } from "@/lib/export/backup";
 import { type CsvFormat, planCsvFileName, planToCsv } from "@/lib/export/csv";
 import { downloadFile } from "@/lib/export/download";
@@ -33,8 +34,9 @@ export function ExportCard() {
       let snapshot;
       try {
         snapshot = await getRepository().load();
-      } catch {
-        setError(LOAD_ERROR);
+      } catch (loadError) {
+        reportError(loadError, "export.load");
+        setError(errorMessage(loadError, LOAD_ERROR));
         return;
       }
       const now = new Date();

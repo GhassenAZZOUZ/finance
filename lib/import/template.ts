@@ -5,6 +5,7 @@
  */
 import { type BudgetForm, type Errors, type LoanForm, validateBudget, validateLoan } from "@/lib/domain/validation";
 import { type BudgetCategory, type BudgetLineDraft, type BudgetSettings, type LoanDraft, MAX_ACTIVE_LOANS } from "@/lib/domain/types";
+import { reportError } from "@/lib/errors";
 import { type CellValue, type Sheet, XlsxError, openWorkbook } from "./xlsx";
 
 export const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
@@ -231,6 +232,7 @@ export async function readTemplateFile(file: { name: string; size: number; array
     if (error instanceof XlsxError || error instanceof RangeError || error instanceof TypeError) {
       return { ok: false, kind: "file", message: WRONG_FILE };
     }
+    reportError(error, "import.read");
     return { ok: false, kind: "file", message: "Impossible de lire ce fichier." };
   }
 }
