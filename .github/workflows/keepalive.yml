@@ -1,0 +1,32 @@
+name: Keep Supabase awake
+
+# Free hosted projects pause after a week without activity. One anonymous call a week to the
+# keepalive RPC (a constant, no table read) counts as activity.
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    name: Ping hosted Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      # Same repository variables as the deploy job (public values, already in the static site).
+      SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Call /rpc/keepalive
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ]; then
+            echo "::error::Set the repository variables NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+            exit 1
+          fi
+          body=$(curl --fail-with-body --silent --show-error --retry 3 --retry-all-errors --max-time 30 \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/keepalive" \
+            -H "apikey: $SUPABASE_KEY" -H "Content-Type: application/json" -d '{}')
+          echo "keepalive: $body"
+          [ "$body" = "true" ] || { echo "::error::Unexpected answer from keepalive"; exit 1; }
