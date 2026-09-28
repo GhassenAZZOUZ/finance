@@ -187,7 +187,8 @@ jobs:
 
       # Edge Functions (issue #6: monthly reminder). Guarded by its own secret header, not a user JWT.
       - name: Deploy Edge Functions
-        run: supabase functions deploy monthly-reminder --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+        # --use-api: bundled by Supabase, no Docker image pull (the runner hit the registry rate limit).
+        run: supabase functions deploy monthly-reminder --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
 
   deploy:
     name: Deploy to GitHub Pages
