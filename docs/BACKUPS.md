@@ -9,9 +9,9 @@ access to the backup repository.
 
 ## Setup (once)
 
-1. **Private key**: `C:\Users\azouz\.finance-backup\age-key.txt` (generated on the owner's machine,
-   never committed). Store a copy in a password manager, then delete the file. **If this key is lost,
-   every backup is unreadable.**
+1. **Private key**: `age-keygen -o age-key.txt` on the owner's machine (already done; never commit it).
+   Keep it in a password manager and delete the file. **If this key is lost, every backup is
+   unreadable.**
 2. **Backup repository**: create a private repository, e.g. `GhassenAZZOUZ/finance-backups`.
 3. **Deploy key**: `ssh-keygen -t ed25519 -N "" -f backup_deploy_key`. Add `backup_deploy_key.pub` to the
    backup repository (Settings → Deploy keys, **Allow write access**). Put the content of
