@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
 import type { BudgetCategory } from "@/lib/domain/types";
-import { reportError } from "@/lib/errors";
+import { errorMessage, reportError } from "@/lib/errors";
 import { formatEuros, formatMonthLong, formatPercent } from "@/lib/format";
-import { applyImport, planImport } from "@/lib/import/apply";
+import { planImport } from "@/lib/import/apply";
 import { type CellError, type TemplateData, readTemplateFile } from "@/lib/import/template";
 
 type State =
@@ -20,7 +20,7 @@ type State =
   | { status: "invalid"; fileName: string; errors: CellError[] }
   | { status: "preview"; fileName: string; data: TemplateData }
   | { status: "saving"; fileName: string; data: TemplateData }
-  | { status: "saveFailed"; fileName: string; data: TemplateData }
+  | { status: "saveFailed"; fileName: string; data: TemplateData; message: string }
   | { status: "done"; lines: number; loans: number };
 
 const CATEGORY_TITLE: Record<BudgetCategory, string> = {
@@ -58,13 +58,13 @@ export function ImportView() {
     try {
       const repo = getRepository();
       // Plan against what is saved now, not the page's copy.
-      await applyImport(repo, planImport(await repo.load(), data));
+      await repo.applyImport(planImport(await repo.load(), data));
       notifyDataChanged();
       setState({ status: "done", lines: data.lines.length, loans: data.loans.length });
     } catch (error) {
       reportError(error, "import.apply");
-      notifyDataChanged();
-      setState({ status: "saveFailed", fileName, data });
+      // All-or-nothing: a failed import changed nothing, so there is nothing to reload.
+      setState({ status: "saveFailed", fileName, data, message: errorMessage(error, "Réessayez dans un instant.") });
     }
   }
 
@@ -134,7 +134,7 @@ export function ImportView() {
             </p>
           ) : null}
           {state.status === "saveFailed" ? (
-            <ErrorBox>L’import n’a pas pu être terminé. Réessayez : réimporter le même fichier donne le même résultat.</ErrorBox>
+            <ErrorBox>L’import a échoué : rien n’a été modifié. {state.message}</ErrorBox>
           ) : null}
           <div className="flex flex-wrap gap-2">
             <Button

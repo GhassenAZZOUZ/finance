@@ -16,6 +16,7 @@ import type {
   SavingsGoal,
   SavingsGoalDraft,
 } from "@/lib/domain/types";
+import type { ImportPlan } from "@/lib/import/apply";
 import { type FinanceRepository, type RebaseChanges, RepositoryError } from "./repository";
 
 // Row shapes as returned by PostgREST (numeric columns arrive as JSON numbers).
@@ -175,6 +176,17 @@ function settingsColumns(s: BudgetSettings) {
     free_savings_existing: euros(s.freeSavingsExisting),
     risk_free_rate: s.riskFreeRate,
     early_repayment_pct: s.earlyRepaymentPct,
+  };
+}
+
+function lineColumns(l: BudgetLineDraft) {
+  return {
+    category: l.category,
+    label: l.label.trim(),
+    amount: euros(l.amount),
+    position: l.position,
+    start_month: l.startMonth,
+    end_month: l.endMonth,
   };
 }
 
@@ -338,18 +350,23 @@ export class SupabaseFinanceRepository implements FinanceRepository {
     const removed = existing.map((r) => r.id).filter((id) => !kept.has(id));
     if (removed.length > 0) checkMaybe(await this.db.from("budget_lines").delete().in("id", removed));
 
-    const columns = (l: BudgetLineDraft) => ({
-      category: l.category,
-      label: l.label.trim(),
-      amount: euros(l.amount),
-      position: l.position,
-      start_month: l.startMonth,
-      end_month: l.endMonth,
-    });
-    const updates = lines.filter((l) => l.id).map((l) => ({ id: l.id, ...columns(l) }));
-    const inserts = lines.filter((l) => !l.id).map(columns);
+    const updates = lines.filter((l) => l.id).map((l) => ({ id: l.id, ...lineColumns(l) }));
+    const inserts = lines.filter((l) => !l.id).map(lineColumns);
     if (updates.length > 0) checkMaybe(await this.db.from("budget_lines").upsert(updates, { onConflict: "id" }));
     if (inserts.length > 0) checkMaybe(await this.db.from("budget_lines").insert(inserts));
+  }
+
+  /** One transaction (Postgres function `apply_import`). */
+  async applyImport(plan: ImportPlan): Promise<void> {
+    checkMaybe(
+      await this.db.rpc("apply_import", {
+        p_settings: settingsColumns(plan.settings),
+        p_lines: plan.lines.map((l) => ({ id: l.id ?? null, ...lineColumns(l) })),
+        p_loan_removals: plan.loanRemovals,
+        p_loan_updates: plan.loanUpdates.map(({ id, draft }) => ({ id, ...loanColumns(draft) })),
+        p_loan_creates: plan.loanCreates.map(loanColumns),
+      }),
+    );
   }
 
   async addException(draft: BudgetExceptionDraft): Promise<BudgetException> {

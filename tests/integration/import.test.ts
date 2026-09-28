@@ -5,9 +5,9 @@
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { SupabaseFinanceRepository } from "@/lib/data/supabase-repository";
-import { applyImport, planImport } from "@/lib/import/apply";
+import { planImport } from "@/lib/import/apply";
 import { type TemplateData, readTemplateFile } from "@/lib/import/template";
-import { createTestUser, deleteTestUser, type TestUser } from "./supabase-env";
+import { anonClient, createTestUser, deleteTestUser, type TestUser } from "./supabase-env";
 
 let user: TestUser;
 let other: TestUser;
@@ -26,7 +26,7 @@ afterAll(async () => {
   await Promise.all([deleteTestUser(user), deleteTestUser(other)]);
 });
 
-const importOnce = async () => applyImport(repo, planImport(await repo.load(), data));
+const importOnce = async () => repo.applyImport(planImport(await repo.load(), data));
 
 describe("template import", () => {
   it("replaces the onboarding defaults with the template", async () => {
@@ -57,6 +57,31 @@ describe("template import", () => {
     expect(after.loans.map((l) => l.id)).toEqual(before.loans.map((l) => l.id));
     expect(after.archivedLoans).toEqual([]);
     expect(after.actuals).toHaveLength(1);
+  });
+
+  it("writes nothing when a step fails part-way (all-or-nothing)", async () => {
+    const before = await repo.load();
+    const plan = planImport(before, data);
+    // Budget and removals are valid; the last loan creation is refused by the database.
+    const changed = { ...plan, lines: plan.lines.map((l) => ({ ...l, amount: l.amount + 100 })) };
+    const bad = { ...changed, loanRemovals: [before.loans[0]!.id], loanCreates: [{ ...plan.loanUpdates[0]!.draft, principal: -1 }] };
+    await expect(repo.applyImport(bad)).rejects.toMatchObject({ code: "23514" });
+    expect(await repo.load()).toEqual(before);
+
+    const missing = { ...changed, loanUpdates: [...plan.loanUpdates, { id: "00000000-0000-4000-8000-000000000000", draft: plan.loanUpdates[0]!.draft }] };
+    await expect(repo.applyImport(missing)).rejects.toMatchObject({ code: "P0002" });
+    expect(await repo.load()).toEqual(before);
+  });
+
+  it("is not callable without a session", async () => {
+    const { error } = await anonClient().rpc("apply_import", {
+      p_settings: {},
+      p_lines: [],
+      p_loan_removals: [],
+      p_loan_updates: [],
+      p_loan_creates: [],
+    });
+    expect(error?.code).toBe("42501");
   });
 
   it("writes nothing for another user", async () => {

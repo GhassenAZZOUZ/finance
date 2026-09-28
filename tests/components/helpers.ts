@@ -15,6 +15,7 @@ export function createRepositoryMock(snapshot: FinanceSnapshot = makeSnapshot())
     saveSettings: vi.fn<FinanceRepository["saveSettings"]>(async () => {}),
     freezeActuals: vi.fn<FinanceRepository["freezeActuals"]>(async () => {}),
     rebasePlan: vi.fn<FinanceRepository["rebasePlan"]>(async () => {}),
+    applyImport: vi.fn<FinanceRepository["applyImport"]>(async () => {}),
     addException: vi.fn<FinanceRepository["addException"]>(async (draft) => ({ id: "exc-new", ...draft })),
     deleteException: vi.fn<FinanceRepository["deleteException"]>(async () => {}),
     createLoan: vi.fn<FinanceRepository["createLoan"]>(async (draft) => ({

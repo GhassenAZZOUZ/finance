@@ -12,6 +12,7 @@ import type {
   SavingsGoalDraft,
 } from "@/lib/domain/types";
 import type { RebasePlan } from "@/lib/domain/rebase";
+import type { ImportPlan } from "@/lib/import/apply";
 
 /** The writes of a re-base (`planRebase`), without its preview-only fields. */
 export type RebaseChanges = Pick<RebasePlan, "freezes" | "settings" | "loanUpdates" | "loansToArchive" | "goalUpdates">;
@@ -34,6 +35,8 @@ export interface FinanceRepository {
    * updates / archives the loans and updates the goals.
    */
   rebasePlan(changes: RebaseChanges): Promise<void>;
+  /** Template import (SPEC D20), all-or-nothing: budget replaced, then loan removals, updates, creations. */
+  applyImport(plan: ImportPlan): Promise<void>;
   addException(draft: BudgetExceptionDraft): Promise<BudgetException>;
   deleteException(id: string): Promise<void>;
   createLoan(draft: LoanDraft): Promise<Loan>;
