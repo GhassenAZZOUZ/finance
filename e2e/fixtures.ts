@@ -4,6 +4,7 @@
  */
 import { test as base, expect, type Page } from "@playwright/test";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { tourStorageKey } from "../components/app/tour-logic";
 import { createTestUser, deleteTestUser, localSupabase, type TestUser } from "../tests/integration/supabase-env";
 
 export { expect };
@@ -21,11 +22,20 @@ export function mailUrl(): string {
   return `${api.protocol}//${api.hostname}:${Number(api.port) + 3}`;
 }
 
-/** Signs the page in as `user` before any script runs (the static app reads the session from localStorage). */
+/**
+ * Signs the page in as `user` before any script runs (the static app reads the session from localStorage).
+ * The guided tour is marked as seen so it does not cover the page; login.spec.ts covers it.
+ */
 export async function signIn(page: Page, user: TestUser): Promise<void> {
   const { data, error } = await user.client.auth.getSession();
   if (error || !data.session) throw error ?? new Error("test user has no session");
-  await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [authStorageKey(), JSON.stringify(data.session)] as const);
+  await page.addInitScript(
+    ([key, value, tourKey]) => {
+      localStorage.setItem(key, value);
+      localStorage.setItem(tourKey, "seen");
+    },
+    [authStorageKey(), JSON.stringify(data.session), tourStorageKey(user.email)] as const,
+  );
 }
 
 /** Plan parameters and budget written straight to the database, for journeys that need a plan. */

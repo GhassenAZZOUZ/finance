@@ -1,4 +1,4 @@
-/** AC-01: login with the magic link, read from the local mail catcher, lands on the dashboard. */
+/** AC-01: login with the magic link, read from the local mail catcher, lands on the dashboard (after the guided tour). */
 import { createTestUser, deleteTestUser } from "../tests/integration/supabase-env";
 import { expect, mailUrl, test } from "./fixtures";
 
@@ -29,7 +29,11 @@ test("signs in with the e-mailed link and shows the dashboard", async ({ page },
     // Same browser context: the PKCE verifier stored when requesting the link is still there.
     await page.goto(await magicLink(user.email));
     await expect(page).toHaveURL(/\/$/);
-    // A new user lands on the onboarding of the dashboard.
+    // A new user is greeted by the guided tour, then lands on the onboarding of the dashboard.
+    const tour = page.getByRole("dialog", { name: "Bienvenue dans Plan financier" });
+    await expect(tour).toBeVisible();
+    await tour.getByRole("button", { name: "Passer" }).click();
+    await expect(tour).toBeHidden();
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Navigation principale" }).first()).toBeAttached();
   } finally {

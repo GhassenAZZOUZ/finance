@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useOptionalFinance } from "./finance-provider";
 import { SignOutButton } from "./sign-out-button";
 import { ThemeToggle } from "./theme-toggle";
+import { TourButton } from "./tour";
 
 export const NAV_ITEMS = [
   { href: "/", label: "Tableau de bord", short: "Accueil", icon: LayoutDashboard },
@@ -109,6 +110,7 @@ export function Sidebar() {
               <li key={href}>
                 <Link
                   href={href}
+                  data-tour={`nav:${href}`}
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-[15px] font-medium transition-colors",
@@ -156,8 +158,10 @@ export function Sidebar() {
 
       <div className="flex flex-col gap-1">
         <ThemeToggle className="mb-2" />
+        <TourButton />
         <Link
           href={DATA_HREF}
+          data-tour="donnees"
           aria-current={isDataPage(pathname) ? "page" : undefined}
           className={cn(
             "flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-sm font-medium transition-colors",
@@ -221,6 +225,7 @@ export function MobileHeader() {
           ref={buttonRef}
           type="button"
           aria-label="Compte et déconnexion"
+          data-tour="donnees guide"
           aria-expanded={open}
           aria-controls={menuId}
           onClick={() => setOpen((o) => !o)}
@@ -248,6 +253,7 @@ export function MobileHeader() {
             <Database aria-hidden className="size-4" />
             Mes données
           </Link>
+          <TourButton onStart={() => setOpen(false)} className="border border-input text-foreground hover:bg-secondary" />
           <ThemeToggle />
           <SignOutButton />
         </div>
@@ -272,6 +278,7 @@ export function MobileNav() {
             <li key={href}>
               <Link
                 href={href}
+                data-tour={`nav:${href}`}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
