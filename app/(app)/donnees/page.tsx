@@ -4,6 +4,7 @@ import { ArrowLink } from "@/components/app/nav";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExportCard } from "./export-card";
+import { ReminderCard } from "./reminder-card";
 
 export const metadata: Metadata = { title: "Mes données · Plan financier" };
 
@@ -12,6 +13,7 @@ export default function Page() {
   return (
     <>
       <PageHeader title="Mes données" description="Téléchargez une sauvegarde de vos saisies ou le plan calculé, ou importez votre classeur." />
+      <ReminderCard />
       <ExportCard />
       <Card className="w-full max-w-2xl">
         <CardHeader>

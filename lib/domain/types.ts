@@ -140,4 +140,6 @@ export interface FinanceSnapshot {
   goals: SavingsGoal[];
   /** Oldest first. */
   actuals: MonthlyActual[];
+  /** Monthly check-in reminder by e-mail (SPEC D25); on by default. */
+  reminderEnabled: boolean;
 }

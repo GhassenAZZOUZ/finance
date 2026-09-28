@@ -176,6 +176,10 @@ jobs:
       - name: Push migrations
         run: supabase db push --linked --yes
 
+      # Edge Functions (issue #6: monthly reminder). Guarded by its own secret header, not a user JWT.
+      - name: Deploy Edge Functions
+        run: supabase functions deploy monthly-reminder --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+
   deploy:
     name: Deploy to GitHub Pages
     # Static export (docs: README "Deploying"); only from main, after the migrations are applied.

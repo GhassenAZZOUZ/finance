@@ -42,6 +42,8 @@ export interface FinanceRepository {
   deleteGoal(id: string): Promise<void>;
   /** Sets priorities 1..n in this order (all goal ids, "moving" included). */
   orderGoals(ids: string[]): Promise<void>;
+  /** Turns the monthly e-mail reminder on or off (SPEC D25). */
+  setReminder(enabled: boolean): Promise<void>;
 }
 
 export class RepositoryError extends Error {

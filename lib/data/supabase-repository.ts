@@ -177,7 +177,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   async load(): Promise<FinanceSnapshot> {
-    const [settings, lines, loans, actuals, exceptions, goals] = await Promise.all([
+    const [settings, lines, loans, actuals, exceptions, goals, profile] = await Promise.all([
       this.db.from("budget_settings").select("*").maybeSingle<SettingsRow>(),
       this.db
         .from("budget_lines")
@@ -208,6 +208,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         .select("id, name, target, deadline_month, already_saved, priority")
         .order("priority")
         .returns<GoalRow[]>(),
+      this.db.from("profiles").select("reminder_enabled").maybeSingle<{ reminder_enabled: boolean }>(),
     ]);
     const s = checkMaybe(settings);
     const allLoans = check(loans).map(toLoan);
@@ -262,6 +263,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       exceptions: check(exceptions).map(toException),
       loans: allLoans.filter((l) => l.archivedAt === null),
       archivedLoans: allLoans.filter((l) => l.archivedAt !== null),
+      reminderEnabled: checkMaybe(profile)?.reminder_enabled ?? true,
       goals: [...primary, ...extra].sort((a, b) => a.priority - b.priority || Number(b.primary) - Number(a.primary)),
       actuals: check(actuals).map(
         (a): MonthlyActual => ({
@@ -475,6 +477,11 @@ export class SupabaseFinanceRepository implements FinanceRepository {
     if (id === PRIMARY_GOAL_ID) throw new RepositoryError("L’objectif principal ne peut pas être supprimé", "forbidden");
     const deleted = check(await this.db.from("savings_goals").delete().eq("id", id).select("id"));
     if (deleted.length === 0) throw new RepositoryError("Objectif introuvable", "not_found");
+  }
+
+  async setReminder(enabled: boolean): Promise<void> {
+    const updated = check(await this.db.from("profiles").update({ reminder_enabled: enabled }).not("user_id", "is", null).select("user_id"));
+    if (updated.length === 0) throw new RepositoryError("Profil introuvable", "not_found");
   }
 
   async orderGoals(ids: string[]): Promise<void> {
