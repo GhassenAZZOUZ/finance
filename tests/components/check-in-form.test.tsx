@@ -119,6 +119,7 @@ describe("CheckInForm", () => {
         { loanId: "loan-1", balance: 410_025 },
         { loanId: "loan-2", balance: 999_900 },
       ],
+      goalBalances: [],
       frozen: frozenFor(CURRENT, computePlan(SNAPSHOT, CURRENT)!, undefined),
     });
     // The frozen values are the plan's expectation for that month, tagged with the plan version.

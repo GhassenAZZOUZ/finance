@@ -3,7 +3,7 @@
  * keeps every change in memory and never writes anything.
  */
 import { buildPlanInput, referenceMonth } from "@/lib/domain/plan";
-import type { BudgetException, BudgetLine, BudgetSettings, FinanceSnapshot, Loan } from "@/lib/domain/types";
+import type { BudgetException, BudgetLine, BudgetSettings, FinanceSnapshot, Loan, SavingsGoal } from "@/lib/domain/types";
 import { type Errors, parseAmount, parseMonth, parsePercent } from "@/lib/domain/validation";
 import {
   type Cents,
@@ -68,6 +68,8 @@ export interface SimulationBase {
   lines: BudgetLine[];
   loans: Loan[];
   exceptions: BudgetException[];
+  /** Savings goals (SPEC D23), unchanged by the simulation. */
+  goals: SavingsGoal[];
   kpiMonth: YearMonth;
 }
 
@@ -79,6 +81,7 @@ export function simulationBase(snapshot: FinanceSnapshot, currentMonth: YearMont
     lines: snapshot.lines,
     loans: snapshot.loans,
     exceptions: snapshot.exceptions,
+    goals: snapshot.goals,
     kpiMonth: referenceMonth(settings.startMonth, currentMonth),
   };
 }
@@ -106,7 +109,7 @@ export function initialSimulation(base: SimulationBase): SimulationState {
 export function scenarioInput(base: SimulationBase, scenario: Scenario): PlanInput {
   const settings = { ...base.settings, earlyRepaymentPct: scenario.earlyRepaymentPct, riskFreeRate: scenario.riskFreeRate };
   const lines = base.lines.map((l) => ({ ...l, amount: scenario.lineAmounts[l.id] ?? l.amount }));
-  const input = buildPlanInput(settings, lines, base.loans, base.exceptions, base.kpiMonth);
+  const input = buildPlanInput(settings, lines, base.loans, base.exceptions, base.kpiMonth, base.goals);
   return { ...input, extraRepayments: scenario.extras.map(({ key: _key, ...extra }) => extra) };
 }
 

@@ -9,8 +9,9 @@ export const BACKUP_FORMAT = "finance-plan-backup";
 /**
  * Bump when the shape changes; an import reads older versions explicitly.
  * 1: first version (#7). 2: loans gain `penaltyPct` and `penaltyCapMonths` (IRA, #9).
+ * 3: `goals` and check-ins' `goalBalances` (several savings goals, #10).
  */
-export const BACKUP_VERSION = 2;
+export const BACKUP_VERSION = 3;
 
 /** Euros with exactly 2 decimals and a dot ("1234.50", "-0.05"), computed from integer cents. */
 export type DecimalEuros = string;
@@ -72,6 +73,19 @@ export interface Backup {
     exceptions: { id: string; month: YearMonth; kind: string; label: string; amount: DecimalEuros }[];
     /** Active loans first (entry order), then archived ones. */
     loans: BackupLoan[];
+    /**
+     * Savings goals in priority order (SPEC D23). The primary one (`primary: true`, id "moving")
+     * mirrors the moving fund of `settings`.
+     */
+    goals: {
+      id: string;
+      name: string;
+      target: DecimalEuros;
+      deadlineMonth: YearMonth;
+      alreadySaved: DecimalEuros;
+      priority: number;
+      primary: boolean;
+    }[];
     /** Oldest first. */
     checkIns: {
       id: string;
@@ -82,6 +96,8 @@ export interface Backup {
       emergencySavings: DecimalEuros;
       freeSavings: DecimalEuros;
       loanBalances: { loanId: string; balance: DecimalEuros }[];
+      /** Extra goals only; the primary goal's balance is `movingSavings`. */
+      goalBalances: { goalId: string; balance: DecimalEuros }[];
       frozen: {
         plannedDebt: DecimalEuros;
         plannedSavings: DecimalEuros;
@@ -158,6 +174,15 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
         amount: centsToDecimal(e.amount),
       })),
       loans: [...snapshot.loans, ...snapshot.archivedLoans].map(loan),
+      goals: snapshot.goals.map((g) => ({
+        id: g.id,
+        name: g.name,
+        target: centsToDecimal(g.target),
+        deadlineMonth: g.deadlineMonth,
+        alreadySaved: centsToDecimal(g.alreadySaved),
+        priority: g.priority,
+        primary: g.primary,
+      })),
       checkIns: snapshot.actuals.map((a) => ({
         id: a.id,
         month: a.month,
@@ -167,6 +192,7 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
         emergencySavings: centsToDecimal(a.emergencySavings),
         freeSavings: centsToDecimal(a.freeSavings),
         loanBalances: a.loanBalances.map((b) => ({ loanId: b.loanId, balance: centsToDecimal(b.balance) })),
+        goalBalances: a.goalBalances.map((b) => ({ goalId: b.goalId, balance: centsToDecimal(b.balance) })),
         frozen: frozen(a.frozen),
       })),
     },

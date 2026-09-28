@@ -27,6 +27,8 @@ export function compareActual(actual: ActualInput, plan: PlanResult, budget: Bud
   const planMonth = offset >= 0 && offset < HORIZON_MONTHS ? plan.months[offset] : undefined;
 
   const actualDebt = sumCents(actual.loanBalances);
+  // All goals together (SPEC D23); the spreadsheet's moving fund alone without `goals`.
+  const goalsTarget = budget.goals ? sumCents(budget.goals.map((g) => g.target)) : budget.movingGoal;
   const actualSavings = actual.movingSavings + actual.emergencySavings + actual.freeSavings;
   // Frozen values win (SPEC D16): a re-based plan must not rewrite the history.
   const frozen = actual.planned ?? null;
@@ -56,7 +58,7 @@ export function compareActual(actual: ActualInput, plan: PlanResult, budget: Bud
     actualSavings,
     plannedSavings,
     savingsGap,
-    movingGoalPct: budget.movingGoal > 0 ? Math.min(1, actual.movingSavings / budget.movingGoal) : 0,
+    movingGoalPct: goalsTarget > 0 ? Math.min(1, actual.movingSavings / goalsTarget) : 0,
     debtRepaidPct: totalPrincipal > 0 ? Math.max(0, 1 - actualDebt / totalPrincipal) : 0,
     status: debtGap === null || savingsGap === null ? null : statusFor(debtGap, savingsGap),
     incomeGap: actual.income === null ? null : actual.income - plannedIncome,

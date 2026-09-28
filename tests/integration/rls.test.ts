@@ -13,6 +13,8 @@ const TABLES = [
   "loans",
   "monthly_actuals",
   "monthly_actual_loan_balances",
+  "savings_goals",
+  "monthly_actual_goal_balances",
 ] as const;
 type Table = (typeof TABLES)[number];
 
@@ -25,6 +27,8 @@ const KEY: Record<Table, string> = {
   loans: "id",
   monthly_actuals: "id",
   monthly_actual_loan_balances: "id",
+  savings_goals: "id",
+  monthly_actual_goal_balances: "id",
 };
 
 /** A harmless column to try to overwrite. */
@@ -36,6 +40,8 @@ const PATCH: Record<Table, Record<string, unknown>> = {
   loans: { principal: 1 },
   monthly_actuals: { free_savings: 1 },
   monthly_actual_loan_balances: { balance: 1 },
+  savings_goals: { target: 1 },
+  monthly_actual_goal_balances: { balance: 1 },
 };
 
 let a: TestUser;
@@ -43,6 +49,7 @@ let b: TestUser;
 const aRow = {} as Record<Table, string>;
 let aLoanId: string;
 let aActualId: string;
+let aGoalId: string;
 
 /** Throws on error. Writes without `.select()` legitimately return null data. */
 type Row = { id: string } & Record<string, unknown>;
@@ -83,8 +90,19 @@ beforeAll(async () => {
       .select("id")
       .single(),
   );
+  const goal = await must(
+    a.client.from("savings_goals").insert({ name: "Voiture", target: 8000, deadline_month: "2028-06", priority: 2 }).select("id").single(),
+  );
+  const goalBalance = await must(
+    a.client
+      .from("monthly_actual_goal_balances")
+      .insert({ monthly_actual_id: actual.id, goal_id: goal.id, balance: 50 })
+      .select("id")
+      .single(),
+  );
   aLoanId = loan.id;
   aActualId = actual.id;
+  aGoalId = goal.id;
   Object.assign(aRow, {
     profiles: a.id,
     budget_settings: a.id,
@@ -93,6 +111,8 @@ beforeAll(async () => {
     loans: loan.id,
     monthly_actuals: actual.id,
     monthly_actual_loan_balances: balance.id,
+    savings_goals: goal.id,
+    monthly_actual_goal_balances: goalBalance.id,
   });
 });
 
@@ -160,6 +180,8 @@ describe("forged writes", () => {
       loans: { user_id: a.id, principal: 1, apr: 0.1, monthly_payment: 1 },
       monthly_actuals: { user_id: a.id, month: "2027-02", moving_savings: 0, emergency_savings: 0, free_savings: 0 },
       monthly_actual_loan_balances: { user_id: a.id, monthly_actual_id: aActualId, loan_id: aLoanId, balance: 1 },
+      savings_goals: { user_id: a.id, name: "forged", target: 1, deadline_month: "2028-01", priority: 3 },
+      monthly_actual_goal_balances: { user_id: a.id, monthly_actual_id: aActualId, goal_id: aGoalId, balance: 1 },
     };
     for (const table of TABLES) {
       const { error } = await b.client.from(table).insert(forged[table]);
@@ -194,6 +216,20 @@ describe("forged writes", () => {
       .from("monthly_actual_loan_balances")
       .insert({ monthly_actual_id: aActualId, loan_id: ownLoan.id, balance: 1 });
     expect(onForeignActual.error).not.toBeNull();
+  });
+
+  it("cannot attach a goal balance to another user's goal", async () => {
+    const ownActual = await must(
+      b.client
+        .from("monthly_actuals")
+        .insert({ month: "2027-03", moving_savings: 0, emergency_savings: 0, free_savings: 0 })
+        .select("id")
+        .single(),
+    );
+    const onForeignGoal = await b.client
+      .from("monthly_actual_goal_balances")
+      .insert({ monthly_actual_id: ownActual.id, goal_id: aGoalId, balance: 1 });
+    expect(onForeignGoal.error).not.toBeNull();
   });
 });
 

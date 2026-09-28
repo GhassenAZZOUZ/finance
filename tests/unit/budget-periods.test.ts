@@ -67,7 +67,7 @@ describe("reference month and plan input", () => {
   });
 
   it("computes the plan month by month and reports the reference month", () => {
-    const snapshot: FinanceSnapshot = { settings, lines, exceptions: [], loans: [], archivedLoans: [], actuals: [] };
+    const snapshot: FinanceSnapshot = { settings, lines, exceptions: [], loans: [], archivedLoans: [], goals: [], actuals: [] };
     const plan = computePlan(snapshot, "2027-03")!;
     expect(plan.referenceMonth).toBe("2027-03");
     expect(plan.result.kpis.monthlyExpenses).toBe(85_000);

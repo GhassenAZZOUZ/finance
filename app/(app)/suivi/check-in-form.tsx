@@ -30,15 +30,24 @@ export interface CheckInFormProps {
   planned: Record<YearMonth, PlannedValues | null>;
   /** Active loans, same order as `ActualForm.loanBalances` and `PlannedValues.loanBalances`. */
   loans: { id: string; label: string }[];
+  /** Name of the primary goal (the moving fund, SPEC D23). */
+  primaryGoalName?: string;
+  /** Extra savings goals, same order as `ActualForm.goalBalances` and `PlannedValues.goalBalances`. */
+  goals?: { id: string; label: string }[];
 }
 
 type SavingsField = "movingSavings" | "emergencySavings" | "freeSavings";
 
-const SAVINGS_FIELDS: { name: SavingsField; label: string }[] = [
-  { name: "movingSavings", label: "Épargne déménagement" },
-  { name: "emergencySavings", label: "Fonds d’urgence" },
-  { name: "freeSavings", label: "Épargne libre" },
-];
+/** « Épargne déménagement », « Épargne voiture »… */
+export const goalFieldLabel = (name: string) => `Épargne ${name.toLocaleLowerCase("fr")}`;
+
+function savingsFields(primaryGoalName: string): { name: SavingsField; label: string }[] {
+  return [
+    { name: "movingSavings", label: goalFieldLabel(primaryGoalName) },
+    { name: "emergencySavings", label: "Fonds d’urgence" },
+    { name: "freeSavings", label: "Épargne libre" },
+  ];
+}
 
 /** How a field's gap is judged: savings must not fall short, debts must not exceed; budget = information. */
 type GapRule = "savings" | "debt" | "info";
@@ -49,7 +58,19 @@ function signed(cents: Cents): string {
   return cents > 0 ? `+${formatEuros(cents)}` : formatEuros(cents);
 }
 
-export function CheckInForm({ months, initialMonth, values, existing, statuses = {}, currentMonth, planned, loans }: CheckInFormProps) {
+export function CheckInForm({
+  months,
+  initialMonth,
+  values,
+  existing,
+  statuses = {},
+  currentMonth,
+  planned,
+  loans,
+  primaryGoalName = "Déménagement",
+  goals = [],
+}: CheckInFormProps) {
+  const SAVINGS_FIELDS = savingsFields(primaryGoalName);
   const [state, action, pending] = useActionState<SaveActualState, FormData>(saveActualAction, { status: "idle" });
   const [form, setForm] = useState<ActualForm>(() => values[initialMonth ?? months[0] ?? ""]!);
   // Feedback of a previous submission is hidden once the user switches month.
@@ -72,12 +93,24 @@ export function CheckInForm({ months, initialMonth, values, existing, statuses =
     setDismissed(state);
   }
 
-  const setField = (name: keyof Omit<ActualForm, "loanBalances" | "month">, value: string) =>
+  const setGoal = (goalId: string, value: string) =>
+    setForm((f) => ({
+      ...f,
+      goalBalances: (f.goalBalances ?? []).map((b) => (b.goalId === goalId ? { ...b, balance: value } : b)),
+    }));
+  const setField = (name: keyof Omit<ActualForm, "loanBalances" | "goalBalances" | "month">, value: string) =>
     setForm((f) => ({ ...f, [name]: value }));
   const setLoan = (loanId: string, value: string) =>
     setForm((f) => ({ ...f, loanBalances: f.loanBalances.map((b) => (b.loanId === loanId ? { ...b, balance: value } : b)) }));
 
-  const knownFields = new Set(["month", "income", "expenses", ...SAVINGS_FIELDS.map((f) => f.name), ...loans.map((l) => `loan.${l.id}`)]);
+  const knownFields = new Set([
+    "month",
+    "income",
+    "expenses",
+    ...SAVINGS_FIELDS.map((f) => f.name),
+    ...loans.map((l) => `loan.${l.id}`),
+    ...goals.map((g) => `goal.${g.id}`),
+  ]);
   const orphanErrors = Object.entries(errors).filter(([key]) => !knownFields.has(key));
   const budgetOpenNow = budgetOpen || Boolean(errors.income || errors.expenses);
 
@@ -140,6 +173,20 @@ export function CheckInForm({ months, initialMonth, values, existing, statuses =
             planned={plan ? plan[field.name] : null}
             rule="savings"
             error={errors[field.name]}
+          />
+        ))}
+        {goals.map((goal, j) => (
+          <AmountRow
+            key={goal.id}
+            id={`suivi-goal-${goal.id}`}
+            name={`goal.${goal.id}`}
+            label={goalFieldLabel(goal.label)}
+            required
+            value={form.goalBalances?.find((b) => b.goalId === goal.id)?.balance ?? ""}
+            onChange={(v) => setGoal(goal.id, v)}
+            planned={plan?.goalBalances[j] ?? null}
+            rule="savings"
+            error={errors[`goal.${goal.id}`]}
           />
         ))}
       </fieldset>

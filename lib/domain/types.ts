@@ -4,6 +4,8 @@ export const BUDGET_CATEGORIES = ["income", "fixed", "variable"] as const;
 export type BudgetCategory = (typeof BUDGET_CATEGORIES)[number];
 
 export const MAX_ACTIVE_LOANS = 6;
+/** Savings goals, the primary one (the moving fund) included (SPEC D23). */
+export const MAX_GOALS = 6;
 
 export interface BudgetLine {
   id: string;
@@ -62,6 +64,23 @@ export interface Loan {
 
 export type LoanDraft = Omit<Loan, "id" | "position" | "archivedAt">;
 
+/**
+ * A savings goal (SPEC D23). The primary goal (id PRIMARY_GOAL_ID, `primary: true`) is the moving
+ * fund of `BudgetSettings`: its amounts live there and it cannot be deleted.
+ */
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  target: Cents;
+  deadlineMonth: YearMonth;
+  alreadySaved: Cents;
+  /** 1 = filled first; unique and contiguous across all goals. */
+  priority: number;
+  primary: boolean;
+}
+
+export type SavingsGoalDraft = Pick<SavingsGoal, "name" | "target" | "deadlineMonth" | "alreadySaved">;
+
 /** Extra income or extra expenses for a single month (SPEC D14). */
 export interface BudgetException {
   id: string;
@@ -93,6 +112,8 @@ export interface MonthlyActual {
   emergencySavings: Cents;
   freeSavings: Cents;
   loanBalances: { loanId: string; balance: Cents }[];
+  /** Balances of the extra goals (SPEC D23); the primary goal's is `movingSavings`. */
+  goalBalances: { goalId: string; balance: Cents }[];
   /** Null for check-ins saved before D16 (compared with the current plan). */
   frozen: FrozenPlan | null;
 }
@@ -108,6 +129,8 @@ export interface FinanceSnapshot {
   /** Active loans, in entry order. */
   loans: Loan[];
   archivedLoans: Loan[];
+  /** Priority order; the primary goal first-class among them once settings exist (SPEC D23). */
+  goals: SavingsGoal[];
   /** Oldest first. */
   actuals: MonthlyActual[];
 }

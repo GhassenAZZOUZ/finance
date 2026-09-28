@@ -48,6 +48,7 @@ describe("template import", () => {
       emergencySavings: 0,
       freeSavings: 0,
       loanBalances: before.loans.map((l) => ({ loanId: l.id, balance: l.principal })),
+      goalBalances: [],
       frozen: null,
     });
     await importOnce();

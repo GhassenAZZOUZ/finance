@@ -12,6 +12,7 @@ import {
   type LoanDraft,
   MAX_ACTIVE_LOANS,
   type MonthlyActualDraft,
+  type SavingsGoalDraft,
 } from "./types";
 
 /** Largest amount accepted by numeric(12,2). */
@@ -222,11 +223,18 @@ export interface ActualForm {
   freeSavings: string;
   /** One entry per active loan. */
   loanBalances: { loanId: string; balance: string }[];
+  /** One entry per extra savings goal (SPEC D23); the primary goal is `movingSavings`. */
+  goalBalances?: { goalId: string; balance: string }[];
 }
 
 export function validateActual(
   form: ActualForm,
-  { startMonth, currentMonth, activeLoanIds }: { startMonth: YearMonth; currentMonth: YearMonth; activeLoanIds: string[] },
+  {
+    startMonth,
+    currentMonth,
+    activeLoanIds,
+    goalIds = [],
+  }: { startMonth: YearMonth; currentMonth: YearMonth; activeLoanIds: string[]; goalIds?: string[] },
 ): Validated<MonthlyActualDraft> {
   const c = new Collector();
   const month = c.take("month", parseMonth(form.month));
@@ -238,6 +246,11 @@ export function validateActual(
     loanId,
     balance: c.take(`loan.${loanId}`, parseAmount(given.get(loanId))) as Cents,
   }));
+  const givenGoals = new Map((form.goalBalances ?? []).map((b) => [b.goalId, b.balance]));
+  const goalBalances = goalIds.map((goalId) => ({
+    goalId,
+    balance: c.take(`goal.${goalId}`, parseAmount(givenGoals.get(goalId))) as Cents,
+  }));
   return c.result({
     month,
     income: c.take("income", parseAmount(form.income, { required: false })),
@@ -246,6 +259,37 @@ export function validateActual(
     emergencySavings: c.take("emergencySavings", parseAmount(form.emergencySavings)) as Cents,
     freeSavings: c.take("freeSavings", parseAmount(form.freeSavings)) as Cents,
     loanBalances,
+    goalBalances,
     frozen: null,
   });
+}
+
+export interface GoalForm {
+  name: string;
+  target: string;
+  deadlineMonth: string;
+  alreadySaved: string;
+}
+
+/**
+ * A savings goal (SPEC D23): name, target > 0, deadline month not in the past, amount already
+ * saved ≥ 0. The primary goal (the moving fund) may keep a past deadline: its amounts are edited
+ * with the budget, where « Date limite dépassée » is only a warning (D10).
+ */
+export function validateGoal(
+  form: GoalForm,
+  { currentMonth, primary = false }: { currentMonth: YearMonth; primary?: boolean },
+): Validated<SavingsGoalDraft> {
+  const c = new Collector();
+  const name = form.name.trim();
+  if (name === "") c.fail("name", "Nom requis");
+  else if (name.length > 100) c.fail("name", "100 caractères maximum");
+  const target = c.take("target", parseAmount(form.target)) as Cents;
+  if (target === 0) c.fail("target", "L’objectif doit être supérieur à 0");
+  const deadlineMonth = c.take("deadlineMonth", parseMonth(form.deadlineMonth));
+  if (!primary && deadlineMonth && compareMonths(deadlineMonth, currentMonth) < 0) {
+    c.fail("deadlineMonth", "La date limite est déjà passée");
+  }
+  const alreadySaved = c.take("alreadySaved", parseAmount(form.alreadySaved)) as Cents;
+  return c.result({ name, target, deadlineMonth, alreadySaved });
 }

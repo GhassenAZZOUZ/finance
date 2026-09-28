@@ -25,6 +25,7 @@ export async function saveActualAction(_prev: SaveActualState, formData: FormDat
       return { status: "error", message: "Renseignez d’abord votre budget.", errors: {} };
     }
     const activeLoanIds = snapshot.loans.map((l) => l.id);
+    const goalIds = snapshot.goals.filter((g) => !g.primary).map((g) => g.id);
     const form: ActualForm = {
       month: text(formData, "month"),
       income: text(formData, "income"),
@@ -33,11 +34,13 @@ export async function saveActualAction(_prev: SaveActualState, formData: FormDat
       emergencySavings: text(formData, "emergencySavings"),
       freeSavings: text(formData, "freeSavings"),
       loanBalances: activeLoanIds.map((loanId) => ({ loanId, balance: text(formData, `loan.${loanId}`) })),
+      goalBalances: goalIds.map((goalId) => ({ goalId, balance: text(formData, `goal.${goalId}`) })),
     };
     const validated = validateActual(form, {
       startMonth: snapshot.settings.startMonth,
       currentMonth: currentYearMonth(),
       activeLoanIds,
+      goalIds,
     });
     if (!validated.ok) {
       return { status: "error", message: "Certains champs sont à corriger.", errors: validated.errors };
@@ -87,6 +90,7 @@ export async function rebasePlanAction(): Promise<RebaseResult> {
     await repo.saveSettings(rebase.settings);
     for (const { id, draft } of rebase.loanUpdates) await repo.updateLoan(id, draft);
     for (const id of rebase.loansToArchive) await repo.removeLoan(id);
+    for (const { id, draft } of rebase.goalUpdates) await repo.updateGoal(id, draft);
     notifyDataChanged();
     return { ok: true, newStartMonth: rebase.newStartMonth };
   } catch {

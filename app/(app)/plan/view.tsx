@@ -12,7 +12,7 @@ import type { ComputedPlan } from "@/lib/domain/plan";
 import { HORIZON_MONTHS, monthsBetween } from "@/lib/engine";
 import { formatEuros, formatMonthLong, formatMonthShort } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { type PlanPhase, phaseLabel, planPhases } from "../_dashboard/logic";
+import { type PlanPhase, goalsName, phaseLabel, planPhases, primaryGoalName } from "../_dashboard/logic";
 import { exceptionsByPlanIndex } from "./exceptions";
 import { ROW_COUNTS, findMilestones, parseRowCount } from "./milestones";
 import { PlanTable } from "./plan-table";
@@ -69,6 +69,8 @@ export function PlanView() {
           todayIndex={todayIndex}
           earlyRepaymentPct={plan.input.budget.earlyRepaymentPct}
           movingGoalMet={plan.result.kpis.movingGoalMet}
+          goalsName={goalsName(plan.result.kpis)}
+          primaryName={primaryGoalName(plan.result.kpis)}
           caption={`Plan mois par mois, ${months.length} mois à partir de ${formatMonthLong(plan.input.budget.startMonth)}, montants en euros`}
         />
         {next ? (
@@ -130,7 +132,7 @@ function Overview({
   const first = months[0];
   const last = months.at(-1);
   const length = (p: PlanPhase) => p.endIndex - p.startIndex + 1;
-  const summary = phases.map((p) => `${phaseLabel(p.kind, pct)} ${length(p)} mois`).join(", ");
+  const summary = phases.map((p) => `${phaseLabel(p.kind, pct, goalsName(plan.result.kpis))} ${length(p)} mois`).join(", ");
   return (
     <section aria-labelledby="ov-title" className="flex flex-col gap-3 rounded-2xl border bg-card px-4 py-5 md:px-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -160,7 +162,7 @@ function Overview({
             >
               {width >= 30 ? (
                 <span aria-hidden className="truncate px-3.5">
-                  {phaseLabel(p.kind, pct)}
+                  {phaseLabel(p.kind, pct, goalsName(plan.result.kpis))}
                   {p.kind === "free" && free > 0 ? ` · ${formatEuros(free)} par mois à partir de ${formatMonthLong(p.startMonth)}` : ""}
                 </span>
               ) : null}
@@ -179,7 +181,7 @@ function Overview({
           .map((p) => (
             <li key={`${p.kind}-${p.startIndex}`} className="inline-flex items-center gap-1.5">
               <span aria-hidden className={cn("size-2.5 rounded-[3px]", PHASE_STYLE[p.kind].swatch)} />
-              {phaseLabel(p.kind, pct)} · {length(p)} mois
+              {phaseLabel(p.kind, pct, goalsName(plan.result.kpis))} · {length(p)} mois
             </li>
           ))}
         <li className="inline-flex items-center gap-1.5">

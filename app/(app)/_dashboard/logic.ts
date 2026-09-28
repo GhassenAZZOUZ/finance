@@ -1,5 +1,5 @@
 /** Pure helpers for the dashboard: chart series (cents → euros), summaries and gap tones. */
-import {
+import { PRIMARY_GOAL_ID,
   type ActualComparison,
   type Cents,
   type PlanInput,
@@ -246,9 +246,19 @@ export function movingShortfallOptions(input: PlanInput, result: PlanResult, ref
 /** Allocation phase of a month: which bucket receives the money available that month. */
 export type PhaseKind = "moving" | "emergency" | "repay" | "free";
 
+/** Name of the savings-goals bucket: the only goal's name, « Objectifs » when there are several (SPEC D23). */
+export function goalsName(kpis: Pick<PlanKpis, "goals">): string {
+  return kpis.goals.length === 1 ? (kpis.goals[0]?.name ?? "Déménagement") : kpis.goals.length > 1 ? "Objectifs" : "Déménagement";
+}
+
+/** Name of the primary goal (the moving fund). */
+export function primaryGoalName(kpis: Pick<PlanKpis, "goals">): string {
+  return kpis.goals.find((g) => g.id === PRIMARY_GOAL_ID)?.name ?? "Déménagement";
+}
+
 /** "① Déménagement", "② Fonds d’urgence", "③ Remb. anticipé + épargne", "④ Épargne libre". */
-export function phaseLabel(kind: PhaseKind, earlyRepaymentPct: number): string {
-  if (kind === "moving") return "① Déménagement";
+export function phaseLabel(kind: PhaseKind, earlyRepaymentPct: number, goals = "Déménagement"): string {
+  if (kind === "moving") return `① ${goals}`;
   if (kind === "emergency") return "② Fonds d’urgence";
   if (kind === "repay") return earlyRepaymentPct > 0 ? "③ Remb. anticipé + épargne" : "③ Épargne libre, crédits en cours";
   return "④ Épargne libre";
@@ -348,8 +358,8 @@ export function roadmapEvents(input: PlanInput, result: PlanResult): RoadmapEven
       month: budget.movingDeadlineMonth,
       monthSuffix: "date limite",
       text: kpis.movingGoalMet
-        ? `Déménagement financé (${formatEurosWhole(kpis.movingGoal)})`
-        : `Déménagement : ${formatEuros(kpis.movingAmountAtDeadline)} sur ${formatEurosWhole(kpis.movingGoal)}`,
+        ? `${primaryGoalName(kpis)} financé (${formatEurosWhole(kpis.movingGoal)})`
+        : `${primaryGoalName(kpis)} : ${formatEuros(kpis.movingAmountAtDeadline)} sur ${formatEurosWhole(kpis.movingGoal)}`,
       tone: kpis.movingGoalMet ? undefined : "warning",
     });
   }

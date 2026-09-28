@@ -27,7 +27,9 @@ import {
   debtSavingsSummary,
   formatSignedEuros,
   monthsGained,
+  goalsName,
   phaseLabel,
+  primaryGoalName,
   movingShortfallOptions,
   planPhases,
   roadmapEvents,
@@ -88,10 +90,15 @@ function Dashboard({ plan, pending }: { plan: ComputedPlan; pending: YearMonth[]
       <section aria-label="Chiffres clés" className="grid grid-cols-2 gap-2.5 md:gap-4 xl:grid-cols-3">
         <MarginTile kpis={kpis} month={plan.referenceMonth} />
         <DebtTile plan={plan} current={ref} />
-        <SavingsTile current={ref} in12={months[refIndex - 1 + 12]} className="col-span-2 xl:col-span-1" />
+        <SavingsTile
+          current={ref}
+          in12={months[refIndex - 1 + 12]}
+          goalsLabel={goalsName(kpis)}
+          className="col-span-2 xl:col-span-1"
+        />
       </section>
 
-      {shortfall ? <MovingAlert shortfall={shortfall} referenceMonth={plan.referenceMonth} /> : null}
+      {shortfall ? <MovingAlert shortfall={shortfall} referenceMonth={plan.referenceMonth} goalName={primaryGoalName(kpis)} /> : null}
 
       <Roadmap plan={plan} refIndex={refIndex} />
 
@@ -208,7 +215,18 @@ function DebtTile({ plan, current }: { plan: ComputedPlan; current: PlanMonth })
   );
 }
 
-function SavingsTile({ current, in12, className }: { current: PlanMonth; in12: PlanMonth | undefined; className?: string }) {
+function SavingsTile({
+  current,
+  in12,
+  goalsLabel,
+  className,
+}: {
+  current: PlanMonth;
+  in12: PlanMonth | undefined;
+  /** The only goal's name, or « Objectifs » when there are several (SPEC D23). */
+  goalsLabel: string;
+  className?: string;
+}) {
   const total = (m: PlanMonth) => m.movingCumulative + m.emergencyCumulative + m.freeSavingsCumulative;
   const now = total(current);
   const scale = Math.max(now, in12 ? total(in12) : 0);
@@ -228,7 +246,7 @@ function SavingsTile({ current, in12, className }: { current: PlanMonth; in12: P
           ]}
         />
       }
-      detail={`Déménagement ${formatEuros(current.movingCumulative)} · Urgence ${formatEuros(current.emergencyCumulative)} · Libre ${formatEuros(current.freeSavingsCumulative)}`}
+      detail={`${goalsLabel} ${formatEuros(current.movingCumulative)} · Urgence ${formatEuros(current.emergencyCumulative)} · Libre ${formatEuros(current.freeSavingsCumulative)}`}
       footerLabel={in12 ? `Dans 12 mois (${formatMonthLong(in12.month)})` : undefined}
       footerValue={in12 ? formatEuros(total(in12)) : undefined}
     />
@@ -237,7 +255,16 @@ function SavingsTile({ current, in12, className }: { current: PlanMonth; in12: P
 
 /* ------------------------------------------------------------------------------ Moving warning */
 
-function MovingAlert({ shortfall: s, referenceMonth }: { shortfall: MovingShortfall; referenceMonth: YearMonth }) {
+function MovingAlert({
+  shortfall: s,
+  referenceMonth,
+  goalName,
+}: {
+  shortfall: MovingShortfall;
+  referenceMonth: YearMonth;
+  /** The primary goal's name (SPEC D23). */
+  goalName: string;
+}) {
   const optionClass =
     "flex min-h-11 flex-col gap-1 rounded-xl border border-warning-border bg-card px-4 py-3.5 text-foreground hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
   return (
@@ -251,7 +278,7 @@ function MovingAlert({ shortfall: s, referenceMonth }: { shortfall: MovingShortf
         </div>
         <div className="flex flex-col gap-1.5">
           <h2 id="moving-alert-title" className="text-base font-semibold text-warning md:text-lg">
-            Déménagement : il manquera {formatEuros(s.shortfall)} fin {formatMonthLong(s.deadlineMonth)}
+            {goalName} : il manquera {formatEuros(s.shortfall)} fin {formatMonthLong(s.deadlineMonth)}
           </h2>
           <p className="text-sm leading-relaxed text-warning tabular-nums">
             Au rythme actuel, le fonds atteindra {formatEuros(s.amountAtDeadline)} à la date limite, pour un objectif de{" "}
@@ -300,7 +327,7 @@ function Roadmap({ plan, refIndex }: { plan: ComputedPlan; refIndex: number }) {
   const pos = (index: number) => `${((index - 0.5) / window) * 100}%`;
   const shown = phases.filter((p) => p.startIndex <= window);
   const summary = shown
-    .map((p) => `${phaseLabel(p.kind, pct)} de ${formatMonthShort(p.startMonth)} à ${formatMonthShort(p.endMonth)}`)
+    .map((p) => `${phaseLabel(p.kind, pct, goalsName(plan.result.kpis))} de ${formatMonthShort(p.startMonth)} à ${formatMonthShort(p.endMonth)}`)
     .join(", ");
   const years = months.slice(0, window).filter((m) => m.index === 1 || m.month.endsWith("-01"));
   const repayPct = Math.round(pct * 100);
@@ -349,7 +376,7 @@ function Roadmap({ plan, refIndex }: { plan: ComputedPlan; refIndex: number }) {
             return (
               <div
                 key={`${p.kind}-${p.startIndex}`}
-                title={`${phaseLabel(p.kind, pct)} · ${formatMonthShort(p.startMonth)} → ${formatMonthShort(p.endMonth)}`}
+                title={`${phaseLabel(p.kind, pct, goalsName(plan.result.kpis))} · ${formatMonthShort(p.startMonth)} → ${formatMonthShort(p.endMonth)}`}
                 className={cn(
                   "flex min-w-0 items-center overflow-hidden rounded px-3 text-[13px] font-semibold whitespace-nowrap",
                   PHASE_STYLE[p.kind].band,
@@ -358,7 +385,7 @@ function Roadmap({ plan, refIndex }: { plan: ComputedPlan; refIndex: number }) {
                 )}
                 style={{ width: `${width}%`, ...repayBg }}
               >
-                <span className="truncate">{phaseLabel(p.kind, pct)}</span>
+                <span className="truncate">{phaseLabel(p.kind, pct, goalsName(plan.result.kpis))}</span>
               </div>
             );
           })}
@@ -443,7 +470,7 @@ function MobilePhase({ phase: p, plan, refIndex }: { phase: PlanPhase; plan: Com
     <li className="grid grid-cols-[14px_minmax(0,1fr)_auto] items-start gap-3">
       <span aria-hidden className={cn("mt-1 size-3.5 rounded", PHASE_STYLE[p.kind].swatch)} />
       <span className="flex flex-col">
-        <span className="text-sm font-semibold">{phaseLabel(p.kind, plan.input.budget.earlyRepaymentPct)}</span>
+        <span className="text-sm font-semibold">{phaseLabel(p.kind, plan.input.budget.earlyRepaymentPct, goalsName(plan.result.kpis))}</span>
         <span className="text-[13px] text-muted-foreground">{detail}</span>
       </span>
       {now ? (
@@ -468,34 +495,37 @@ function Goals({ plan, current, in12 }: { plan: ComputedPlan; current: PlanMonth
       <h2 id="goals-title" className="text-base font-semibold md:text-[17px]">
         Objectifs d’épargne
       </h2>
-      {kpis.movingGoal > 0 ? (
-        <Goal
-          name="Déménagement"
-          current={current.movingCumulative}
-          goal={kpis.movingGoal}
-          meter={
-            <GoalMeter
-              fraction={current.movingCumulative / kpis.movingGoal}
-              projected={kpis.movingAmountAtDeadline / kpis.movingGoal}
-              fill="bg-bucket-moving"
-              track="bg-bucket-moving-tint"
-              hatch="bg-hatch-moving"
-            />
-          }
-          note={
-            kpis.movingGoalMet ? (
-              <ToneText tone="good">
-                Objectif atteint{kpis.movingReachedMonth ? ` en ${formatMonthLong(kpis.movingReachedMonth)}` : ""}
-              </ToneText>
-            ) : (
-              <span className="text-warning">
-                Prévu fin {formatMonthShort(plan.input.budget.movingDeadlineMonth)} : {formatEuros(kpis.movingAmountAtDeadline)}{" "}
-                (hachuré) · objectif non tenu
-              </span>
-            )
-          }
-        />
-      ) : null}
+      {/* One meter per savings goal, in priority order (SPEC D23). */}
+      {kpis.goals.map((g, i) => {
+        if (g.target <= 0) return null;
+        const saved = current.goals[i]?.cumulative ?? 0;
+        return (
+          <Goal
+            key={g.id}
+            name={g.name}
+            current={saved}
+            goal={g.target}
+            meter={
+              <GoalMeter
+                fraction={saved / g.target}
+                projected={g.amountAtDeadline / g.target}
+                fill="bg-bucket-moving"
+                track="bg-bucket-moving-tint"
+                hatch="bg-hatch-moving"
+              />
+            }
+            note={
+              g.met ? (
+                <ToneText tone="good">Objectif atteint{g.reachedMonth ? ` en ${formatMonthLong(g.reachedMonth)}` : ""}</ToneText>
+              ) : (
+                <span className="text-warning">
+                  Prévu fin {formatMonthShort(g.deadlineMonth)} : {formatEuros(g.amountAtDeadline)} (hachuré) · hors délai
+                </span>
+              )
+            }
+          />
+        );
+      })}
       {kpis.emergencyTarget > 0 ? (
         <Goal
           name="Fonds d’urgence"

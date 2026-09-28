@@ -34,6 +34,7 @@ function actual(month: string, overrides: Partial<MonthlyActual> = {}): MonthlyA
       { loanId: "loan-1", balance: 450_000 },
       { loanId: "loan-2", balance: 480_000 },
     ],
+    goalBalances: [],
     frozen: null,
     ...overrides,
   };

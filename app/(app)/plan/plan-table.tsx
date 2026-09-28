@@ -68,6 +68,8 @@ export function PlanTable({
   todayIndex,
   earlyRepaymentPct,
   movingGoalMet,
+  goalsName = "Déménagement",
+  primaryName = "Déménagement",
   caption,
 }: {
   months: PlanMonth[];
@@ -80,6 +82,9 @@ export function PlanTable({
   earlyRepaymentPct: number;
   /** Whether the moving goal is met at the deadline (deadline chip wording). */
   movingGoalMet?: boolean;
+  /** Savings-goals bucket name and the primary goal's name (SPEC D23). */
+  goalsName?: string;
+  primaryName?: string;
   caption: ReactNode;
 }) {
   const years = new Map<string, PlanMonth[]>();
@@ -102,7 +107,10 @@ export function PlanTable({
             <th scope="col" className={cn(HEAD_1, "left-0 z-30 min-w-40")}>
               <span className="sr-only">Mois</span>
             </th>
-            {GROUP_HEAD.map((g) => (
+            {GROUP_HEAD.map((g) => ({
+              ...g,
+              label: g.group === "moving" && goalsName !== "Déménagement" ? `① ${goalsName}` : g.label,
+            })).map((g) => (
               <th
                 key={g.group}
                 scope="colgroup"
@@ -152,7 +160,7 @@ export function PlanTable({
                   {" · "}
                   {phasesOf(yearMonths, phases)
                     .map((kind, i) => {
-                      const label = phaseLabel(kind, earlyRepaymentPct);
+                      const label = phaseLabel(kind, earlyRepaymentPct, goalsName);
                       return i === 0 ? label : label.charAt(0) + label.slice(1).toLowerCase();
                     })
                     .join(", puis ")}
@@ -167,6 +175,8 @@ export function PlanTable({
                 exceptions={exceptions.get(m.index) ?? NO_EXCEPTIONS}
                 today={m.index === todayIndex}
                 movingGoalMet={movingGoalMet}
+                goalsName={goalsName}
+                primaryName={primaryName}
               />
             ))}
           </tbody>
@@ -182,12 +192,16 @@ function PlanRow({
   exceptions,
   today,
   movingGoalMet,
+  goalsName,
+  primaryName,
 }: {
   month: PlanMonth;
   milestones: PlanMilestones;
   exceptions: MonthExceptions;
   today: boolean;
   movingGoalMet?: boolean;
+  goalsName: string;
+  primaryName: string;
 }) {
   const negative = m.negativeBudget;
   const isDeadline = milestones.deadlineIndex === m.index;
@@ -222,11 +236,15 @@ function PlanRow({
           {debtFree ? <Chip className="bg-bucket-debts text-white">Plus de dettes</Chip> : null}
           {isDeadline ? (
             <Chip className="bg-warning-bg text-warning">
-              Date limite déménagement
+              Date limite {primaryName.toLocaleLowerCase("fr")}
               {movingGoalMet === undefined ? "" : movingGoalMet ? " · objectif tenu" : " · objectif non tenu"}
             </Chip>
           ) : null}
-          {movingHit ? <Chip className="bg-bucket-moving text-on-bucket-moving">Déménagement financé</Chip> : null}
+          {movingHit ? (
+            <Chip className="bg-bucket-moving text-on-bucket-moving">
+              {goalsName === "Objectifs" ? "Objectifs financés" : `${goalsName} financé`}
+            </Chip>
+          ) : null}
           {emergencyHit ? <Chip className="bg-bucket-emergency text-white">Fonds d’urgence complet</Chip> : null}
           {m.extraIncome > 0 ? <ExceptionChip amount={m.extraIncome} list={exceptions.income} kind="income" /> : null}
           {m.extraExpenses > 0 ? <ExceptionChip amount={m.extraExpenses} list={exceptions.expense} kind="expense" /> : null}

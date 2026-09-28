@@ -21,8 +21,7 @@ import {
   type BudgetException,
   type BudgetLine,
   type BudgetSettings,
-  type Loan,
-} from "@/lib/domain/types";
+  type Loan, type SavingsGoal } from "@/lib/domain/types";
 import { type BudgetForm, parseAmount, validateBudget } from "@/lib/domain/validation";
 import { amountInputValue, formatMonthShort, percentInputValue } from "@/lib/format";
 import { affectedMonthCount } from "./exceptions-view";
@@ -283,6 +282,8 @@ export interface PreviewOptions {
   currentMonth?: YearMonth;
   /** Saved plan start, used while the typed one is invalid. */
   savedStartMonth?: YearMonth | null;
+  /** Savings goals (SPEC D23): the primary one takes the typed moving fund. */
+  goals?: readonly SavingsGoal[];
 }
 
 /**
@@ -293,7 +294,7 @@ export function computePreview(
   state: BudgetFormState,
   loans: readonly Loan[],
   exceptions: readonly BudgetException[] = [],
-  { currentMonth, savedStartMonth = null }: PreviewOptions = {},
+  { currentMonth, savedStartMonth = null, goals = [] }: PreviewOptions = {},
 ): BudgetPreview {
   let invalidAmounts = 0;
   const validLines: ({ category: BudgetCategory; amount: Cents } & LinePeriod)[] = [];
@@ -328,7 +329,7 @@ export function computePreview(
     suggestedEmergencyTarget: 3 * (fixed + variable + loanPayments),
     exceptionMonths: affectedMonthCount(exceptions, settings?.startMonth ?? null),
     // With valid settings, `month` is the reference month of the typed plan start.
-    plan: settings ? simulatePlan(buildPlanInput(settings, validLines, loans, exceptions, month ?? settings.startMonth)) : null,
+    plan: settings ? simulatePlan(buildPlanInput(settings, validLines, loans, exceptions, month ?? settings.startMonth, goals)) : null,
   };
 }
 
