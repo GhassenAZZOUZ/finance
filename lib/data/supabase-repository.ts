@@ -342,18 +342,14 @@ export class SupabaseFinanceRepository implements FinanceRepository {
     );
   }
 
+  /** One transaction (Postgres function `save_budget`): settings and lines, or nothing. */
   async saveBudget(settings: BudgetSettings, lines: BudgetLineDraft[]): Promise<void> {
-    await this.saveSettings(settings);
-
-    const existing = check(await this.db.from("budget_lines").select("id").returns<{ id: string }[]>());
-    const kept = new Set(lines.flatMap((l) => (l.id ? [l.id] : [])));
-    const removed = existing.map((r) => r.id).filter((id) => !kept.has(id));
-    if (removed.length > 0) checkMaybe(await this.db.from("budget_lines").delete().in("id", removed));
-
-    const updates = lines.filter((l) => l.id).map((l) => ({ id: l.id, ...lineColumns(l) }));
-    const inserts = lines.filter((l) => !l.id).map(lineColumns);
-    if (updates.length > 0) checkMaybe(await this.db.from("budget_lines").upsert(updates, { onConflict: "id" }));
-    if (inserts.length > 0) checkMaybe(await this.db.from("budget_lines").insert(inserts));
+    checkMaybe(
+      await this.db.rpc("save_budget", {
+        p_settings: settingsColumns(settings),
+        p_lines: lines.map((l) => ({ id: l.id ?? null, ...lineColumns(l) })),
+      }),
+    );
   }
 
   /** One transaction (Postgres function `apply_import`). */
