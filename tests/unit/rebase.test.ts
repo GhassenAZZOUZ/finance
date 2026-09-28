@@ -20,7 +20,7 @@ const snapshot = (actuals: MonthlyActual[]): FinanceSnapshot => ({
   lines: [{ id: "i", category: "income", label: "Salaire", amount: 300_000, position: 0, startMonth: null, endMonth: null }],
   exceptions: [],
   loans: [loan("car", 500_000), loan("debt", 20_000)],
-  archivedLoans: [], goals: [],
+  archivedLoans: [], goals: [], reminderEnabled: true,
   actuals,
 });
 

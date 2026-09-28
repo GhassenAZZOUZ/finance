@@ -371,6 +371,11 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# Monthly check-in reminder (issue #6): called by .github/workflows/reminder.yml with the shared
+# REMINDER_SECRET header, so no user JWT.
+[functions.monthly-reminder]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

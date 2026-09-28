@@ -1,0 +1,49 @@
+name: Monthly reminder
+
+# Calls the Edge Function `monthly-reminder` every day (issue #6, SPEC D25). The function only sends
+# on the last day of the month in Paris, once per user and month; a failed send makes this run red
+# (GitHub e-mails the repository owner).
+on:
+  schedule:
+    # 16:00 UTC = 18:00 in Paris in summer, 17:00 in winter.
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Send now even if it is not the last day of the month"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Only count the recipients, send nothing"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monthly-reminder
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      FUNCTION_URL: https://fayeuqhjbnuvxjiysxls.supabase.co/functions/v1/monthly-reminder
+      REMINDER_SECRET: ${{ secrets.REMINDER_SECRET }}
+      FORCE: ${{ inputs.force || false }}
+      DRY_RUN: ${{ inputs.dry_run || false }}
+    steps:
+      - name: Check secret
+        run: |
+          if [ -z "$REMINDER_SECRET" ]; then
+            echo "::error::Set the repository secret REMINDER_SECRET (same value as the Supabase secret)"
+            exit 1
+          fi
+      - name: Call the function
+        run: |
+          body=$(printf '{"force":%s,"dryRun":%s}' "$FORCE" "$DRY_RUN")
+          curl --fail-with-body --silent --show-error --max-time 120 -X POST "$FUNCTION_URL" \
+            -H "x-reminder-secret: $REMINDER_SECRET" -H "content-type: application/json" -d "$body"
+          echo
