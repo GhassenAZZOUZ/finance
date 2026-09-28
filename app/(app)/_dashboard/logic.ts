@@ -331,7 +331,8 @@ export function roadmapEvents(input: PlanInput, result: PlanResult): RoadmapEven
 
   const payoffs = new Map<number, string[]>();
   for (const loan of result.loans) {
-    const index = loan.payoffMonthWithPlan ? indexOf(loan.payoffMonthWithPlan) : null;
+    // An overdraft is reusable: clearing it is not a payoff milestone (SPEC D24).
+    const index = loan.payoffMonthWithPlan && loan.kind !== "overdraft" ? indexOf(loan.payoffMonthWithPlan) : null;
     // Loans already repaid at the start (month 1) are not milestones.
     if (index === null || index === 1) continue;
     payoffs.set(index, [...(payoffs.get(index) ?? []), loan.displayName]);

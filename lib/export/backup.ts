@@ -10,8 +10,9 @@ export const BACKUP_FORMAT = "finance-plan-backup";
  * Bump when the shape changes; an import reads older versions explicitly.
  * 1: first version (#7). 2: loans gain `penaltyPct` and `penaltyCapMonths` (IRA, #9).
  * 3: `goals` and check-ins' `goalBalances` (several savings goals, #10).
+ * 4: loans gain `kind` and `creditLimit` (bank overdraft, #28).
  */
-export const BACKUP_VERSION = 3;
+export const BACKUP_VERSION = 4;
 
 /** Euros with exactly 2 decimals and a dot ("1234.50", "-0.05"), computed from integer cents. */
 export type DecimalEuros = string;
@@ -39,6 +40,10 @@ export interface BackupLoan {
   penaltyPct: number | null;
   /** Cap in months of interest; null = no cap. */
   penaltyCapMonths: number | null;
+  /** "overdraft": `principal` = balance used, `monthlyPayment` = fixed repayment (SPEC D24). */
+  kind: "loan" | "overdraft";
+  /** Overdraft only: authorised amount; null for a loan. */
+  creditLimit: DecimalEuros | null;
   position: number;
   /** ISO timestamp; null for an active loan (SPEC D8). */
   archivedAt: string | null;
@@ -121,6 +126,8 @@ function loan(l: Loan): BackupLoan {
     contractEndMonth: l.contractEndMonth,
     penaltyPct: l.penaltyPct,
     penaltyCapMonths: l.penaltyCapMonths,
+    kind: l.kind,
+    creditLimit: money(l.creditLimit),
     position: l.position,
     archivedAt: l.archivedAt,
   };

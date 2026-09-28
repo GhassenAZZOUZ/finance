@@ -56,7 +56,8 @@ export function planRebase(snapshot: FinanceSnapshot, plan: ComputedPlan): Rebas
   for (const loan of snapshot.loans) {
     const balance = balances.get(loan.id);
     if (balance === undefined) continue; // added after that check-in: unchanged
-    if (balance === 0) loansToArchive.push(loan.id);
+    // A cleared overdraft stays available (SPEC D24); a loan at 0 is archived.
+    if (balance === 0 && loan.kind !== "overdraft") loansToArchive.push(loan.id);
     else loanUpdates.push({ id: loan.id, draft: loanDraft(loan, balance, latest.month) });
   }
 
@@ -97,11 +98,14 @@ function loanDraft(loan: Loan, principal: number, paidThrough: YearMonth): LoanD
     name: loan.name,
     type: loan.type,
     principal,
-    principalPaidThroughMonth: paidThrough,
+    // An overdraft balance is never projected (D24).
+    principalPaidThroughMonth: loan.kind === "overdraft" ? null : paidThrough,
     apr: loan.apr,
     monthlyPayment: loan.monthlyPayment,
     contractEndMonth: loan.contractEndMonth,
     penaltyPct: loan.penaltyPct,
     penaltyCapMonths: loan.penaltyCapMonths,
+    kind: loan.kind,
+    creditLimit: loan.creditLimit,
   };
 }

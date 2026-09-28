@@ -68,9 +68,9 @@ describe("SupabaseFinanceRepository", () => {
   });
 
   it("creates, updates and orders loans; exact cents and rates survive the round-trip", async () => {
-    const a = await repo.createLoan({ name: "Prêt auto", type: "Prêt affecté", principal: 820000, principalPaidThroughMonth: "2026-09", apr: 0.049, monthlyPayment: 24530, contractEndMonth: "2030-01", penaltyPct: null, penaltyCapMonths: null });
-    const b = await repo.createLoan({ name: null, type: "Dette personnelle", principal: 60000, principalPaidThroughMonth: null, apr: 0, monthlyPayment: 15000, contractEndMonth: null, penaltyPct: null, penaltyCapMonths: null });
-    await repo.updateLoan(a.id, { name: "Prêt auto", type: "Prêt affecté", principal: 810001, principalPaidThroughMonth: "2026-10", apr: 0.0615, monthlyPayment: 24530, contractEndMonth: "2029-12", penaltyPct: 0.03, penaltyCapMonths: 6 });
+    const a = await repo.createLoan({ name: "Prêt auto", type: "Prêt affecté", principal: 820000, principalPaidThroughMonth: "2026-09", apr: 0.049, monthlyPayment: 24530, contractEndMonth: "2030-01", penaltyPct: null, penaltyCapMonths: null, kind: "loan", creditLimit: null });
+    const b = await repo.createLoan({ name: null, type: "Dette personnelle", principal: 60000, principalPaidThroughMonth: null, apr: 0, monthlyPayment: 15000, contractEndMonth: null, penaltyPct: null, penaltyCapMonths: null, kind: "loan", creditLimit: null });
+    await repo.updateLoan(a.id, { name: "Prêt auto", type: "Prêt affecté", principal: 810001, principalPaidThroughMonth: "2026-10", apr: 0.0615, monthlyPayment: 24530, contractEndMonth: "2029-12", penaltyPct: 0.03, penaltyCapMonths: 6, kind: "loan", creditLimit: null });
     const { loans } = await repo.load();
     expect(loans.map((l) => [l.id, l.principal, l.principalPaidThroughMonth, l.apr, l.contractEndMonth, l.penaltyPct, l.penaltyCapMonths, l.position])).toEqual([
       [a.id, 810001, "2026-10", 0.0615, "2029-12", 0.03, 6, 0],
@@ -103,7 +103,7 @@ describe("SupabaseFinanceRepository", () => {
     expect(snap.actuals[0]!.loanBalances.map((x) => x.balance).sort()).toEqual([0, 700000]);
 
     expect(await repo.removeLoan(b!.id)).toBe("archived");
-    const c = await repo.createLoan({ name: "Sans historique", type: null, principal: 1000, principalPaidThroughMonth: null, apr: 0.1, monthlyPayment: 100, contractEndMonth: null, penaltyPct: null, penaltyCapMonths: null });
+    const c = await repo.createLoan({ name: "Sans historique", type: null, principal: 1000, principalPaidThroughMonth: null, apr: 0.1, monthlyPayment: 100, contractEndMonth: null, penaltyPct: null, penaltyCapMonths: null, kind: "loan", creditLimit: null });
     expect(await repo.removeLoan(c.id)).toBe("deleted");
     snap = await repo.load();
     expect(snap.loans.map((l) => l.id)).toEqual([a!.id]);

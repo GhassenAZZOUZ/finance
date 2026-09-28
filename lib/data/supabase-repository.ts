@@ -60,11 +60,13 @@ interface LoanRow {
   contract_end_month: string | null;
   penalty_pct: number | null;
   penalty_cap_months: number | null;
+  kind: "loan" | "overdraft";
+  credit_limit: number | null;
   position: number;
   archived_at: string | null;
 }
 const LOAN_COLUMNS =
-  "id, name, type, principal, principal_paid_through_month, apr, monthly_payment, contract_end_month, penalty_pct, penalty_cap_months, position, archived_at";
+  "id, name, type, principal, principal_paid_through_month, apr, monthly_payment, contract_end_month, penalty_pct, penalty_cap_months, kind, credit_limit, position, archived_at";
 interface ExceptionRow {
   id: string;
   month: string;
@@ -139,6 +141,8 @@ function toLoan(r: LoanRow): Loan {
     contractEndMonth: r.contract_end_month,
     penaltyPct: r.penalty_pct === null ? null : Number(r.penalty_pct),
     penaltyCapMonths: r.penalty_cap_months,
+    kind: r.kind,
+    creditLimit: centsOrNull(r.credit_limit),
     position: r.position,
     archivedAt: r.archived_at,
   };
@@ -155,6 +159,8 @@ function loanColumns(d: LoanDraft) {
     contract_end_month: d.contractEndMonth,
     penalty_pct: d.penaltyPct,
     penalty_cap_months: d.penaltyCapMonths,
+    kind: d.kind,
+    credit_limit: eurosOrNull(d.creditLimit),
   };
 }
 

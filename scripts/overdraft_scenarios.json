@@ -1,0 +1,37 @@
+[
+  {
+    "id": "od_avalanche",
+    "description": "Overdraft 800 € at 16 %, no fixed repayment, and a 5 % loan: agios added monthly, the overdraft is repaid first (AC-02, AC-03), then stays available at 0 € (AC-04)",
+    "budget": { "income": 2500, "expenses": 1900, "startMonth": "2027-01", "movingGoal": 0, "movingDeadlineMonth": "2027-01", "movingAlreadySaved": 0, "emergencyTarget": 0, "emergencyExisting": 0, "riskFreeRate": 0.03, "earlyRepaymentPct": 0.5 },
+    "loans": [
+      { "id": "loan", "principal": 5000, "apr": 0.05, "monthlyPayment": 200 },
+      { "id": "od", "kind": "overdraft", "limit": 1000, "principal": 800, "apr": 0.16, "monthlyPayment": 0 }
+    ]
+  },
+  {
+    "id": "od_negative_months",
+    "description": "Budget short by 150 € a month: the overdraft absorbs it up to its 1 000 € limit, then the shortfall is dropped (AC-09)",
+    "budget": { "income": 1500, "expenses": 1650, "startMonth": "2027-01", "movingGoal": 0, "movingDeadlineMonth": "2027-01", "movingAlreadySaved": 0, "emergencyTarget": 0, "emergencyExisting": 0, "riskFreeRate": 0.03, "earlyRepaymentPct": 0.5 },
+    "loans": [
+      { "id": "od", "kind": "overdraft", "limit": 1000, "principal": 200, "apr": 0.12, "monthlyPayment": 0 }
+    ]
+  },
+  {
+    "id": "od_fixed_below_threshold",
+    "description": "Overdraft at 2 % (below the 3 % threshold: never repaid early) with a 100 € fixed repayment (AC-07)",
+    "budget": { "income": 3000, "expenses": 2000, "startMonth": "2027-01", "movingGoal": 2000, "movingDeadlineMonth": "2027-06", "movingAlreadySaved": 0, "emergencyTarget": 3000, "emergencyExisting": 0, "riskFreeRate": 0.03, "earlyRepaymentPct": 1 },
+    "loans": [
+      { "id": "od", "kind": "overdraft", "limit": 1500, "principal": 1234.56, "apr": 0.02, "monthlyPayment": 100 },
+      { "id": "loan", "principal": 3000, "apr": 0.07, "monthlyPayment": 150 }
+    ]
+  },
+  {
+    "id": "od_zero_start",
+    "description": "Overdraft unused at the start and a positive budget: stays at 0 €, debt-free = the loan's payoff (AC-04)",
+    "budget": { "income": 2200, "expenses": 1800, "startMonth": "2027-01", "movingGoal": 0, "movingDeadlineMonth": "2027-01", "movingAlreadySaved": 0, "emergencyTarget": 1000, "emergencyExisting": 0, "riskFreeRate": 0.03, "earlyRepaymentPct": 0.6 },
+    "loans": [
+      { "id": "od", "kind": "overdraft", "limit": 500, "principal": 0, "apr": 0.18, "monthlyPayment": 0 },
+      { "id": "loan", "principal": 2000, "apr": 0.06, "monthlyPayment": 100 }
+    ]
+  }
+]

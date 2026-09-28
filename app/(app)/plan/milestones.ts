@@ -45,7 +45,8 @@ export function findMilestones(input: PlanInput, result: PlanResult): PlanMilest
 
   const loanPayoffs = new Map<number, string[]>();
   for (const loan of result.loans) {
-    if (!loan.payoffMonthWithPlan) continue;
+    // An overdraft is reusable: clearing it is not a payoff milestone (SPEC D24).
+    if (!loan.payoffMonthWithPlan || loan.kind === "overdraft") continue;
     const index = planIndexOf(loan.payoffMonthWithPlan, budget.startMonth, months.length);
     if (index === null) continue;
     loanPayoffs.set(index, [...(loanPayoffs.get(index) ?? []), loan.displayName]);

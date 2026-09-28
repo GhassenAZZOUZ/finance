@@ -25,5 +25,6 @@ python scripts/export_golden.py <tmpdir>
 | `recalc_scenarios.ps1` | Drives Excel: `-BuildTemplate`, or `-OutDir <dir> [-Only <id>]` |
 | `export_golden.py <dir>` | Builds `tests/fixtures/golden.json` from Excel's cached values |
 | `reference_engine.py [--float] [file]` | Independent Python re-implementation; `--float` = original spreadsheet (no xx.xx rounding) |
+| `reference_overdraft.py <scenarios.json> <fixture.json>` | Independent reference for the overdraft rules (SPEC D24, no spreadsheet equivalent): `python scripts/reference_overdraft.py scripts/overdraft_scenarios.json tests/fixtures/overdraft-reference.json` |
 | `scrub_docprops.py <xlsx>` | Blanks author metadata without touching cached values |
 | `dump_xlsx.py`, `dump_rows.py`, `diff_xlsx.py` | Inspect formulas/values; semantic diff of two workbook versions |

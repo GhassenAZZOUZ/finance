@@ -145,6 +145,10 @@ export interface LoanForm {
   penaltyPct?: string;
   /** Optional cap in months of interest; "" or missing = no cap. */
   penaltyCapMonths?: string;
+  /** "overdraft" (SPEC D24); missing = a loan. */
+  kind?: string;
+  /** Overdraft only: authorised amount. */
+  creditLimit?: string;
 }
 
 /** Whole number of months, 0 to 120 ("6", " 6 "). */
@@ -158,6 +162,7 @@ function parseCapMonths(raw: string): Parsed<number> {
 
 /** `activeLoanCount` excludes the loan being edited. */
 export function validateLoan(form: LoanForm, activeLoanCount: number): Validated<LoanDraft> {
+  if (form.kind === "overdraft") return validateOverdraft(form, activeLoanCount);
   const c = new Collector();
   if (activeLoanCount >= MAX_ACTIVE_LOANS) c.fail("form", `${MAX_ACTIVE_LOANS} crédits maximum`);
   const name = form.name.trim();
@@ -190,6 +195,40 @@ export function validateLoan(form: LoanForm, activeLoanCount: number): Validated
     contractEndMonth,
     penaltyPct: penaltyPct ?? null,
     penaltyCapMonths: penaltyCapMonths ?? null,
+    kind: "loan",
+    creditLimit: null,
+  });
+}
+
+/**
+ * A bank overdraft (SPEC D24): authorised limit > 0, balance used between 0 and the limit, agios
+ * rate 0–100 %, optional fixed monthly repayment (empty = 0). Counts in the 6-debt limit (D7).
+ */
+function validateOverdraft(form: LoanForm, activeLoanCount: number): Validated<LoanDraft> {
+  const c = new Collector();
+  if (activeLoanCount >= MAX_ACTIVE_LOANS) c.fail("form", `${MAX_ACTIVE_LOANS} crédits maximum`);
+  const name = form.name.trim();
+  if (name.length > 100) c.fail("name", "100 caractères maximum");
+  const creditLimit = c.take("creditLimit", parseAmount(form.creditLimit)) as Cents;
+  if (creditLimit === 0) c.fail("creditLimit", "L’autorisation doit être supérieure à 0");
+  const principal = c.take("principal", parseAmount(form.principal)) as Cents;
+  if (principal !== undefined && creditLimit !== undefined && creditLimit > 0 && principal > creditLimit) {
+    c.fail("principal", "Le solde utilisé ne peut pas dépasser l’autorisation");
+  }
+  const apr = c.take("apr", parsePercent(form.apr));
+  const monthlyPayment = (c.take("monthlyPayment", parseAmount(form.monthlyPayment, { required: false })) ?? 0) as Cents;
+  return c.result({
+    name: name || null,
+    type: "Découvert bancaire",
+    principal,
+    principalPaidThroughMonth: null,
+    apr,
+    monthlyPayment,
+    contractEndMonth: null,
+    penaltyPct: null,
+    penaltyCapMonths: null,
+    kind: "overdraft",
+    creditLimit,
   });
 }
 

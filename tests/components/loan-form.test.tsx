@@ -66,6 +66,8 @@ describe("LoanFormPanel", () => {
       contractEndMonth: null,
       penaltyPct: null,
       penaltyCapMonths: null,
+      kind: "loan",
+      creditLimit: null,
     });
     expect(mocks.repo?.updateLoan).not.toHaveBeenCalled();
     expect(mocks.notify).toHaveBeenCalledTimes(1);
@@ -92,6 +94,29 @@ describe("LoanFormPanel", () => {
     await user.click(screen.getByRole("button", { name: "Ajouter le crédit" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
     expect(mocks.repo?.createLoan).toHaveBeenCalledWith(expect.objectContaining({ penaltyPct: 0.03, penaltyCapMonths: 6 }));
+  });
+
+  it("adds a bank overdraft: limit, balance, agios rate, no monthly payment (issue #28)", async () => {
+    const { onSaved, user } = renderForm();
+    await user.click(screen.getByRole("radio", { name: "Découvert bancaire" }));
+    expect(screen.queryByLabelText("Mensualité (€)")).toBeNull();
+    expect(screen.queryByLabelText("TAEG (%)")).toBeNull();
+    await user.type(screen.getByLabelText("Nom (facultatif)"), "Compte courant");
+    await user.type(screen.getByLabelText("Autorisation de découvert (€)"), "1 000");
+    await user.type(screen.getByLabelText("Solde utilisé (€)"), "1200");
+    await user.type(screen.getByLabelText("Taux des agios (%)"), "16");
+    await user.click(screen.getByRole("button", { name: "Ajouter le crédit" }));
+    expect(await screen.findByText("Le solde utilisé ne peut pas dépasser l’autorisation")).toBeTruthy();
+    expect(mocks.repo?.createLoan).not.toHaveBeenCalled();
+
+    const balance = screen.getByLabelText("Solde utilisé (€)");
+    await user.clear(balance);
+    await user.type(balance, "800");
+    await user.click(screen.getByRole("button", { name: "Ajouter le crédit" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(mocks.repo?.createLoan).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "overdraft", creditLimit: 100_000, principal: 80_000, apr: 0.16, monthlyPayment: 0 }),
+    );
   });
 
   it("refuses a 7th loan even if the form is submitted (limit re-checked against the repository)", async () => {

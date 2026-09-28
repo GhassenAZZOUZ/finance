@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -88,6 +88,10 @@ export function LoanFormPanel({
   );
   const errors = state.status === "error" ? state.errors : {};
   const values = state.values;
+  // An existing debt keeps its kind; a new one is a loan unless « Découvert bancaire » is chosen.
+  const [kind, setKind] = useState<"loan" | "overdraft">(editing?.kind ?? (values.kind === "overdraft" ? "overdraft" : "loan"));
+  const kindName = useId();
+  const overdraft = kind === "overdraft";
   const title = editing ? `Modifier « ${editing.displayName} »` : "Ajouter un crédit";
 
   return (
@@ -96,92 +100,174 @@ export function LoanFormPanel({
         {title}
       </h2>
       {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
+      {/* The state is the source of truth: React resets the form (radios included) after an action. */}
+      <input type="hidden" name="kind" value={kind} />
+      {editing ? null : (
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className="mb-1 text-sm font-medium">Type de dette</legend>
+          <div className="flex flex-wrap gap-x-5 gap-y-1">
+            {(
+              [
+                ["loan", "Crédit (mensualité fixe)"],
+                ["overdraft", "Découvert bancaire"],
+              ] as const
+            ).map(([value, label]) => (
+              <label key={value} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm md:min-h-8">
+                <input
+                  type="radio"
+                  name={`${kindName}-kind`}
+                  value={value}
+                  checked={kind === value}
+                  onChange={() => setKind(value)}
+                  className="size-4 accent-primary"
+                  aria-describedby={value === "overdraft" ? `${kindName}-hint` : undefined}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          <p id={`${kindName}-hint`} className="text-[13px] leading-snug text-muted-foreground">
+            Découvert : pas de mensualité, réutilisable ; les mois en budget négatif puisent dedans jusqu’à l’autorisation.
+          </p>
+        </fieldset>
+      )}
       {errors.form ? (
         <p role="alert" className="rounded-md border border-bad-border bg-bad-bg px-3 py-2 text-sm text-bad">
           {errors.form}
         </p>
       ) : null}
-      <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
-        <Field
-          idPrefix={idPrefix}
-          name="name"
-          label="Nom (facultatif)"
-          hint="Vide : « Crédit n »"
-          defaultValue={values.name}
-          error={errors.name}
-          autoFocus={editing !== null}
-        />
-        <Field
-          idPrefix={idPrefix}
-          name="type"
-          label="Type"
-          hint="Choisissez ou saisissez librement"
-          defaultValue={values.type}
-          error={errors.type}
-          list={`${idPrefix}-type-suggestions`}
-        />
-        <Field
-          idPrefix={idPrefix}
-          name="principal"
-          label="Capital restant dû (€)"
-          defaultValue={values.principal}
-          error={errors.principal}
-          inputMode="decimal"
-        />
-        <Field
-          idPrefix={idPrefix}
-          name="principalPaidThroughMonth"
-          label="Dernière mensualité déjà payée"
-          hint="Mois de la dernière échéance prélevée quand vous avez relevé ce capital. L’app déduit les mensualités suivantes jusqu’au début du plan. Vide : capital au début du plan."
-          defaultValue={values.principalPaidThroughMonth}
-          error={errors.principalPaidThroughMonth}
-          type="month"
-        />
-        <Field
-          idPrefix={idPrefix}
-          name="apr"
-          label="TAEG (%)"
-          hint="Ex. : 4,9"
-          defaultValue={values.apr}
-          error={errors.apr}
-          inputMode="decimal"
-        />
-        <Field
-          idPrefix={idPrefix}
-          name="monthlyPayment"
-          label="Mensualité (€)"
-          defaultValue={values.monthlyPayment}
-          error={errors.monthlyPayment}
-          inputMode="decimal"
-        />
-        <Field
-          idPrefix={idPrefix}
-          name="contractEndMonth"
-          label="Date de fin du contrat (facultatif)"
-          hint="Mois de la dernière échéance (offre de prêt, relevé). Sert à vérifier vos chiffres."
-          defaultValue={values.contractEndMonth}
-          error={errors.contractEndMonth}
-          type="month"
-        />
-        <Field
-          idPrefix={idPrefix}
-          name="penaltyPct"
-          label="IRA (% du capital remboursé, facultatif)"
-          hint="Indemnités de remboursement anticipé, voir l’offre de prêt. Crédit immobilier : 3 % au plus. Vide : aucune."
-          defaultValue={values.penaltyPct ?? ""}
-          error={errors.penaltyPct}
-          inputMode="decimal"
-        />
-        <Field
-          idPrefix={idPrefix}
-          name="penaltyCapMonths"
-          label="Plafond des IRA (mois d’intérêts, facultatif)"
-          hint="Crédit immobilier : 6 mois d’intérêts au plus. Vide : pas de plafond."
-          defaultValue={values.penaltyCapMonths ?? ""}
-          error={errors.penaltyCapMonths}
-          inputMode="decimal"
-        />
-      </div>
+      {/* Distinct keys: the two grids must not share (and keep the values of) their inputs. */}
+      {overdraft ? (
+        <div key="overdraft" className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
+          <Field
+            idPrefix={idPrefix}
+            name="name"
+            label="Nom (facultatif)"
+            hint="Ex. : Découvert compte courant"
+            defaultValue={values.name}
+            error={errors.name}
+            autoFocus={editing !== null}
+          />
+          <Field
+            idPrefix={idPrefix}
+            name="creditLimit"
+            label="Autorisation de découvert (€)"
+            hint="Montant maximum autorisé par la banque."
+            defaultValue={values.creditLimit ?? ""}
+            error={errors.creditLimit}
+            inputMode="decimal"
+          />
+          <Field
+            idPrefix={idPrefix}
+            name="principal"
+            label="Solde utilisé (€)"
+            hint="Montant à découvert aujourd’hui, 0 si le compte est positif."
+            defaultValue={values.principal}
+            error={errors.principal}
+            inputMode="decimal"
+          />
+          <Field
+            idPrefix={idPrefix}
+            name="apr"
+            label="Taux des agios (%)"
+            hint="TAEG du découvert, ex. : 16"
+            defaultValue={values.apr}
+            error={errors.apr}
+            inputMode="decimal"
+          />
+          <Field
+            idPrefix={idPrefix}
+            name="monthlyPayment"
+            label="Remboursement mensuel fixe (€, facultatif)"
+            hint="Vide : aucun, le découvert est remboursé par le plan."
+            defaultValue={values.monthlyPayment}
+            error={errors.monthlyPayment}
+            inputMode="decimal"
+          />
+        </div>
+      ) : (
+        <div key="loan" className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
+          <Field
+            idPrefix={idPrefix}
+            name="name"
+            label="Nom (facultatif)"
+            hint="Vide : « Crédit n »"
+            defaultValue={values.name}
+            error={errors.name}
+            autoFocus={editing !== null}
+          />
+          <Field
+            idPrefix={idPrefix}
+            name="type"
+            label="Type"
+            hint="Choisissez ou saisissez librement"
+            defaultValue={values.type}
+            error={errors.type}
+            list={`${idPrefix}-type-suggestions`}
+          />
+          <Field
+            idPrefix={idPrefix}
+            name="principal"
+            label="Capital restant dû (€)"
+            defaultValue={values.principal}
+            error={errors.principal}
+            inputMode="decimal"
+          />
+          <Field
+            idPrefix={idPrefix}
+            name="principalPaidThroughMonth"
+            label="Dernière mensualité déjà payée"
+            hint="Mois de la dernière échéance prélevée quand vous avez relevé ce capital. L’app déduit les mensualités suivantes jusqu’au début du plan. Vide : capital au début du plan."
+            defaultValue={values.principalPaidThroughMonth}
+            error={errors.principalPaidThroughMonth}
+            type="month"
+          />
+          <Field
+            idPrefix={idPrefix}
+            name="apr"
+            label="TAEG (%)"
+            hint="Ex. : 4,9"
+            defaultValue={values.apr}
+            error={errors.apr}
+            inputMode="decimal"
+          />
+          <Field
+            idPrefix={idPrefix}
+            name="monthlyPayment"
+            label="Mensualité (€)"
+            defaultValue={values.monthlyPayment}
+            error={errors.monthlyPayment}
+            inputMode="decimal"
+          />
+          <Field
+            idPrefix={idPrefix}
+            name="contractEndMonth"
+            label="Date de fin du contrat (facultatif)"
+            hint="Mois de la dernière échéance (offre de prêt, relevé). Sert à vérifier vos chiffres."
+            defaultValue={values.contractEndMonth}
+            error={errors.contractEndMonth}
+            type="month"
+          />
+          <Field
+            idPrefix={idPrefix}
+            name="penaltyPct"
+            label="IRA (% du capital remboursé, facultatif)"
+            hint="Indemnités de remboursement anticipé, voir l’offre de prêt. Crédit immobilier : 3 % au plus. Vide : aucune."
+            defaultValue={values.penaltyPct ?? ""}
+            error={errors.penaltyPct}
+            inputMode="decimal"
+          />
+          <Field
+            idPrefix={idPrefix}
+            name="penaltyCapMonths"
+            label="Plafond des IRA (mois d’intérêts, facultatif)"
+            hint="Crédit immobilier : 6 mois d’intérêts au plus. Vide : pas de plafond."
+            defaultValue={values.penaltyCapMonths ?? ""}
+            error={errors.penaltyCapMonths}
+            inputMode="decimal"
+          />
+        </div>
+      )}
       <datalist id={`${idPrefix}-type-suggestions`}>
         {LOAN_TYPE_SUGGESTIONS.map((t) => (
           <option key={t} value={t} />

@@ -42,7 +42,8 @@ function monthlyInterest(balance: Cents, apr: number): Cents {
  * apr > riskFreeRate (strict); rank by APR descending, ties by entry order. `null` = not eligible.
  */
 export function computePriorities(loans: readonly LoanInput[], riskFreeRate: number): (number | null)[] {
-  const eligible = loans.map((l) => l.principal > 0 && l.apr > riskFreeRate);
+  // An overdraft stays eligible at 0 €: it can be drawn again (SPEC D24).
+  const eligible = loans.map((l) => (l.principal > 0 || isOverdraft(l)) && l.apr > riskFreeRate);
   return loans.map((loan, i) => {
     if (!eligible[i]) return null;
     let rank = 1;
@@ -52,6 +53,16 @@ export function computePriorities(loans: readonly LoanInput[], riskFreeRate: num
     });
     return rank;
   });
+}
+
+export const isOverdraft = (loan: Pick<LoanInput, "kind">) => loan.kind === "overdraft";
+
+/**
+ * Normal payment of the month: the spreadsheet rule for loans (D13 residual absorbed); for an
+ * overdraft, its fixed repayment capped at what is due (a small residual stays: it is reusable).
+ */
+function paymentFor(loan: LoanInput, due: Cents): Cents {
+  return isOverdraft(loan) ? Math.max(0, Math.min(loan.monthlyPayment, due)) : normalPayment(due, loan.monthlyPayment);
 }
 
 /** Penalty rate per euro repaid early: pct, capped at `capMonths` months of interest (SPEC D22). */
@@ -179,10 +190,14 @@ export function simulatePlan(input: PlanInput): PlanResult {
     const loanMonths: LoanMonth[] = loans.map((loan, i) => {
       const startBalance = balances[i] as Cents;
       const interest = monthlyInterest(startBalance, loan.apr);
-      const paymentPaid = normalPayment(startBalance + interest, loan.monthlyPayment);
+      const paymentPaid = paymentFor(loan, startBalance + interest);
       const baselineStart = baselineBalances[i] as Cents;
       const baselineInterest = monthlyInterest(baselineStart, loan.apr);
-      const baselinePayment = normalPayment(baselineStart + baselineInterest, loan.monthlyPayment);
+      // Overdraft baseline (D24): you stay overdrawn and the account pays the agios every month,
+      // so the balance does not grow (only a fixed repayment larger than the agios reduces it).
+      const baselinePayment = isOverdraft(loan)
+        ? Math.min(Math.max(loan.monthlyPayment, baselineInterest), baselineStart + baselineInterest)
+        : paymentFor(loan, baselineStart + baselineInterest);
       return {
         startBalance,
         interest,
@@ -191,6 +206,7 @@ export function simulatePlan(input: PlanInput): PlanResult {
         extraRepayment: 0,
         earlyRepayment: 0,
         penalty: 0,
+        draw: 0,
         endBalance: 0,
         baselineInterest,
         baselineEndBalance: baselineStart + baselineInterest - baselinePayment,
@@ -249,7 +265,17 @@ export function simulatePlan(input: PlanInput): PlanResult {
       }
       budgetLeft -= lm.earlyRepayment + lm.penalty;
     }
-    for (const lm of loanMonths) lm.endBalance = lm.balanceAfterPayment - lm.extraRepayment - lm.earlyRepayment;
+    // A negative month draws on the overdrafts, in entry order, up to their limit (SPEC D24).
+    let shortfall = Math.max(0, -available);
+    for (const [i, loan] of loans.entries()) {
+      if (shortfall <= 0) break;
+      if (!isOverdraft(loan)) continue;
+      const lm = loanMonths[i] as LoanMonth;
+      const room = Math.max(0, (loan.limit ?? 0) - (lm.balanceAfterPayment - lm.extraRepayment - lm.earlyRepayment));
+      lm.draw = Math.min(room, shortfall);
+      shortfall -= lm.draw;
+    }
+    for (const lm of loanMonths) lm.endBalance = lm.balanceAfterPayment - lm.extraRepayment - lm.earlyRepayment + lm.draw;
 
     const totalEarlyRepayment = sumCents(loanMonths.map((l) => l.earlyRepayment));
     const totalPenalty = sumCents(loanMonths.map((l) => l.penalty));
@@ -285,6 +311,7 @@ export function simulatePlan(input: PlanInput): PlanResult {
       loans: loanMonths,
       totalEarlyRepayment,
       totalPenalty,
+      overdraftDraw: sumCents(loanMonths.map((l) => l.draw)),
       totalExtraRepayment: sumCents(loanMonths.map((l) => l.extraRepayment)),
       extraFromFreeSavings,
       totalInterest: sumCents(loanMonths.map((l) => l.interest)),
@@ -320,6 +347,7 @@ function summarizeLoans(
     const repaid = loan.principal > 0;
     return {
       id: loan.id,
+      kind: isOverdraft(loan) ? "overdraft" : "loan",
       displayName: loan.name?.trim() ? loan.name.trim() : `Crédit ${i + 1}`,
       eligible: priority !== null,
       priority,
@@ -329,7 +357,8 @@ function summarizeLoans(
       interestWithPlan: sumCents(months.map((m) => at(m).interest)),
       interestWithoutPlan: sumCents(months.map((m) => at(m).baselineInterest)),
       penaltiesPaid: sumCents(months.map((m) => at(m).penalty)),
-      paymentBelowInterest: loan.principal > 0 && loan.monthlyPayment <= monthlyInterest(loan.principal, loan.apr),
+      paymentBelowInterest:
+        !isOverdraft(loan) && loan.principal > 0 && loan.monthlyPayment <= monthlyInterest(loan.principal, loan.apr),
     };
   });
 }
