@@ -20,6 +20,7 @@ const actual = (month: string, extra: Partial<MonthlyActual> = {}): MonthlyActua
   emergencySavings: 0,
   freeSavings: 5,
   loanBalances: [{ loanId: "a", balance: 250050 }],
+  goalBalances: [],
   ...extra,
 });
 
@@ -48,6 +49,7 @@ describe("prefillForm", () => {
         { loanId: "a", balance: "" },
         { loanId: "b", balance: "" },
       ],
+      goalBalances: [],
     });
   });
 
@@ -63,6 +65,7 @@ describe("prefillForm", () => {
         { loanId: "a", balance: "2500,50" },
         { loanId: "b", balance: "" },
       ],
+      goalBalances: [],
     });
   });
 });
@@ -95,6 +98,7 @@ describe("plannedForMonth", () => {
       income: m.income,
       expenses: m.expenses,
       loanBalances: [m.loans[0]!.endBalance],
+      goalBalances: [],
     });
   });
 

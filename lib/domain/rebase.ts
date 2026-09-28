@@ -4,7 +4,7 @@
  */
 import { type YearMonth, addMonths, compareMonths, plannedSnapshot } from "@/lib/engine";
 import type { ComputedPlan } from "./plan";
-import type { BudgetSettings, FinanceSnapshot, FrozenPlan, Loan, LoanDraft, MonthlyActual } from "./types";
+import type { BudgetSettings, FinanceSnapshot, FrozenPlan, Loan, LoanDraft, MonthlyActual, SavingsGoalDraft } from "./types";
 
 /** Planned values to store with a check-in of `month`: the existing frozen ones win (history is stable). */
 export function frozenFor(month: YearMonth, plan: ComputedPlan, existing: MonthlyActual | undefined): FrozenPlan | null {
@@ -31,6 +31,8 @@ export interface RebasePlan {
   loansToArchive: string[];
   /** Existing check-ins frozen with the current plan before it changes. */
   freezes: { month: YearMonth; frozen: FrozenPlan }[];
+  /** Extra savings goals whose « already saved » becomes the check-in's balance (SPEC D23). */
+  goalUpdates: { id: string; draft: SavingsGoalDraft }[];
 }
 
 /**
@@ -58,6 +60,15 @@ export function planRebase(snapshot: FinanceSnapshot, plan: ComputedPlan): Rebas
     else loanUpdates.push({ id: loan.id, draft: loanDraft(loan, balance, latest.month) });
   }
 
+  // Extra goals added after that check-in have no balance there: unchanged.
+  const goalBalances = new Map(latest.goalBalances.map((b) => [b.goalId, b.balance]));
+  const goalUpdates = snapshot.goals.flatMap((g) => {
+    const balance = goalBalances.get(g.id);
+    if (g.primary || balance === undefined) return [];
+    const { name, target, deadlineMonth } = g;
+    return [{ id: g.id, draft: { name, target, deadlineMonth, alreadySaved: balance } }];
+  });
+
   const freezes = snapshot.actuals.flatMap((a) => {
     if (a.frozen) return [];
     const frozen = frozenFor(a.month, plan, a);
@@ -77,6 +88,7 @@ export function planRebase(snapshot: FinanceSnapshot, plan: ComputedPlan): Rebas
     loanUpdates,
     loansToArchive,
     freezes,
+    goalUpdates,
   };
 }
 

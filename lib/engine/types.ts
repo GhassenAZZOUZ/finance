@@ -22,6 +22,23 @@ export interface DatedBudgetLineInput {
   endMonth: YearMonth | null;
 }
 
+/**
+ * A savings goal (SPEC D23). Goals are filled in array order (priority 1 first), each up to its
+ * target and only until its deadline month, before the emergency fund.
+ */
+export interface GoalInput {
+  /** "moving" for the primary goal (the spreadsheet's moving fund). */
+  id: string;
+  name: string;
+  target: Cents;
+  /** Last month that can still receive savings (inclusive). */
+  deadlineMonth: YearMonth;
+  alreadySaved: Cents;
+}
+
+/** Id of the primary goal (the spreadsheet's moving fund, SPEC D23). */
+export const PRIMARY_GOAL_ID = "moving";
+
 /** Budget inputs. The engine only needs the three sums (SPEC D9) plus one-off exceptions (D14). */
 export interface BudgetParams {
   income: Cents;
@@ -48,6 +65,17 @@ export interface BudgetParams {
    * `variableExpenses` then only describe the reference month used by the KPIs.
    */
   lines?: readonly DatedBudgetLineInput[];
+  /**
+   * Savings goals in priority order (SPEC D23), the primary one (id "moving") included. When
+   * omitted, the single moving fund above is the only goal (the spreadsheet).
+   */
+  goals?: readonly GoalInput[];
+}
+
+/** One goal in one month (SPEC D23). */
+export interface GoalMonth {
+  toGoal: Cents;
+  cumulative: Cents;
 }
 
 /** An active loan. Array order = entry order (breaks APR ties). */
@@ -118,8 +146,11 @@ export interface PlanMonth {
   extraExpenses: Cents;
   loanPayments: Cents;
   available: Cents;
+  /** Σ over the goals (the moving fund alone in the spreadsheet). */
   toMoving: Cents;
   movingCumulative: Cents;
+  /** Same order as the goals (SPEC D23). */
+  goals: GoalMonth[];
   toEmergency: Cents;
   emergencyCumulative: Cents;
   remainder: Cents;
@@ -129,6 +160,7 @@ export interface PlanMonth {
   freeSavingsCumulative: Cents;
   remainingDebt: Cents;
   negativeBudget: boolean;
+  /** Every goal has reached its target. */
   movingReached: boolean;
   emergencyReached: boolean;
   debtFree: boolean;
@@ -168,6 +200,22 @@ export interface LoanSummary {
 
 export type DebtAlert = "ok" | "warning" | "alert";
 
+/** Per-goal KPIs (SPEC D23), same rules as the moving fund's (§7). */
+export interface GoalKpis {
+  id: string;
+  name: string;
+  target: Cents;
+  deadlineMonth: YearMonth;
+  /** 0 when the deadline is before the start. */
+  monthlyNeeded: Cents;
+  deadlineBeforeStart: boolean;
+  amountAtDeadline: Cents;
+  /** Target reached by the deadline. */
+  met: boolean;
+  /** First month the target is reached; null = never (then « hors délai »). */
+  reachedMonth: YearMonth | null;
+}
+
 export interface PlanKpis {
   monthlyIncome: Cents;
   monthlyExpenses: Cents;
@@ -178,6 +226,7 @@ export interface PlanKpis {
   debtAlert: DebtAlert;
   totalPrincipal: Cents;
   weightedApr: number;
+  /** The moving* KPIs describe the primary goal (SPEC D23); `goals` has one entry per goal. */
   movingGoal: Cents;
   /** 0 when the deadline is before the start (UI: "Date limite dépassée"). */
   movingMonthlyNeeded: Cents;
@@ -185,6 +234,7 @@ export interface PlanKpis {
   movingAmountAtDeadline: Cents;
   movingGoalMet: boolean;
   movingReachedMonth: YearMonth | null;
+  goals: GoalKpis[];
   emergencyTarget: Cents;
   emergencyReachedMonth: YearMonth | null;
   hasDebt: boolean;

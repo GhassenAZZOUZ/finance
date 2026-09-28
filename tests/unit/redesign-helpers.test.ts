@@ -46,6 +46,7 @@ describe("parseMonthParam", () => {
 describe("provisionalCheck", () => {
   const planned: PlannedValues = {
     movingSavings: 138_710,
+    goalBalances: [],
     emergencySavings: 80_000,
     freeSavings: 0,
     income: 290_000,

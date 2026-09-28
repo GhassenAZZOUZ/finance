@@ -9,7 +9,8 @@ async function load(basePath: string) {
   return manifest();
 }
 
-describe("manifest", () => {
+// The first dynamic import of the app module can take a few seconds on a busy machine.
+describe("manifest", { timeout: 20_000 }, () => {
   it("opens standalone at the app root, with 192/512 and maskable icons", async () => {
     const m = await load("");
     expect(m).toMatchObject({ name: "Plan financier", display: "standalone", start_url: "/", scope: "/" });

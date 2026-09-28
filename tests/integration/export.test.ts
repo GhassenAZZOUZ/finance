@@ -48,6 +48,7 @@ beforeAll(async () => {
       emergencySavings: 0,
       freeSavings: 0,
       loanBalances: [{ loanId: loan.id, balance: 490000 }],
+      goalBalances: [],
       frozen: null,
     });
   }

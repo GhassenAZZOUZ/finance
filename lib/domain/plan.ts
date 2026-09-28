@@ -6,6 +6,7 @@ import {
   type Cents,
   type YearMonth,
   HORIZON_MONTHS,
+  PRIMARY_GOAL_ID,
   addMonths,
   compareActual,
   compareMonths,
@@ -25,6 +26,7 @@ import type {
   FinanceSnapshot,
   Loan,
   MonthlyActual,
+  SavingsGoal,
 } from "./types";
 
 type LineLike = Pick<BudgetLine | BudgetLineDraft, "category" | "amount"> &
@@ -72,6 +74,11 @@ export function buildPlanInput(
   exceptions: readonly Pick<BudgetException, "month" | "kind" | "amount">[] = [],
   /** Month the KPI sums describe; defaults to the plan start. */
   kpiMonth: YearMonth = settings.startMonth,
+  /**
+   * Savings goals in priority order (SPEC D23). The primary goal's amounts always come from
+   * `settings` (the budget form edits them); without goals, the moving fund is the only goal.
+   */
+  goals: readonly SavingsGoal[] = [],
 ): PlanInput {
   const dated = lines.some((l) => (l.startMonth ?? null) !== null || (l.endMonth ?? null) !== null);
   return {
@@ -81,6 +88,8 @@ export function buildPlanInput(
       variableExpenses: sumCategory(lines, "variable", kpiMonth),
       ...settings,
       exceptions: exceptions.map((e) => ({ month: e.month, kind: e.kind, amount: e.amount })),
+      // Only with extra goals, so a moving fund alone gives the exact same input as before (D23).
+      ...(goals.some((g) => !g.primary) ? { goals: goalInputs(settings, goals) } : {}),
       // Only needed when some line has a period; otherwise the constant sums are exact.
       ...(dated
         ? {
@@ -105,12 +114,30 @@ export function buildPlanInput(
   };
 }
 
+/** Goals in priority order for the engine; the primary goal takes the settings' moving fund. */
+function goalInputs(settings: BudgetSettings, goals: readonly SavingsGoal[]) {
+  return [...goals]
+    .sort((a, b) => a.priority - b.priority)
+    .map((g) =>
+      g.primary
+        ? {
+            id: PRIMARY_GOAL_ID,
+            name: g.name,
+            target: settings.movingGoal,
+            deadlineMonth: settings.movingDeadlineMonth,
+            alreadySaved: settings.movingAlreadySaved,
+          }
+        : { id: g.id, name: g.name, target: g.target, deadlineMonth: g.deadlineMonth, alreadySaved: g.alreadySaved },
+    );
+}
+
 export function toActualInput(actual: MonthlyActual): ActualInput {
   return {
     month: actual.month,
     income: actual.income,
     expenses: actual.expenses,
-    movingSavings: actual.movingSavings,
+    // All goals together (SPEC D23): the primary goal's balance plus the extra goals'.
+    movingSavings: actual.movingSavings + sumCents(actual.goalBalances.map((b) => b.balance)),
     emergencySavings: actual.emergencySavings,
     freeSavings: actual.freeSavings,
     loanBalances: actual.loanBalances.map((b) => b.balance),
@@ -138,7 +165,7 @@ export interface ComputedPlan {
 export function computePlan(snapshot: FinanceSnapshot, currentMonth: YearMonth = currentYearMonth()): ComputedPlan | null {
   if (!snapshot.settings) return null;
   const kpiMonth = referenceMonth(snapshot.settings.startMonth, currentMonth);
-  const input = buildPlanInput(snapshot.settings, snapshot.lines, snapshot.loans, snapshot.exceptions, kpiMonth);
+  const input = buildPlanInput(snapshot.settings, snapshot.lines, snapshot.loans, snapshot.exceptions, kpiMonth, snapshot.goals);
   const result = simulatePlan(input);
   const comparisons = snapshot.actuals.map((a) => compareActual(toActualInput(a), result, input.budget));
   return { input, referenceMonth: kpiMonth, result, comparisons };

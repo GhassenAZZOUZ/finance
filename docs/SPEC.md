@@ -48,6 +48,7 @@ from our code.
 | D3 | Dates | `startMonth` and `movingDeadlineMonth` are `YYYY-MM` months. Month granularity everywhere |
 | D4 | Personal debts | No special rule. A 0 % personal debt behaves exactly as in the spreadsheet: normal payments only, never eligible for early repayment. "Dette personnelle" is just a loan type label |
 | D5 | Remaining months | **Dropped** (the input and its 3 derived columns). Replaced by simulated payoff months and per-loan interest (§5) |
+| D23 | Several savings goals (issue #10, owner-validated 2026-09-28) | Up to **6 goals**, each with a name, target > 0, deadline month, amount already saved and a unique priority (1 = filled first). The spreadsheet's moving fund is the **primary goal** (id `moving`): its amounts stay in the budget settings (the budget form edits them), it can be renamed and reordered but **not deleted**; existing users keep exactly the same results. Each month, goals are filled **in priority order, before the emergency fund**, each up to its target and only **until its deadline** (then it receives nothing more, keeps its balance and is flagged « hors délai » with the amount missing). The moving* KPIs describe the primary goal; each goal has the same KPIs. Check-ins ask **one balance per goal** (the primary's is `movingSavings`); comparisons use the sum of all goals. New goals must not have a past deadline. Engine: §6 ① |
 | D22 | Early-repayment penalties (issue #9, owner-validated 2026-09-28) | Optional per loan: `penaltyPct` (% of the capital repaid early) and `penaltyCapMonths` (cap: N months of interest on that capital; French home loans: 3 % / 6 months; consumer loans: a flat 1 % or 0,5 %, the 10 000 €/12 months exemption is not modelled: leave it empty). The penalty is paid from the month's early-repayment budget; a loan is skipped when the penalty is not below the interest the repaid money would still cost (apr / 12 × remaining months), and its share goes to the next priority, then to free savings. « Intérêts économisés » is net of penalties. Empty = no penalty = previous behaviour (golden data unchanged). Engine: §4.2 "Penalties" |
 | D21 | Dark theme (issue #11) | The theme follows the OS (`prefers-color-scheme`) by default, live. A « Thème » control (Système / Clair / Sombre: sidebar and mobile account menu) overrides it; Clair / Sombre are stored on the device under `localStorage["finance-theme"]`, « Système » removes the key; any other stored value = Système; blocked storage = the choice lasts for the session. An inline script in `<head>` sets the `.dark` class before the first paint. Every colour is a token in `app/globals.css` with a light and a dark value; text contrast ≥ 4.5:1 in both themes (axe, all pages) |
 | D20 | Template import (issue #8) | Page `/import` (from « Mes données »): the `.xlsx` template (≤ 5 MB) is read **in the browser** (no upload, no dependency, no macro or formula executed: cached values only), previewed, and saved only on « Importer ». Cells are validated with the form rules; any error (sheet + cell) blocks the import. Import **replaces** the parameters, the budget lines and the active loans; check-ins and one-off exceptions are kept. Idempotent: line slots (category, rank) and loans (same name, case-insensitive) are reused, active loans absent from the file are removed (archived when check-ins use them, D8). Details in §11 |
@@ -254,9 +255,13 @@ expenses(m)           = Σ fixed + variable lines active in m + extraExpenses(m)
                         (a line is active in m if startMonth ≤ m ≤ endMonth, open bounds allowed)
 available      (F)    = income(m) − expenses(m) − totalPayments(m)             (can be negative)
 
-① Moving fund
-toMoving       (G)    = yearMonth(m) ≤ movingDeadlineMonth ? max(0, min(available, movingGoal − movingCum(m−1))) : 0
-movingCum      (H)    = movingCum(m−1) + toMoving                  movingCum(0) = movingAlreadySaved
+① Savings goals (D23), g = 1..n in priority order (spreadsheet: the moving fund alone, n = 1)
+left(1)        = available
+toGoal_g       = yearMonth(m) ≤ deadline_g ? max(0, min(left(g), target_g − goalCum_g(m−1))) : 0
+left(g+1)      = left(g) − toGoal_g
+goalCum_g      = goalCum_g(m−1) + toGoal_g                goalCum_g(0) = alreadySaved_g
+toMoving   (G) = Σ_g toGoal_g
+movingCum  (H) = Σ_g goalCum_g
 
 ② Emergency fund
 toEmergency    (I)    = max(0, min(available − toMoving, emergencyTarget − emergencyCum(m−1)))
@@ -273,7 +278,7 @@ freeSavingsCum (O)    = freeSavingsCum(m−1) + toFreeSavings − extraFromFreeS
 Debts / flags
 remainingDebt  (P)    = totalEndDebt(m)
 negativeBudget (Q)    = available < 0
-movingReached  (R)    = movingCum ≥ movingGoal
+movingReached  (R)    = every goal g: goalCum_g ≥ target_g
 emergencyReached (S)  = emergencyCum ≥ emergencyTarget
 debtFree       (T)    = remainingDebt ≤ 0.01
 ```
@@ -300,7 +305,7 @@ Behaviours kept from the spreadsheet (confirmed by the Excel scenarios):
 | `debtAlert` | B9 | > 0.35 → "Au-dessus de 35 %"; > 0.30 → "Proche du seuil"; else "OK" |
 | `totalPrincipal` / `weightedApr` | B10/B11 | §5 |
 | `movingGoal` | B14 | input |
-| `movingMonthlyNeeded` | B15 | `round2(max(0, goal − alreadySaved) / max(1, monthsBetween(startMonth, deadlineMonth) + 1))`; **0 if deadline < start** (UI: "Date limite dépassée") |
+| `movingMonthlyNeeded` (primary goal; same rule per goal in `goals[]`, D23) | B15 | `round2(max(0, goal − alreadySaved) / max(1, monthsBetween(startMonth, deadlineMonth) + 1))`; **0 if deadline < start** (UI: "Date limite dépassée") |
 | `movingAmountAtDeadline` | B16 | movingCum of the plan month = deadline month (or the last plan month before it); deadline before start → movingAlreadySaved |
 | `movingReachedDate` | B17 | first month with movingReached, else "Non atteint" |
 | `movingStatus` | B18 | B16 ≥ goal → "Objectif tenu", else "Objectif NON tenu : réduire dépenses ou décaler la date" |
@@ -338,10 +343,10 @@ Charts:
 actualDebt      = Σ loan balances entered for that month (archived loans included if entered)
 plannedDebt     = Plan.remainingDebt(m)
 debtGap         = actualDebt − plannedDebt           good if ≤ 10 €
-actualSavings   = movingSavings + emergencySavings + freeSavings
+actualSavings   = movingSavings + Σ goal balances + emergencySavings + freeSavings   (D23: one balance per extra goal)
 plannedSavings  = Plan.movingCum(m) + Plan.emergencyCum(m) + Plan.freeSavingsCum(m)
 savingsGap      = actualSavings − plannedSavings     good if ≥ −10 €
-movingGoalPct   = min(1, movingSavings / movingGoal)          (0 if goal = 0)   → progress bar
+movingGoalPct   = min(1, (movingSavings + Σ goal balances) / Σ goal targets)   (0 if 0)   → progress bar
 debtRepaidPct   = max(0, 1 − actualDebt / totalPrincipal)     (0 if no debt)   → progress bar
 status          = both good → "Dans les temps" (green) · both bad → "En retard" (red) · else "Mitigé" (orange)
 ```

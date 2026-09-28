@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { BudgetCategory, BudgetException, BudgetLine, BudgetSettings, Loan } from "@/lib/domain/types";
+import type { BudgetCategory, BudgetException, BudgetLine, BudgetSettings, Loan, SavingsGoal } from "@/lib/domain/types";
 import type { YearMonth } from "@/lib/engine";
 import { amountInputValue, formatEuros, formatMonthShort } from "@/lib/format";
 import { type BudgetActionState, saveBudgetAction } from "./actions";
@@ -29,6 +29,7 @@ import {
 } from "./budget-form-state";
 import { BudgetSummary, PARAM_LABEL } from "./budget-summary";
 import { ExceptionsCard } from "./exceptions-card";
+import { GoalsCard } from "./goals-card";
 import { defaultExceptionMonth } from "./exceptions-view";
 
 const SECTIONS: { category: BudgetCategory; title: string; note?: string; lineName: string; add: string; dot: string }[] = [
@@ -70,6 +71,7 @@ export function BudgetForm({
   lines,
   loans,
   exceptions,
+  goals = [],
   currentMonth,
 }: {
   settings: BudgetSettings | null;
@@ -77,6 +79,8 @@ export function BudgetForm({
   loans: Loan[];
   /** Saved one-off exceptions (SPEC D14): managed by their own card, included in the preview. */
   exceptions: BudgetException[];
+  /** Savings goals (SPEC D23): managed by their own card, included in the preview. */
+  goals?: SavingsGoal[];
   currentMonth: YearMonth;
 }) {
   const saved = useMemo(() => initialFormState(settings, lines, currentMonth), [settings, lines, currentMonth]);
@@ -93,10 +97,11 @@ export function BudgetForm({
   const dirty = formSignature(form) !== savedSignature;
   const savedStart = settings?.startMonth ?? null;
   const preview = useMemo(
-    () => computePreview(form, loans, exceptions, { currentMonth, savedStartMonth: savedStart }),
-    [form, loans, exceptions, currentMonth, savedStart],
+    () => computePreview(form, loans, exceptions, { currentMonth, savedStartMonth: savedStart, goals }),
+    [form, loans, exceptions, currentMonth, savedStart, goals],
   );
   const missingParams = useMemo(() => invalidParams(form.params), [form.params]);
+  const primaryName = goals.find((g) => g.primary)?.name ?? "Déménagement";
   // Plan start for the exceptions' "outside the plan" notes: the live value when valid, else the saved one.
   const planStart = useMemo(() => parseSettings(form.params)?.startMonth ?? settings?.startMonth ?? null, [form.params, settings]);
   // Plan start for the lines' "outside the plan" notes: the typed month as soon as it is valid.
@@ -243,7 +248,7 @@ export function BudgetForm({
               Paramètres du plan
             </h2>
 
-            <ParamGroup title="① Déménagement" dot="bg-bucket-moving">
+            <ParamGroup title={`① ${primaryName}`} dot="bg-bucket-moving">
               <ParamInput {...paramProps("movingGoal")} kind="amount" />
               <ParamInput
                 {...paramProps("movingDeadlineMonth")}
@@ -299,6 +304,13 @@ export function BudgetForm({
             </div>
           </section>
         </form>
+
+        <GoalsCard
+          goals={goals}
+          kpis={preview.plan?.kpis.goals ?? null}
+          hasSettings={settings !== null}
+          currentMonth={currentMonth}
+        />
 
         <ExceptionsCard
           exceptions={exceptions}

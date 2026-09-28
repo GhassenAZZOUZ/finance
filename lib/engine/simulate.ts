@@ -3,7 +3,12 @@ import { addMonths, compareMonths, monthsBetween, type YearMonth } from "./month
 import { normalPayment } from "./payment";
 import {
   HORIZON_MONTHS,
+  PRIMARY_GOAL_ID,
+  type BudgetParams,
   type DatedBudgetLineInput,
+  type GoalInput,
+  type GoalKpis,
+  type GoalMonth,
   type DebtAlert,
   type LoanAdvice,
   type LoanInput,
@@ -90,6 +95,21 @@ function adviceFor(loan: LoanInput, eligible: boolean): LoanAdvice {
   return eligible ? "worthIt" : "keep";
 }
 
+/** The goals in priority order; the spreadsheet's single moving fund when none are given (SPEC D23). */
+export function goalsOf(budget: BudgetParams): readonly GoalInput[] {
+  return (
+    budget.goals ?? [
+      {
+        id: PRIMARY_GOAL_ID,
+        name: "Déménagement",
+        target: budget.movingGoal,
+        deadlineMonth: budget.movingDeadlineMonth,
+        alreadySaved: budget.movingAlreadySaved,
+      },
+    ]
+  );
+}
+
 function debtAlertFor(ratio: number): DebtAlert {
   if (ratio > 0.35) return "alert";
   if (ratio > 0.3) return "warning";
@@ -140,7 +160,8 @@ export function simulatePlan(input: PlanInput): PlanResult {
 
   let balances = loans.map((l) => Math.max(0, l.principal));
   let baselineBalances = [...balances];
-  let movingPrev = budget.movingAlreadySaved;
+  const goals = goalsOf(budget);
+  let goalsPrev = goals.map((g) => g.alreadySaved);
   let emergencyPrev = budget.emergencyExisting;
   let freePrev = budget.freeSavingsExisting ?? 0;
 
@@ -179,11 +200,17 @@ export function simulatePlan(input: PlanInput): PlanResult {
 
     // Plan ① available, ② moving fund, ③ emergency fund, ④ remainder.
     const available = income - expenses - loanPayments;
-    const toMoving =
-      compareMonths(month, budget.movingDeadlineMonth) <= 0
-        ? Math.max(0, Math.min(available, budget.movingGoal - movingPrev))
-        : 0;
-    const movingCumulative = movingPrev + toMoving;
+    // ① Goals in priority order (SPEC D23): each up to its target, until its deadline.
+    let left = available;
+    const goalMonths: GoalMonth[] = goals.map((g, i) => {
+      const prev = goalsPrev[i] as Cents;
+      const toGoal =
+        compareMonths(month, g.deadlineMonth) <= 0 ? Math.max(0, Math.min(left, g.target - prev)) : 0;
+      left -= toGoal;
+      return { toGoal, cumulative: prev + toGoal };
+    });
+    const toMoving = sumCents(goalMonths.map((g) => g.toGoal));
+    const movingCumulative = sumCents(goalMonths.map((g) => g.cumulative));
     const toEmergency = Math.max(0, Math.min(available - toMoving, budget.emergencyTarget - emergencyPrev));
     const emergencyCumulative = emergencyPrev + toEmergency;
     const remainder = Math.max(0, available - toMoving - toEmergency);
@@ -242,6 +269,7 @@ export function simulatePlan(input: PlanInput): PlanResult {
       available,
       toMoving,
       movingCumulative,
+      goals: goalMonths,
       toEmergency,
       emergencyCumulative,
       remainder,
@@ -251,7 +279,7 @@ export function simulatePlan(input: PlanInput): PlanResult {
       freeSavingsCumulative,
       remainingDebt,
       negativeBudget: available < 0,
-      movingReached: movingCumulative >= budget.movingGoal,
+      movingReached: goals.every((g, i) => (goalMonths[i] as GoalMonth).cumulative >= g.target),
       emergencyReached: emergencyCumulative >= budget.emergencyTarget,
       debtFree: remainingDebt <= PAID_OFF_THRESHOLD,
       loans: loanMonths,
@@ -265,7 +293,7 @@ export function simulatePlan(input: PlanInput): PlanResult {
 
     balances = loanMonths.map((l) => l.endBalance);
     baselineBalances = loanMonths.map((l) => l.baselineEndBalance);
-    movingPrev = movingCumulative;
+    goalsPrev = goalMonths.map((g) => g.cumulative);
     emergencyPrev = emergencyCumulative;
     freePrev = freeSavingsCumulative;
   }
@@ -306,6 +334,29 @@ function summarizeLoans(
   });
 }
 
+/** Moving-fund KPIs of §7, for one goal (SPEC D23). */
+function goalKpis(goal: GoalInput, index: number, startMonth: YearMonth, months: readonly PlanMonth[]): GoalKpis {
+  const deadlineOffset = monthsBetween(startMonth, goal.deadlineMonth);
+  const deadlineBeforeStart = deadlineOffset < 0;
+  const monthlyNeeded = deadlineBeforeStart
+    ? 0
+    : roundHalfAwayFromZero(Math.max(0, goal.target - goal.alreadySaved) / Math.max(1, deadlineOffset + 1));
+  const at = (m: PlanMonth) => m.goals[index] as GoalMonth;
+  const lastBeforeDeadline = months.filter((m) => compareMonths(m.month, goal.deadlineMonth) <= 0).at(-1);
+  const amountAtDeadline = lastBeforeDeadline ? at(lastBeforeDeadline).cumulative : goal.alreadySaved;
+  return {
+    id: goal.id,
+    name: goal.name,
+    target: goal.target,
+    deadlineMonth: goal.deadlineMonth,
+    monthlyNeeded,
+    deadlineBeforeStart,
+    amountAtDeadline,
+    met: amountAtDeadline >= goal.target,
+    reachedMonth: firstMonth(months, (m) => at(m).cumulative >= goal.target),
+  };
+}
+
 function computeKpis(input: PlanInput, months: readonly PlanMonth[]): PlanKpis {
   const { budget, loans } = input;
   const monthlyIncome = budget.income;
@@ -316,15 +367,8 @@ function computeKpis(input: PlanInput, months: readonly PlanMonth[]): PlanKpis {
   const weightedApr =
     totalPrincipal > 0 ? loans.reduce((acc, l) => acc + l.principal * l.apr, 0) / totalPrincipal : 0;
 
-  const deadlineOffset = monthsBetween(budget.startMonth, budget.movingDeadlineMonth);
-  const deadlineBeforeStart = deadlineOffset < 0;
-  const movingMonthlyNeeded = deadlineBeforeStart
-    ? 0
-    : roundHalfAwayFromZero(
-        Math.max(0, budget.movingGoal - budget.movingAlreadySaved) / Math.max(1, deadlineOffset + 1),
-      );
-  const lastBeforeDeadline = months.filter((m) => compareMonths(m.month, budget.movingDeadlineMonth) <= 0).at(-1);
-  const movingAmountAtDeadline = lastBeforeDeadline?.movingCumulative ?? budget.movingAlreadySaved;
+  const goals = goalsOf(budget).map((g, i) => goalKpis(g, i, budget.startMonth, months));
+  const primary = goals.find((g) => g.id === PRIMARY_GOAL_ID) ?? goals[0];
 
   const interestWithoutPlan = sumCents(months.map((m) => m.totalBaselineInterest));
   const interestWithPlan = sumCents(months.map((m) => m.totalInterest));
@@ -341,12 +385,13 @@ function computeKpis(input: PlanInput, months: readonly PlanMonth[]): PlanKpis {
     debtAlert: debtAlertFor(debtRatio),
     totalPrincipal,
     weightedApr,
-    movingGoal: budget.movingGoal,
-    movingMonthlyNeeded,
-    deadlineBeforeStart,
-    movingAmountAtDeadline,
-    movingGoalMet: movingAmountAtDeadline >= budget.movingGoal,
-    movingReachedMonth: firstMonth(months, (m) => m.movingReached),
+    movingGoal: primary?.target ?? 0,
+    movingMonthlyNeeded: primary?.monthlyNeeded ?? 0,
+    deadlineBeforeStart: primary?.deadlineBeforeStart ?? false,
+    movingAmountAtDeadline: primary?.amountAtDeadline ?? 0,
+    movingGoalMet: primary?.met ?? true,
+    movingReachedMonth: primary?.reachedMonth ?? null,
+    goals,
     emergencyTarget: budget.emergencyTarget,
     emergencyReachedMonth: firstMonth(months, (m) => m.emergencyReached),
     hasDebt,

@@ -18,6 +18,7 @@ export function BudgetView() {
         lines={snapshot.lines}
         loans={snapshot.loans}
         exceptions={snapshot.exceptions}
+        goals={snapshot.goals}
         currentMonth={currentYearMonth()}
       />
     </>

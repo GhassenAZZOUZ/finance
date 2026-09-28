@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { centsToEuros, eurosToCents } from "@/lib/engine";
+import { PRIMARY_GOAL_ID, centsToEuros, eurosToCents } from "@/lib/engine";
 import type {
   BudgetCategory,
   BudgetException,
@@ -13,6 +13,8 @@ import type {
   LoanDraft,
   MonthlyActual,
   MonthlyActualDraft,
+  SavingsGoal,
+  SavingsGoalDraft,
 } from "@/lib/domain/types";
 import { type FinanceRepository, RepositoryError } from "./repository";
 
@@ -27,6 +29,16 @@ interface SettingsRow {
   free_savings_existing: number;
   risk_free_rate: number;
   early_repayment_pct: number;
+  moving_name: string;
+  moving_priority: number;
+}
+interface GoalRow {
+  id: string;
+  name: string;
+  target: number;
+  deadline_month: string;
+  already_saved: number;
+  priority: number;
 }
 interface LineRow {
   id: string;
@@ -82,6 +94,7 @@ interface ActualRow {
   planned_expenses: number | null;
   plan_start_month: string | null;
   monthly_actual_loan_balances: { loan_id: string; balance: number }[];
+  monthly_actual_goal_balances: { goal_id: string; balance: number }[];
 }
 
 const cents = (euros: number) => eurosToCents(Number(euros));
@@ -145,11 +158,20 @@ function loanColumns(d: LoanDraft) {
   };
 }
 
+function goalColumns(d: SavingsGoalDraft) {
+  return {
+    name: d.name.trim(),
+    target: euros(d.target),
+    deadline_month: d.deadlineMonth,
+    already_saved: euros(d.alreadySaved),
+  };
+}
+
 export class SupabaseFinanceRepository implements FinanceRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   async load(): Promise<FinanceSnapshot> {
-    const [settings, lines, loans, actuals, exceptions] = await Promise.all([
+    const [settings, lines, loans, actuals, exceptions, goals] = await Promise.all([
       this.db.from("budget_settings").select("*").maybeSingle<SettingsRow>(),
       this.db
         .from("budget_lines")
@@ -165,7 +187,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       this.db
         .from("monthly_actuals")
         .select(
-          "id, month, income, expenses, moving_savings, emergency_savings, free_savings, planned_debt, planned_savings, planned_income, planned_expenses, plan_start_month, monthly_actual_loan_balances(loan_id, balance)",
+          "id, month, income, expenses, moving_savings, emergency_savings, free_savings, planned_debt, planned_savings, planned_income, planned_expenses, plan_start_month, monthly_actual_loan_balances(loan_id, balance), monthly_actual_goal_balances(goal_id, balance)",
         )
         .order("month")
         .returns<ActualRow[]>(),
@@ -175,9 +197,39 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         .order("month")
         .order("created_at")
         .returns<ExceptionRow[]>(),
+      this.db
+        .from("savings_goals")
+        .select("id, name, target, deadline_month, already_saved, priority")
+        .order("priority")
+        .returns<GoalRow[]>(),
     ]);
     const s = checkMaybe(settings);
     const allLoans = check(loans).map(toLoan);
+    // The primary goal is the moving fund of the settings (SPEC D23).
+    const primary: SavingsGoal[] = s
+      ? [
+          {
+            id: PRIMARY_GOAL_ID,
+            name: s.moving_name,
+            target: cents(s.moving_goal),
+            deadlineMonth: s.moving_deadline_month,
+            alreadySaved: cents(s.moving_already_saved),
+            priority: s.moving_priority,
+            primary: true,
+          },
+        ]
+      : [];
+    const extra = check(goals).map(
+      (g): SavingsGoal => ({
+        id: g.id,
+        name: g.name,
+        target: cents(g.target),
+        deadlineMonth: g.deadline_month,
+        alreadySaved: cents(g.already_saved),
+        priority: g.priority,
+        primary: false,
+      }),
+    );
     return {
       settings: s && {
         startMonth: s.start_month,
@@ -204,6 +256,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       exceptions: check(exceptions).map(toException),
       loans: allLoans.filter((l) => l.archivedAt === null),
       archivedLoans: allLoans.filter((l) => l.archivedAt !== null),
+      goals: [...primary, ...extra].sort((a, b) => a.priority - b.priority || Number(b.primary) - Number(a.primary)),
       actuals: check(actuals).map(
         (a): MonthlyActual => ({
           id: a.id,
@@ -214,6 +267,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
           emergencySavings: cents(a.emergency_savings),
           freeSavings: cents(a.free_savings),
           loanBalances: a.monthly_actual_loan_balances.map((b) => ({ loanId: b.loan_id, balance: cents(b.balance) })),
+          goalBalances: a.monthly_actual_goal_balances.map((b) => ({ goalId: b.goal_id, balance: cents(b.balance) })),
           frozen:
             a.planned_debt === null || a.planned_savings === null || a.plan_start_month === null
               ? null
@@ -361,7 +415,81 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         ),
       );
     }
+    checkMaybe(await this.db.from("monthly_actual_goal_balances").delete().eq("monthly_actual_id", actual.id));
+    if (draft.goalBalances.length > 0) {
+      checkMaybe(
+        await this.db.from("monthly_actual_goal_balances").insert(
+          draft.goalBalances.map((b) => ({ monthly_actual_id: actual.id, goal_id: b.goalId, balance: euros(b.balance) })),
+        ),
+      );
+    }
   }
+
+  async createGoal(draft: SavingsGoalDraft, priority: number): Promise<SavingsGoal> {
+    const row = check(
+      await this.db
+        .from("savings_goals")
+        .insert({ ...goalColumns(draft), priority })
+        .select("id, name, target, deadline_month, already_saved, priority")
+        .single<GoalRow>(),
+    );
+    return {
+      id: row.id,
+      name: row.name,
+      target: cents(row.target),
+      deadlineMonth: row.deadline_month,
+      alreadySaved: cents(row.already_saved),
+      priority: row.priority,
+      primary: false,
+    };
+  }
+
+  async updateGoal(id: string, draft: SavingsGoalDraft): Promise<void> {
+    if (id === PRIMARY_GOAL_ID) {
+      const updated = check(
+        await this.db
+          .from("budget_settings")
+          .update({
+            moving_name: draft.name.trim(),
+            moving_goal: euros(draft.target),
+            moving_deadline_month: draft.deadlineMonth,
+            moving_already_saved: euros(draft.alreadySaved),
+          })
+          .not("user_id", "is", null)
+          .select("user_id"),
+      );
+      if (updated.length === 0) throw new RepositoryError("Objectif introuvable", "not_found");
+      return;
+    }
+    const updated = check(await this.db.from("savings_goals").update(goalColumns(draft)).eq("id", id).select("id"));
+    if (updated.length === 0) throw new RepositoryError("Objectif introuvable", "not_found");
+  }
+
+  async deleteGoal(id: string): Promise<void> {
+    if (id === PRIMARY_GOAL_ID) throw new RepositoryError("L’objectif principal ne peut pas être supprimé", "forbidden");
+    const deleted = check(await this.db.from("savings_goals").delete().eq("id", id).select("id"));
+    if (deleted.length === 0) throw new RepositoryError("Objectif introuvable", "not_found");
+  }
+
+  async orderGoals(ids: string[]): Promise<void> {
+    const primary = ids.indexOf(PRIMARY_GOAL_ID);
+    if (primary >= 0) {
+      checkMaybe(await this.db.from("budget_settings").update({ moving_priority: primary + 1 }).not("user_id", "is", null));
+    }
+    const rows = check(
+      await this.db.from("savings_goals").select("id, name, target, deadline_month, already_saved, priority").returns<GoalRow[]>(),
+    );
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const updates = ids.flatMap((id, i) => {
+      if (id === PRIMARY_GOAL_ID) return [];
+      const row = byId.get(id);
+      if (!row) throw new RepositoryError("Objectif introuvable", "not_found");
+      return [{ ...row, priority: i + 1 }];
+    });
+    // One statement: the (user, priority) unique constraint is deferred, so priorities can swap.
+    if (updates.length > 0) checkMaybe(await this.db.from("savings_goals").upsert(updates, { onConflict: "id" }));
+  }
+
 
   async deleteActual(month: string): Promise<void> {
     checkMaybe(await this.db.from("monthly_actuals").delete().eq("month", month));

@@ -92,6 +92,7 @@ describe("SupabaseFinanceRepository", () => {
         { loanId: a!.id, balance: 798818 },
         { loanId: b!.id, balance: 45000 },
       ],
+      goalBalances: [],
       frozen: null,
     };
     await repo.saveActual(draft);
