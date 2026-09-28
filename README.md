@@ -67,6 +67,7 @@ automatically in CI. The tests refuse to run against anything but `127.0.0.1`/`l
 | `npm run test:unit` | Unit tests (engine golden + edge cases, validation) |
 | `npm run test:components` | Rendered form tests (Testing Library + jsdom) |
 | `npm run test:integration` | Integration tests against the local Supabase |
+| `npm run test:e2e` | Browser journeys (Playwright) against the local Supabase, desktop + 375 px |
 | `npm run test:watch` | Unit tests in watch mode |
 | `npm run verify` | lint + typecheck + all tests |
 
@@ -113,6 +114,12 @@ automatically in CI. The tests refuse to run against anything but `127.0.0.1`/`l
 - **Integration** (`npm run test:integration`): needs `supabase start`. Proves that user B can
   neither read nor write user A's data on every table (RLS), and exercises the Supabase repository.
   Test users are created and deleted by the tests.
+- **End-to-end** (`npm run test:e2e`, [e2e/](e2e/)): needs `supabase start` (with the mail catcher)
+  and, the first time, `npx playwright install chromium`. Login with the real magic link read from
+  the local Mailpit, then budget, loans and check-in journeys, each with its own throwaway user, on
+  a desktop and a 375 px project. Locally it reuses `npm run dev` on :3000; CI builds the static
+  export and serves it (`scripts/serve-static.mjs`). Failure traces and screenshots are uploaded
+  as the `playwright-report` artifact.
 - **Regenerating the golden data** requires Windows + desktop Excel and Python: see
   [scripts/README.md](scripts/README.md).
 
@@ -120,7 +127,8 @@ automatically in CI. The tests refuse to run against anything but `127.0.0.1`/`l
 
 [.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every pull request and on pushes to
 `main`: lint, typecheck, unit and component tests, then (only if those pass) a local Supabase in the
-runner, `supabase db lint` and the integration tests, then (on `main` only) the hosted database
+runner, `supabase db lint` and the integration tests, and in parallel the Playwright E2E journeys
+against their own local Supabase, then (on `main` only, and only if both pass) the hosted database
 migrations and the Pages deployment.
 
 ## Data & privacy
@@ -138,7 +146,7 @@ Supabase directly with the publishable key; Row Level Security protects every ro
 Live: <https://ghassenazzouz.github.io/finance/> (hosted Supabase project `finance-plan`, region
 eu-west-3).
 
-How it deploys, on every push to `main` once the checks and integration tests pass:
+How it deploys, on every push to `main` once the checks, integration and E2E tests pass:
 
 1. The `migrate` job links the hosted project and runs `supabase db push`: only the migrations missing
    from the remote history are applied, never the seed. A failed migration stops the deployment.

@@ -77,11 +77,73 @@ jobs:
 
       - run: npm run test:integration
 
+  e2e:
+    name: E2E tests (Playwright, local Supabase)
+    # Browser journeys (e2e/, issue #13) on desktop and 375 px. Blocks the migrations and the deploy.
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.108.0
+
+      # Same as the integration job, plus the mail catcher (inbucket = Mailpit) for the magic link.
+      - name: Start Supabase
+        run: supabase start -x analytics,edge-runtime,functions,imgproxy,meta,realtime,storage,studio,vector
+
+      - name: Export Supabase connection for the build and the tests
+        run: |
+          supabase status -o json > "$RUNNER_TEMP/supabase-status.txt"
+          node -e '
+            const fs = require("node:fs");
+            const out = fs.readFileSync(process.argv[1], "utf8");
+            const s = JSON.parse(out.slice(out.indexOf("{"), out.lastIndexOf("}") + 1));
+            for (const k of ["API_URL", "PUBLISHABLE_KEY", "SECRET_KEY", "INBUCKET_URL"]) {
+              if (!s[k]) { console.error(`supabase status: missing ${k}`); process.exit(1); }
+            }
+            console.log(`::add-mask::${s.SECRET_KEY}`);
+            fs.appendFileSync(process.env.GITHUB_ENV, [
+              `SUPABASE_URL=${s.API_URL}`,
+              `SUPABASE_PUBLISHABLE_KEY=${s.PUBLISHABLE_KEY}`,
+              `SUPABASE_SECRET_KEY=${s.SECRET_KEY}`,
+              `SUPABASE_MAIL_URL=${s.INBUCKET_URL}`,
+              `NEXT_PUBLIC_SUPABASE_URL=${s.API_URL}`,
+              `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${s.PUBLISHABLE_KEY}`,
+              "",
+            ].join("\n"));
+          ' "$RUNNER_TEMP/supabase-status.txt"
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # playwright.config.ts builds the static export and serves it on :3000 (the auth redirect URL).
+      - run: npm run test:e2e
+
+      - name: Upload report, traces and screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
   migrate:
     name: Apply migrations to hosted Supabase
     # Only from main, never on pull requests (the secrets exist only in this job). Never the seed.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [checks, integration]
+    needs: [checks, integration, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # One migration run at a time, never cancelled half-way.
@@ -118,7 +180,7 @@ jobs:
     name: Deploy to GitHub Pages
     # Static export (docs: README "Deploying"); only from main, after the migrations are applied.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [checks, integration, migrate]
+    needs: [checks, integration, e2e, migrate]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
