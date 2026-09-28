@@ -7,6 +7,7 @@ import { computePlan, toActualInput } from "@/lib/domain/plan";
 import { frozenFor, planRebase } from "@/lib/domain/rebase";
 import { type ActualForm, type Errors, parseMonth, validateActual } from "@/lib/domain/validation";
 import { type ActualStatus, type YearMonth, compareActual } from "@/lib/engine";
+import { errorMessage, reportError } from "@/lib/errors";
 import { currentYearMonth } from "@/lib/format";
 
 export type SaveActualState =
@@ -54,8 +55,10 @@ export async function saveActualAction(_prev: SaveActualState, formData: FormDat
     const comparison = plan ? compareActual(toActualInput({ id: "", ...draft }), plan.result, plan.input.budget) : null;
     notifyDataChanged();
     return { status: "saved", month: validated.value.month, result: comparison?.status ?? null };
-  } catch {
-    return { status: "error", message: "Enregistrement impossible pour le moment. Réessayez dans un instant.", errors: {} };
+  } catch (error) {
+    reportError(error, "suivi.saveActual");
+    const message = errorMessage(error, "Enregistrement impossible pour le moment. Réessayez dans un instant.");
+    return { status: "error", message, errors: {} };
   }
 }
 
@@ -66,8 +69,9 @@ export async function deleteActualAction(month: string): Promise<DeleteActualRes
   if (!parsed.ok) return { ok: false, message: parsed.error };
   try {
     await getRepository().deleteActual(parsed.value);
-  } catch {
-    return { ok: false, message: "Suppression impossible pour le moment. Réessayez dans un instant." };
+  } catch (error) {
+    reportError(error, "suivi.deleteActual");
+    return { ok: false, message: errorMessage(error, "Suppression impossible pour le moment. Réessayez dans un instant.") };
   }
   notifyDataChanged();
   return { ok: true };
@@ -93,7 +97,8 @@ export async function rebasePlanAction(): Promise<RebaseResult> {
     for (const { id, draft } of rebase.goalUpdates) await repo.updateGoal(id, draft);
     notifyDataChanged();
     return { ok: true, newStartMonth: rebase.newStartMonth };
-  } catch {
-    return { ok: false, message: "Recalage impossible pour le moment. Réessayez dans un instant." };
+  } catch (error) {
+    reportError(error, "suivi.rebase");
+    return { ok: false, message: errorMessage(error, "Recalage impossible pour le moment. Réessayez dans un instant.") };
   }
 }

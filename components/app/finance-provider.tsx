@@ -5,6 +5,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 import { getRepository, onDataChanged } from "@/lib/data/client-store";
 import { type ComputedPlan, computePlan } from "@/lib/domain/plan";
 import type { FinanceSnapshot } from "@/lib/domain/types";
+import { errorMessage, reportError } from "@/lib/errors";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 
@@ -33,8 +34,9 @@ async function fetchFinance(): Promise<State | "signed-out"> {
   try {
     const snapshot = await getRepository().load();
     return { status: "ready", email: data.session.user.email ?? null, snapshot, plan: computePlan(snapshot) };
-  } catch {
-    return { status: "error", message: "Impossible de charger vos données. Vérifiez votre connexion." };
+  } catch (error) {
+    reportError(error, "finance.load");
+    return { status: "error", message: errorMessage(error, "Impossible de charger vos données. Vérifiez votre connexion.") };
   }
 }
 
