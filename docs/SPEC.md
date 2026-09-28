@@ -48,6 +48,7 @@ from our code.
 | D3 | Dates | `startMonth` and `movingDeadlineMonth` are `YYYY-MM` months. Month granularity everywhere |
 | D4 | Personal debts | No special rule. A 0 % personal debt behaves exactly as in the spreadsheet: normal payments only, never eligible for early repayment. "Dette personnelle" is just a loan type label |
 | D5 | Remaining months | **Dropped** (the input and its 3 derived columns). Replaced by simulated payoff months and per-loan interest (§5) |
+| D24 | Bank overdraft (issue #28, owner-validated 2026-09-28) | A debt of kind `overdraft` next to the loans, counted in the 6-debt limit (D7): name, **authorised limit** > 0, **balance used** 0 ≤ balance ≤ limit (form rule), **agios rate** 0–100 %, optional **fixed monthly repayment** (default 0). No mensualité, IRA, contract end or read month. Each month: agios = round2(balance × rate / 12) **added to the balance**; the fixed repayment (capped at balance + agios, no D13 residual rule) is part of the loan payments; eligible for early repayment when its rate > threshold, **even at 0 €**. A **negative month draws on the overdrafts** (entry order) up to their limit; the rest of the shortfall is dropped as before (§6) and the alert still shows. A cleared overdraft stays available: never archived (also on re-basing, D16), never a payoff milestone, and 0 € counts as debt-free. Fees and unauthorised overdraft are out of scope. The migration converted loans whose type contains « découvert » (limit = balance, fixed repayment = old payment). No spreadsheet equivalent: cross-checked with `scripts/reference_overdraft.py`. Loans are unchanged (golden data green) |
 | D23 | Several savings goals (issue #10, owner-validated 2026-09-28) | Up to **6 goals**, each with a name, target > 0, deadline month, amount already saved and a unique priority (1 = filled first). The spreadsheet's moving fund is the **primary goal** (id `moving`): its amounts stay in the budget settings (the budget form edits them), it can be renamed and reordered but **not deleted**; existing users keep exactly the same results. Each month, goals are filled **in priority order, before the emergency fund**, each up to its target and only **until its deadline** (then it receives nothing more, keeps its balance and is flagged « hors délai » with the amount missing). The moving* KPIs describe the primary goal; each goal has the same KPIs. Check-ins ask **one balance per goal** (the primary's is `movingSavings`); comparisons use the sum of all goals. New goals must not have a past deadline. Engine: §6 ① |
 | D22 | Early-repayment penalties (issue #9, owner-validated 2026-09-28) | Optional per loan: `penaltyPct` (% of the capital repaid early) and `penaltyCapMonths` (cap: N months of interest on that capital; French home loans: 3 % / 6 months; consumer loans: a flat 1 % or 0,5 %, the 10 000 €/12 months exemption is not modelled: leave it empty). The penalty is paid from the month's early-repayment budget; a loan is skipped when the penalty is not below the interest the repaid money would still cost (apr / 12 × remaining months), and its share goes to the next priority, then to free savings. « Intérêts économisés » is net of penalties. Empty = no penalty = previous behaviour (golden data unchanged). Engine: §4.2 "Penalties" |
 | D21 | Dark theme (issue #11) | The theme follows the OS (`prefers-color-scheme`) by default, live. A « Thème » control (Système / Clair / Sombre: sidebar and mobile account menu) overrides it; Clair / Sombre are stored on the device under `localStorage["finance-theme"]`, « Système » removes the key; any other stored value = Système; blocked storage = the choice lasts for the session. An inline script in `<head>` sets the `.dark` class before the first paint. Every colour is a token in `app/globals.css` with a light and a dark value; text contrast ≥ 4.5:1 in both themes (axe, all pages) |
@@ -62,7 +63,7 @@ from our code.
 | D5c | Principal read before the plan start (2026-09-27) | Optional `principalPaidThroughMonth` per loan (default in the form: current month). The entered principal is the balance **after the payment of that month**; the app rolls it forward with the normal payments of the months strictly between that month and `startMonth` (§4.5). Empty = principal at the plan start (spreadsheet behaviour). Read after the start → used as is, with a warning |
 | D5b | Contract end month (2026-09-27) | Optional `contractEndMonth` (YYYY-MM) per loan, **for a consistency check only**: warning when it differs by more than 1 month from the simulated end without early repayment (§5). Never used by the simulation |
 | D6 | Actuals check-in | Complete rows only. Any month from the plan start to the current month. "Latest" = most recent month (§8) |
-| D7 | Loan validation | `principal > 0`, `monthlyPayment > 0`, `0 ≤ apr ≤ 1`, amounts with 2 decimals, name optional (→ "Crédit n"), at most **6 active** loans |
+| D7 | Loan validation | (overdraft: D24) `principal > 0`, `monthlyPayment > 0`, `0 ≤ apr ≤ 1`, amounts with 2 decimals, name optional (→ "Crédit n"), at most **6 active** loans |
 | D8 | Loan identity | Loans have ids. Deleting a loan that has actuals **archives** it (history kept, excluded from the engine) |
 | D9 | Budget lines | Free lists `(category: income \| fixed \| variable, label, amount, position)`, pre-filled with the spreadsheet's labels at 0 € on first login. The engine only uses the sums |
 | D10 | UI warnings (engine unchanged) | Negative budget alert; "mensualité < intérêts" warning; "—" instead of "OK" for the debt ratio when income = 0; "Date limite dépassée" when the deadline is before the start |
@@ -172,6 +173,24 @@ endBalance           = open − earlyRepayment
 - The last normal payment is capped at `balance + interest`, so it can be smaller than `monthlyPayment`.
 - If `monthlyPayment < interest`, the balance grows every month (negative amortisation). The
   engine does not cap it; the UI warns (D10).
+
+**Overdraft (D24).** For a debt with `kind = overdraft`, `limit` = authorised amount:
+
+```
+interest             = round2(startBalance × apr / 12)                  (agios, added to the balance)
+paymentPaid          = min(fixedRepayment, startBalance + interest)     (no D13 residual rule)
+eligible             = apr > riskFreeRate                               (even when the balance is 0)
+shortfall            = max(0, −available(m))                            (§6)
+draw                 = overdrafts in entry order: min(shortfall left, limit − (open − earlyRepayment))
+endBalance           = open − earlyRepayment + draw
+baseline             = no early repayment, no draws; the account pays the agios each month:
+                       baselinePayment = min(max(fixedRepayment, interest), balance + interest)
+                       (staying overdrawn costs the agios, it does not snowball for 25 years)
+```
+
+The balance never exceeds the limit through a draw; agios alone can take it above (as a bank
+would charge them). Expected values: `tests/fixtures/overdraft-reference.json`, produced by the
+independent `scripts/reference_overdraft.py` from `scripts/overdraft_scenarios.json`.
 
 **Penalties (D22).** A loan may have `penaltyPct` (fraction of the capital repaid early) and
 `penaltyCapMonths` (optional cap: that many months of interest on the capital repaid early).
@@ -285,7 +304,7 @@ debtFree       (T)    = remainingDebt ≤ 0.01
 
 Behaviours kept from the spreadsheet (confirmed by the Excel scenarios):
 - There is no circularity: `paymentPaid` depends only on the previous balance.
-- **A negative month is dropped**: all allocations are 0 and nothing is withdrawn from savings, so
+- **A negative month is dropped** (with an overdraft, it is first drawn on it up to its limit, D24): all allocations are 0 and nothing is withdrawn from savings, so
   cumulative balances never decrease. The UI shows an alert (D10).
 - The moving fund keeps its balance after the deadline; that money is never released to other buckets.
 - Flags stay at 1 once reached (the balances never decrease).
@@ -409,15 +428,17 @@ independent reference engine disagrees with Excel on any cell.
 ### 10.1 JSON backup, `finance-backup-YYYY-MM-DD.json`
 
 ```
-{ format: "finance-plan-backup", version: 2, exportedAt: ISO timestamp,
+{ format: "finance-plan-backup", version: 4, exportedAt: ISO timestamp,
   data: { settings | null,
           budgetLines[] { id, category, label, amount, position, startMonth, endMonth },
           exceptions[]  { id, month, kind, label, amount },
           loans[]       { id, name, type, principal, principalPaidThroughMonth, apr, monthlyPayment,
-                          contractEndMonth, penaltyPct, penaltyCapMonths, position, archivedAt }
+                          contractEndMonth, penaltyPct, penaltyCapMonths, kind, creditLimit, position, archivedAt }
                           active first, then archived,
+          goals[]       { id, name, target, deadlineMonth, alreadySaved, priority, primary }   priority order,
           checkIns[]    { id, month, income, expenses, movingSavings, emergencySavings, freeSavings,
-                          loanBalances[] { loanId, balance }, frozen | null } } }
+                          loanBalances[] { loanId, balance }, goalBalances[] { goalId, balance },
+                          frozen | null } } }
 ```
 
 - Amounts are **strings** in euros with exactly 2 decimals and a dot (`"1234.50"`, `"-0.05"`),
@@ -425,7 +446,9 @@ independent reference engine disagrees with Excel on any cell.
   `earlyRepaymentPct`) are fractions as stored. Months are `YYYY-MM`; `null` = empty.
 - Empty collections are empty arrays; `settings` is `null` before onboarding.
 - `version` changes whenever the shape changes; an import must check `format` and `version`.
-  Version 1 (#7) had no `penaltyPct` / `penaltyCapMonths` (read them as `null`); version 2 adds them (D22).
+  Version 1 (#7) had no `penaltyPct` / `penaltyCapMonths` (read them as `null`); version 2 adds them (D22);
+  version 3 adds `goals` and `goalBalances` (D23; older files: the moving fund only, no goal balances);
+  version 4 adds the loans' `kind` and `creditLimit` (D24; older files: `"loan"`, `null`).
 
 ### 10.2 Plan CSV, `finance-plan-YYYY-MM-DD.csv`
 

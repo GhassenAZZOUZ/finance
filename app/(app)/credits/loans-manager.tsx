@@ -116,6 +116,16 @@ function PriorityBadge({ priority }: { priority: number | null }) {
 /** Payoff with the plan (●) vs without (○) on a shared time axis ("dumbbell"). */
 function PayoffTimeline({ row, scale }: { row: LoanRow; scale: TimelineScale | null }) {
   const d = row.derived;
+  if (row.kind === "overdraft") {
+    // Reusable: no end date; the plan clears it and later negative months can draw on it (D24).
+    const cleared = d?.payoffMonthWithPlan;
+    return (
+      <span className="text-xs text-muted-foreground">
+        Autorisation {formatEuros(row.creditLimit ?? 0)}
+        {cleared ? ` · remis à 0 en ${formatMonthShort(cleared)}` : ""} · réutilisable
+      </span>
+    );
+  }
   if (row.paidOffBeforeStart) {
     return <span className="text-xs text-muted-foreground">Soldé ({formatMonthShort(row.paidOffBeforeStart)})</span>;
   }
@@ -335,8 +345,12 @@ export function LoansManager({
                         <dd className="font-semibold tabular-nums">{formatPercent(row.apr)}</dd>
                       </div>
                       <div className="lg:text-right">
-                        <dt className="text-xs text-muted-foreground lg:sr-only">Mensualité</dt>
-                        <dd className="tabular-nums">{formatEuros(row.monthlyPayment)}</dd>
+                        <dt className="text-xs text-muted-foreground lg:sr-only">
+                          {row.kind === "overdraft" ? "Remboursement fixe" : "Mensualité"}
+                        </dt>
+                        <dd className="tabular-nums">
+                          {row.kind === "overdraft" && row.monthlyPayment === 0 ? "aucun" : formatEuros(row.monthlyPayment)}
+                        </dd>
                       </div>
                     </dl>
                     <div className="col-span-3 lg:col-span-1">

@@ -30,7 +30,8 @@ export function planImport(snapshot: FinanceSnapshot, data: TemplateData): Impor
   });
 
   // Same name (case-insensitive) = same loan; unnamed loans pair up in entry order.
-  const available = [...snapshot.loans];
+  // The template has no overdraft (SPEC D24): overdrafts are kept, only loans are replaced.
+  const available = snapshot.loans.filter((l) => l.kind !== "overdraft");
   const loanUpdates: ImportPlan["loanUpdates"] = [];
   const loanCreates: LoanDraft[] = [];
   for (const draft of data.loans) {

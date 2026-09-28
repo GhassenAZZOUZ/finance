@@ -58,6 +58,13 @@ export interface Loan {
   penaltyPct: number | null;
   /** Optional cap in months of interest on the capital repaid early; null = no cap. */
   penaltyCapMonths: number | null;
+  /**
+   * "overdraft" (SPEC D24): `principal` = balance used (≥ 0), `monthlyPayment` = optional fixed
+   * repayment (≥ 0), `creditLimit` = authorised amount; no IRA, contract end or read month.
+   */
+  kind: "loan" | "overdraft";
+  /** Overdraft only (> 0); null for a loan. */
+  creditLimit: Cents | null;
   position: number;
   archivedAt: string | null;
 }

@@ -51,6 +51,9 @@ export interface LoanRow {
   /** IRA (SPEC D22): fraction of the capital repaid early, and optional cap in months of interest. */
   penaltyPct: number | null;
   penaltyCapMonths: number | null;
+  /** "overdraft": reusable debt with a limit and an optional fixed repayment (SPEC D24). */
+  kind: "loan" | "overdraft";
+  creditLimit: Cents | null;
   /** Contract end vs simulated end, when both are known (SPEC D5b). */
   endCheck: ContractEndCheck | null;
   derived: LoanDerived | null;
@@ -74,6 +77,8 @@ export const EMPTY_LOAN_FORM: LoanForm = {
   principalPaidThroughMonth: "",
   penaltyPct: "",
   penaltyCapMonths: "",
+  kind: "loan",
+  creditLimit: "",
 };
 
 /** Tolerated difference between the contract end and the simulated end (rounding of the last payment). */
@@ -129,6 +134,8 @@ export function loanToForm(loan: Loan): LoanForm {
     principalPaidThroughMonth: loan.principalPaidThroughMonth ?? "",
     penaltyPct: loan.penaltyPct ? percentInputValue(loan.penaltyPct) : "",
     penaltyCapMonths: loan.penaltyPct && loan.penaltyCapMonths !== null ? String(loan.penaltyCapMonths) : "",
+    kind: loan.kind,
+    creditLimit: amountInputValue(loan.creditLimit),
   };
 }
 
@@ -173,6 +180,8 @@ export function buildLoanRows(loans: readonly Loan[], plan: ComputedPlan | null)
       contractEndMonth: loan.contractEndMonth,
       penaltyPct: loan.penaltyPct,
       penaltyCapMonths: loan.penaltyCapMonths,
+      kind: loan.kind,
+      creditLimit: loan.creditLimit,
       endCheck: checkContractEnd(loan.contractEndMonth, s ? (paidOffBeforeStart ?? s.payoffMonthWithoutPlan) : undefined),
       derived: s
         ? {
@@ -219,6 +228,8 @@ export function readLoanForm(formData: FormData): LoanForm {
     principalPaidThroughMonth: text(formData, "principalPaidThroughMonth"),
     penaltyPct: text(formData, "penaltyPct"),
     penaltyCapMonths: text(formData, "penaltyCapMonths"),
+    kind: text(formData, "kind") === "overdraft" ? "overdraft" : "loan",
+    creditLimit: text(formData, "creditLimit"),
   };
 }
 
@@ -255,6 +266,7 @@ export interface TimelineScale {
 export function timelineScale(rows: readonly LoanRow[], startMonth: YearMonth): TimelineScale {
   let months = 12;
   for (const row of rows) {
+    if (row.kind === "overdraft") continue; // no timeline (D24)
     for (const m of [row.derived?.payoffMonthWithPlan, row.derived?.payoffMonthWithoutPlan]) {
       if (m) months = Math.max(months, monthsBetween(startMonth, m) + 2);
     }

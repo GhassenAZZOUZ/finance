@@ -110,6 +110,8 @@ export function buildPlanInput(
       monthlyPayment: l.monthlyPayment,
       // Only when set, so a loan without IRA gives the exact same input as before (D22).
       ...(l.penaltyPct ? { penaltyPct: l.penaltyPct, penaltyCapMonths: l.penaltyCapMonths } : {}),
+      // Only for an overdraft, so a loan gives the exact same input as before (D24).
+      ...(l.kind === "overdraft" ? { kind: "overdraft" as const, limit: l.creditLimit ?? 0 } : {}),
     })),
   };
 }

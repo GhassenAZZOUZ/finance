@@ -82,6 +82,8 @@ describe("validateLoan", () => {
         principalPaidThroughMonth: null,
         penaltyPct: null,
         penaltyCapMonths: null,
+        kind: "loan",
+        creditLimit: null,
       },
     });
   });

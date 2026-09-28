@@ -93,6 +93,13 @@ export interface LoanInput {
   penaltyPct?: number;
   /** Optional cap: this many months of interest on the capital repaid early (French home loans: 6). */
   penaltyCapMonths?: number | null;
+  /**
+   * "overdraft" (SPEC D24): `principal` is the balance used, `monthlyPayment` an optional fixed
+   * repayment (may be 0), `limit` the authorised amount. Omitted = an ordinary loan.
+   */
+  kind?: "loan" | "overdraft";
+  /** Authorised overdraft (> 0); negative months draw on it up to this amount. */
+  limit?: Cents;
 }
 
 /**
@@ -127,6 +134,8 @@ export interface LoanMonth {
   earlyRepayment: Cents;
   /** IRA paid on this month's early repayment (SPEC D22), taken from the early-repayment budget. */
   penalty: Cents;
+  /** Overdraft only (SPEC D24): shortfall of a negative month added to the balance. */
+  draw: Cents;
   endBalance: Cents;
   baselineInterest: Cents;
   baselineEndBalance: Cents;
@@ -169,6 +178,8 @@ export interface PlanMonth {
   totalEarlyRepayment: Cents;
   /** Σ penalty of the loans (SPEC D22). */
   totalPenalty: Cents;
+  /** Σ overdraft draws of a negative month (SPEC D24); the rest of the shortfall is dropped. */
+  overdraftDraw: Cents;
   /** Σ extraRepayment of the loans (SPEC D17). */
   totalExtraRepayment: Cents;
   /** Part of `totalExtraRepayment` taken from the free savings (deducted from `freeSavingsCumulative`). */
@@ -181,6 +192,8 @@ export type LoanAdvice = "highRate" | "worthIt" | "keep";
 
 export interface LoanSummary {
   id: string;
+  /** "overdraft": reusable, never a payoff milestone (SPEC D24). */
+  kind: "loan" | "overdraft";
   /** `name`, or "Crédit n" (n = 1-based position) when empty. */
   displayName: string;
   eligible: boolean;
