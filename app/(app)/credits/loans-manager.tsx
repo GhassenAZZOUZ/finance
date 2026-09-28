@@ -60,6 +60,19 @@ function PrincipalNote({ row }: { row: LoanRow }) {
   return null;
 }
 
+/** IRA rule of the loan and what the plan pays in penalties (SPEC D22). */
+function PenaltyNote({ row }: { row: LoanRow }) {
+  if (!row.penaltyPct) return null;
+  const cap = row.penaltyCapMonths !== null ? `, plafond ${row.penaltyCapMonths} mois d’intérêts` : "";
+  const paid = row.derived?.penaltiesPaid ?? 0;
+  return (
+    <span className="block text-xs text-muted-foreground">
+      IRA : {formatPercent(row.penaltyPct)} du capital remboursé{cap}
+      {row.derived ? (paid > 0 ? ` · ${formatEuros(paid)} payés par le plan` : " · aucune payée par le plan") : ""}
+    </span>
+  );
+}
+
 /** Contract end differs from the simulated end (SPEC D5b): the capital, APR or payment is probably off. */
 function ContractEndWarning({ check }: { check: ContractEndCheck }) {
   if (check.consistent) return null;
@@ -293,6 +306,7 @@ export function LoansManager({
                       ) : null}
                       {row.endCheck ? <ContractEndWarning check={row.endCheck} /> : null}
                       <PrincipalNote row={row} />
+                      <PenaltyNote row={row} />
                     </div>
                     <Button
                       ref={(el) => {

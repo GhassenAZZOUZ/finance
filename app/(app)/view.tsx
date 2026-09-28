@@ -689,7 +689,8 @@ function RepaymentOrder({ plan }: { plan: ComputedPlan }) {
       )}
       {kpis.hasDebt && kpis.interestSaved > 0 ? (
         <p className="text-[13px] font-medium text-good tabular-nums">
-          {formatEuros(kpis.interestSaved)} d’intérêts économisés grâce au plan (avant IRA)
+          {formatEuros(kpis.interestSaved)} d’intérêts économisés grâce au plan
+          {kpis.penaltiesPaid > 0 ? `, net de ${formatEuros(kpis.penaltiesPaid)} d’IRA` : ""}
         </p>
       ) : null}
     </section>

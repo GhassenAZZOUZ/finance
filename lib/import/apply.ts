@@ -40,8 +40,16 @@ export function planImport(snapshot: FinanceSnapshot, data: TemplateData): Impor
       continue;
     }
     const [existing] = available.splice(at, 1);
-    // The template has no contract end month: keep the one typed in the app.
-    loanUpdates.push({ id: existing!.id, draft: { ...draft, contractEndMonth: existing!.contractEndMonth } });
+    // The template has no contract end month nor IRA: keep the ones typed in the app.
+    loanUpdates.push({
+      id: existing!.id,
+      draft: {
+        ...draft,
+        contractEndMonth: existing!.contractEndMonth,
+        penaltyPct: existing!.penaltyPct,
+        penaltyCapMonths: existing!.penaltyCapMonths,
+      },
+    });
   }
 
   return {

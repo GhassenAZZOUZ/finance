@@ -38,7 +38,7 @@ beforeAll(async () => {
       principalPaidThroughMonth: null,
       apr: 0.05,
       monthlyPayment: 20000,
-      contractEndMonth: null,
+      contractEndMonth: null, penaltyPct: null, penaltyCapMonths: null,
     });
     await repo.saveActual({
       month: "2027-01",

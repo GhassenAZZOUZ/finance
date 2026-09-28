@@ -38,7 +38,7 @@ export function makeLoan(i: number, overrides: Partial<Loan> = {}): Loan {
     principalPaidThroughMonth: null,
     apr: 0.05,
     monthlyPayment: 20_000,
-    contractEndMonth: null,
+    contractEndMonth: null, penaltyPct: null, penaltyCapMonths: null,
     position: i,
     archivedAt: null,
     ...overrides,

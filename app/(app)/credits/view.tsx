@@ -89,7 +89,9 @@ export function CreditsView() {
             <TotalTile
               label="Intérêts économisés"
               value={formatEuros(k.interestSaved)}
-              hint={`${formatEuros(k.interestWithPlan)} avec le plan contre ${formatEuros(k.interestWithoutPlan)} sans`}
+              hint={`${formatEuros(k.interestWithPlan)} avec le plan contre ${formatEuros(k.interestWithoutPlan)} sans${
+                k.penaltiesPaid > 0 ? `, moins ${formatEuros(k.penaltiesPaid)} d’IRA` : ""
+              }`}
               good={k.interestSaved > 0}
             />
           ) : null}
@@ -108,7 +110,8 @@ export function CreditsView() {
       <p className="max-w-3xl text-[13px] leading-normal text-muted-foreground">
         {plan ? `Restant dû = projection du plan pour ${formatMonthLong(plan.referenceMonth)}. ` : null}
         TAEG : taux annuel effectif global, indiqué sur l’offre de prêt ou le relevé annuel. Seuls les crédits au-dessus du
-        taux seuil reçoivent du remboursement anticipé ; pensez aux éventuelles indemnités (IRA).
+        taux seuil reçoivent du remboursement anticipé. Les indemnités (IRA) saisies sur un crédit sont payées sur le
+        budget de remboursement anticipé ; un crédit dont les IRA dépassent les intérêts évités n’en reçoit pas.
       </p>
 
       {archived.length > 0 ? (

@@ -64,11 +64,34 @@ describe("LoanFormPanel", () => {
       apr: 0.049,
       monthlyPayment: 24_530,
       contractEndMonth: null,
+      penaltyPct: null,
+      penaltyCapMonths: null,
     });
     expect(mocks.repo?.updateLoan).not.toHaveBeenCalled();
     expect(mocks.notify).toHaveBeenCalledTimes(1);
     // Third active loan, no name: default display name.
     expect(onSaved).toHaveBeenCalledWith("« Crédit 3 » a été ajouté.");
+  });
+
+  it("saves an IRA of 3 % capped at 6 months; a negative cap is rejected on its field (issue #9)", async () => {
+    const { onSaved, user } = renderForm();
+    await user.type(screen.getByLabelText("Capital restant dû (€)"), "100000");
+    await user.type(screen.getByLabelText("TAEG (%)"), "3,5");
+    await user.type(screen.getByLabelText("Mensualité (€)"), "800");
+    await user.type(screen.getByLabelText("IRA (% du capital remboursé, facultatif)"), "3");
+    const cap = screen.getByLabelText("Plafond des IRA (mois d’intérêts, facultatif)");
+    await user.type(cap, "-6");
+    await user.click(screen.getByRole("button", { name: "Ajouter le crédit" }));
+    expect(await screen.findByText("Nombre de mois entier attendu")).toBeTruthy();
+    expect(screen.getByLabelText("Plafond des IRA (mois d’intérêts, facultatif)").getAttribute("aria-invalid")).toBe("true");
+    expect(mocks.repo?.createLoan).not.toHaveBeenCalled();
+
+    const capAgain = screen.getByLabelText("Plafond des IRA (mois d’intérêts, facultatif)");
+    await user.clear(capAgain);
+    await user.type(capAgain, "6");
+    await user.click(screen.getByRole("button", { name: "Ajouter le crédit" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(mocks.repo?.createLoan).toHaveBeenCalledWith(expect.objectContaining({ penaltyPct: 0.03, penaltyCapMonths: 6 }));
   });
 
   it("refuses a 7th loan even if the form is submitted (limit re-checked against the repository)", async () => {

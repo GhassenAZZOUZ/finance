@@ -26,7 +26,7 @@ describe("ExportCard", () => {
     const [name, content, type] = mocks.download.mock.calls[0]!;
     expect(name).toMatch(/^finance-backup-\d{4}-\d{2}-\d{2}\.json$/);
     expect(type).toBe("application/json");
-    expect(JSON.parse(content)).toMatchObject({ version: 1, data: { loans: [{ id: "loan-1" }] } });
+    expect(JSON.parse(content)).toMatchObject({ version: 2, data: { loans: [{ id: "loan-1" }] } });
     expect(screen.getByRole("status").textContent).toContain("Sauvegarde téléchargée.");
   });
 

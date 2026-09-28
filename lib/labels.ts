@@ -10,7 +10,7 @@ export const STATUS_LABEL: Record<ActualStatus, string> = {
 
 export const ADVICE_LABEL: Record<LoanAdvice, string> = {
   highRate: "Taux élevé : à solder en priorité",
-  worthIt: "Remb. anticipé intéressant (vérifier IRA)",
+  worthIt: "Remb. anticipé intéressant",
   keep: "Garder, épargner plutôt",
 };
 

@@ -80,6 +80,8 @@ describe("validateLoan", () => {
         monthlyPayment: 24530,
         contractEndMonth: null,
         principalPaidThroughMonth: null,
+        penaltyPct: null,
+        penaltyCapMonths: null,
       },
     });
   });

@@ -6,7 +6,7 @@ import type { FinanceSnapshot, Loan, MonthlyActual } from "@/lib/domain/types";
 
 const loan = (id: string, principal: number): Loan => ({
   id, name: id, type: null, principal, principalPaidThroughMonth: null, apr: 0.05, monthlyPayment: 10_000,
-  contractEndMonth: "2029-01", position: 0, archivedAt: null,
+  contractEndMonth: "2029-01", penaltyPct: null, penaltyCapMonths: null, position: 0, archivedAt: null,
 });
 const actual = (month: string, balances: [string, number][], extra: Partial<MonthlyActual> = {}): MonthlyActual => ({
   id: month, month, income: null, expenses: null, movingSavings: 30_000, emergencySavings: 40_000, freeSavings: 5_000,

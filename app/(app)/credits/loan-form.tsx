@@ -163,6 +163,24 @@ export function LoanFormPanel({
           error={errors.contractEndMonth}
           type="month"
         />
+        <Field
+          idPrefix={idPrefix}
+          name="penaltyPct"
+          label="IRA (% du capital remboursé, facultatif)"
+          hint="Indemnités de remboursement anticipé, voir l’offre de prêt. Crédit immobilier : 3 % au plus. Vide : aucune."
+          defaultValue={values.penaltyPct ?? ""}
+          error={errors.penaltyPct}
+          inputMode="decimal"
+        />
+        <Field
+          idPrefix={idPrefix}
+          name="penaltyCapMonths"
+          label="Plafond des IRA (mois d’intérêts, facultatif)"
+          hint="Crédit immobilier : 6 mois d’intérêts au plus. Vide : pas de plafond."
+          defaultValue={values.penaltyCapMonths ?? ""}
+          error={errors.penaltyCapMonths}
+          inputMode="decimal"
+        />
       </div>
       <datalist id={`${idPrefix}-type-suggestions`}>
         {LOAN_TYPE_SUGGESTIONS.map((t) => (

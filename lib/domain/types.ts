@@ -52,6 +52,10 @@ export interface Loan {
   monthlyPayment: Cents;
   /** Optional contract end month, for a consistency check only (SPEC D5b). */
   contractEndMonth: YearMonth | null;
+  /** Early-repayment penalty (IRA, SPEC D22): fraction of the capital repaid early; null = none. */
+  penaltyPct: number | null;
+  /** Optional cap in months of interest on the capital repaid early; null = no cap. */
+  penaltyCapMonths: number | null;
   position: number;
   archivedAt: string | null;
 }

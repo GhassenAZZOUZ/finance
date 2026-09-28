@@ -42,7 +42,7 @@ const loan: Loan = {
   principalPaidThroughMonth: null,
   apr: 0.05,
   monthlyPayment: 20000,
-  contractEndMonth: null,
+  contractEndMonth: null, penaltyPct: null, penaltyCapMonths: null,
   position: 0,
   archivedAt: null,
 };

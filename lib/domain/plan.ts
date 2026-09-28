@@ -99,6 +99,8 @@ export function buildPlanInput(
       principal: principalAtStart(l, settings.startMonth),
       apr: l.apr,
       monthlyPayment: l.monthlyPayment,
+      // Only when set, so a loan without IRA gives the exact same input as before (D22).
+      ...(l.penaltyPct ? { penaltyPct: l.penaltyPct, penaltyCapMonths: l.penaltyCapMonths } : {}),
     })),
   };
 }
