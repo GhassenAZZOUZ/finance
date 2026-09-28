@@ -23,7 +23,7 @@ function loan(id: string, over: Partial<Loan> = {}): Loan {
     apr: 0.05,
     monthlyPayment: 20_000,
     principalPaidThroughMonth: null,
-    contractEndMonth: null,
+    contractEndMonth: null, penaltyPct: null, penaltyCapMonths: null,
     position: 0,
     archivedAt: null,
     ...over,
@@ -139,6 +139,8 @@ describe("form helpers", () => {
       monthlyPayment: "250,00",
       contractEndMonth: "",
       principalPaidThroughMonth: "",
+      penaltyPct: "",
+      penaltyCapMonths: "",
     });
     const validated = validateLoan(form, 0);
     expect(validated).toEqual({
@@ -150,7 +152,7 @@ describe("form helpers", () => {
         principalPaidThroughMonth: null,
         apr: 0.049,
         monthlyPayment: 25_000,
-        contractEndMonth: null,
+        contractEndMonth: null, penaltyPct: null, penaltyCapMonths: null,
       },
     });
   });
@@ -168,6 +170,8 @@ describe("form helpers", () => {
       monthlyPayment: "",
       contractEndMonth: "",
       principalPaidThroughMonth: "",
+      penaltyPct: "",
+      penaltyCapMonths: "",
     });
     expect(readLoanId(fd)).toBe("");
     fd.set("id", " abc ");

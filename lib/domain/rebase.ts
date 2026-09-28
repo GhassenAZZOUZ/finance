@@ -89,5 +89,7 @@ function loanDraft(loan: Loan, principal: number, paidThrough: YearMonth): LoanD
     apr: loan.apr,
     monthlyPayment: loan.monthlyPayment,
     contractEndMonth: loan.contractEndMonth,
+    penaltyPct: loan.penaltyPct,
+    penaltyCapMonths: loan.penaltyCapMonths,
   };
 }

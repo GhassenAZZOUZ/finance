@@ -140,6 +140,19 @@ export interface LoanForm {
   contractEndMonth: string;
   /** Optional YYYY-MM: last payment already made when the principal was read. */
   principalPaidThroughMonth: string;
+  /** Optional IRA in % of the capital repaid early (SPEC D22); "" or missing = none. */
+  penaltyPct?: string;
+  /** Optional cap in months of interest; "" or missing = no cap. */
+  penaltyCapMonths?: string;
+}
+
+/** Whole number of months, 0 to 120 ("6", " 6 "). */
+function parseCapMonths(raw: string): Parsed<number> {
+  const text = raw.trim();
+  if (!/^\d+$/.test(text)) return { ok: false, error: "Nombre de mois entier attendu" };
+  const value = Number(text);
+  if (value > 120) return { ok: false, error: "120 mois maximum" };
+  return { ok: true, value };
 }
 
 /** `activeLoanCount` excludes the loan being edited. */
@@ -159,6 +172,13 @@ export function validateLoan(form: LoanForm, activeLoanCount: number): Validated
   const contractEndMonth = endText === "" ? null : c.take("contractEndMonth", parseMonth(endText));
   const paidText = (form.principalPaidThroughMonth ?? "").trim();
   const principalPaidThroughMonth = paidText === "" ? null : c.take("principalPaidThroughMonth", parseMonth(paidText));
+  const penaltyText = (form.penaltyPct ?? "").trim();
+  const capText = (form.penaltyCapMonths ?? "").trim();
+  const penaltyPct = penaltyText === "" ? null : c.take("penaltyPct", parsePercent(penaltyText));
+  const penaltyCapMonths = capText === "" ? null : c.take("penaltyCapMonths", parseCapMonths(capText));
+  if (penaltyCapMonths !== null && penaltyPct === null && !c.errors.penaltyPct) {
+    c.fail("penaltyCapMonths", "Indiquez d’abord le pourcentage d’IRA");
+  }
   return c.result({
     name: name || null,
     type: type || null,
@@ -167,6 +187,8 @@ export function validateLoan(form: LoanForm, activeLoanCount: number): Validated
     apr,
     monthlyPayment,
     contractEndMonth,
+    penaltyPct: penaltyPct ?? null,
+    penaltyCapMonths: penaltyCapMonths ?? null,
   });
 }
 

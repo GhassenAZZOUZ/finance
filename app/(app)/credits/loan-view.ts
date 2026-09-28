@@ -27,6 +27,8 @@ export interface LoanDerived {
   payoffMonthWithoutPlan: YearMonth | null;
   interestWithPlan: Cents;
   interestWithoutPlan: Cents;
+  /** IRA paid on this loan's early repayments in the plan (SPEC D22). */
+  penaltiesPaid: Cents;
 }
 
 export interface LoanRow {
@@ -46,6 +48,9 @@ export interface LoanRow {
   monthlyPayment: Cents;
   paymentBelowInterest: boolean;
   contractEndMonth: YearMonth | null;
+  /** IRA (SPEC D22): fraction of the capital repaid early, and optional cap in months of interest. */
+  penaltyPct: number | null;
+  penaltyCapMonths: number | null;
   /** Contract end vs simulated end, when both are known (SPEC D5b). */
   endCheck: ContractEndCheck | null;
   derived: LoanDerived | null;
@@ -67,6 +72,8 @@ export const EMPTY_LOAN_FORM: LoanForm = {
   monthlyPayment: "",
   contractEndMonth: "",
   principalPaidThroughMonth: "",
+  penaltyPct: "",
+  penaltyCapMonths: "",
 };
 
 /** Tolerated difference between the contract end and the simulated end (rounding of the last payment). */
@@ -120,6 +127,8 @@ export function loanToForm(loan: Loan): LoanForm {
     monthlyPayment: amountInputValue(loan.monthlyPayment),
     contractEndMonth: loan.contractEndMonth ?? "",
     principalPaidThroughMonth: loan.principalPaidThroughMonth ?? "",
+    penaltyPct: loan.penaltyPct ? percentInputValue(loan.penaltyPct) : "",
+    penaltyCapMonths: loan.penaltyPct && loan.penaltyCapMonths !== null ? String(loan.penaltyCapMonths) : "",
   };
 }
 
@@ -162,6 +171,8 @@ export function buildLoanRows(loans: readonly Loan[], plan: ComputedPlan | null)
       monthlyPayment: loan.monthlyPayment,
       paymentBelowInterest: s?.paymentBelowInterest ?? isPaymentBelowInterest(loan),
       contractEndMonth: loan.contractEndMonth,
+      penaltyPct: loan.penaltyPct,
+      penaltyCapMonths: loan.penaltyCapMonths,
       endCheck: checkContractEnd(loan.contractEndMonth, s ? (paidOffBeforeStart ?? s.payoffMonthWithoutPlan) : undefined),
       derived: s
         ? {
@@ -172,6 +183,7 @@ export function buildLoanRows(loans: readonly Loan[], plan: ComputedPlan | null)
             payoffMonthWithoutPlan: s.payoffMonthWithoutPlan,
             interestWithPlan: s.interestWithPlan,
             interestWithoutPlan: s.interestWithoutPlan,
+            penaltiesPaid: s.penaltiesPaid,
           }
         : null,
       form: loanToForm(loan),
@@ -205,6 +217,8 @@ export function readLoanForm(formData: FormData): LoanForm {
     monthlyPayment: text(formData, "monthlyPayment"),
     contractEndMonth: text(formData, "contractEndMonth"),
     principalPaidThroughMonth: text(formData, "principalPaidThroughMonth"),
+    penaltyPct: text(formData, "penaltyPct"),
+    penaltyCapMonths: text(formData, "penaltyCapMonths"),
   };
 }
 

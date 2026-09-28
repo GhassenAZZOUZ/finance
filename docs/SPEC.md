@@ -48,6 +48,7 @@ from our code.
 | D3 | Dates | `startMonth` and `movingDeadlineMonth` are `YYYY-MM` months. Month granularity everywhere |
 | D4 | Personal debts | No special rule. A 0 % personal debt behaves exactly as in the spreadsheet: normal payments only, never eligible for early repayment. "Dette personnelle" is just a loan type label |
 | D5 | Remaining months | **Dropped** (the input and its 3 derived columns). Replaced by simulated payoff months and per-loan interest (§5) |
+| D22 | Early-repayment penalties (issue #9, owner-validated 2026-09-28) | Optional per loan: `penaltyPct` (% of the capital repaid early) and `penaltyCapMonths` (cap: N months of interest on that capital; French home loans: 3 % / 6 months; consumer loans: a flat 1 % or 0,5 %, the 10 000 €/12 months exemption is not modelled: leave it empty). The penalty is paid from the month's early-repayment budget; a loan is skipped when the penalty is not below the interest the repaid money would still cost (apr / 12 × remaining months), and its share goes to the next priority, then to free savings. « Intérêts économisés » is net of penalties. Empty = no penalty = previous behaviour (golden data unchanged). Engine: §4.2 "Penalties" |
 | D21 | Dark theme (issue #11) | The theme follows the OS (`prefers-color-scheme`) by default, live. A « Thème » control (Système / Clair / Sombre: sidebar and mobile account menu) overrides it; Clair / Sombre are stored on the device under `localStorage["finance-theme"]`, « Système » removes the key; any other stored value = Système; blocked storage = the choice lasts for the session. An inline script in `<head>` sets the `.dark` class before the first paint. Every colour is a token in `app/globals.css` with a light and a dark value; text contrast ≥ 4.5:1 in both themes (axe, all pages) |
 | D20 | Template import (issue #8) | Page `/import` (from « Mes données »): the `.xlsx` template (≤ 5 MB) is read **in the browser** (no upload, no dependency, no macro or formula executed: cached values only), previewed, and saved only on « Importer ». Cells are validated with the form rules; any error (sheet + cell) blocks the import. Import **replaces** the parameters, the budget lines and the active loans; check-ins and one-off exceptions are kept. Idempotent: line slots (category, rank) and loans (same name, case-insensitive) are reused, active loans absent from the file are removed (archived when check-ins use them, D8). Details in §11 |
 | D19 | Installable app (issue #6) | Web app manifest (`app/manifest.ts`): name « Plan financier », `display: standalone`, `start_url` = `scope` = the app root **with the Pages base path** (`/finance/`), icons 192 / 512 / maskable 512, a « Suivi » shortcut; iOS: `apple-touch-icon` + `apple-mobile-web-app-*` tags. No service worker: offline mode is out of scope. On iOS the installed app does not share Safari's storage, so a magic link opened from the mail signs in Safari, not the app (the 6-digit code, #3, fixes this). The monthly e-mail reminder is **not built yet** (needs an e-mail provider) |
@@ -127,6 +128,7 @@ Column F (Durée restante) is **not used** (D5).
   2. monthly interest (baseline) — *deviation*
   3. `toEarlyRepayment = round2(remainder × earlyRepaymentPct)` — *deviation*
   4. KPI `movingMonthlyNeeded` — *deviation*
+  6. early-repayment penalty `penalty = round2(repaid × penaltyRate)` (D22; 0 without a penalty)
   5. balances after payment / after early repayment (already rounded in the spreadsheet; they are
      exact once the inputs are cents)
 - Rates (`apr`, `riskFreeRate`, `earlyRepaymentPct`, ratios) are not money and are not rounded.
@@ -156,6 +158,7 @@ extraRepayment       = min(Σ extra repayments on i in m, balanceAfterPayment)  
 open                 = balanceAfterPayment − extraRepayment
 earlyRepayment       = priority_i none → 0
                        else max(0, min(open, toEarlyRepayment(m) − Σ_{j : priority_j < priority_i} open_j))
+                       (no penalty on any loan; with penalties see "Penalties (D22)" below)
 endBalance           = open − earlyRepayment
 ```
 
@@ -168,6 +171,30 @@ endBalance           = open − earlyRepayment
 - The last normal payment is capped at `balance + interest`, so it can be smaller than `monthlyPayment`.
 - If `monthlyPayment < interest`, the balance grows every month (negative amortisation). The
   engine does not cap it; the UI warns (D10).
+
+**Penalties (D22).** A loan may have `penaltyPct` (fraction of the capital repaid early) and
+`penaltyCapMonths` (optional cap: that many months of interest on the capital repaid early).
+
+```
+penaltyRate_i  = penaltyPct_i = 0 → 0
+                 else min(penaltyPct_i, penaltyCapMonths_i × apr_i / 12)      (no cap → penaltyPct_i)
+penalty(P)     = round2(P × penaltyRate_i)
+n_i(m)         = months of normal payments left on open_i (§4.2 rules, no early repayment; ∞ if never repaid)
+worth_i(m)     = penaltyRate_i = 0 or penaltyRate_i < apr_i / 12 × n_i(m)     (strict: net gain > 0)
+
+budgetLeft     = toEarlyRepayment(m)
+for i in priority order:
+  skip if open_i = 0 or not worth_i(m)
+  earlyRepayment_i = the largest P ≤ min(open_i, budgetLeft) with P + penalty(P) ≤ budgetLeft
+  penalty_i        = penalty(earlyRepayment_i)
+  budgetLeft      −= earlyRepayment_i + penalty_i
+```
+
+- The penalty is paid from the same month's early-repayment budget. `apr / 12 × n` is a lower
+  bound of the interest a euro repaid now saves (it ignores compounding), so a skipped loan is
+  never one where repaying would have gained money. A skipped loan's share goes to the next
+  priority; what no loan takes is `unusedEarlyRepayment` (→ free savings, §6).
+- With no penalty on any loan this is exactly the formula above (golden data unchanged).
 
 ### 4.5 Principal at the plan start (D5c)
 
@@ -202,7 +229,7 @@ baselineEnd      = baselineStart + baselineInterest − normalPayment(baselineSt
 |---|---|
 | `earlyRepaymentWorthIt` (J) | "Oui" if eligible, else "Non" |
 | `priority` (K) | §4.1 (empty if not eligible) |
-| `advice` (L) | apr ≥ 0.10 → "Taux élevé : à solder en priorité"; eligible → "Remb. anticipé intéressant (vérifier IRA)"; else "Garder, épargner plutôt" |
+| `advice` (L) | apr ≥ 0.10 → "Taux élevé : à solder en priorité"; eligible → "Remb. anticipé intéressant" (the app computes the IRA entered on the loan, D22); else "Garder, épargner plutôt" |
 | `payoffMonthWithPlan` | *new (D5)*: month of the first `endBalance ≤ 0.01`; none within 300 months → "Au-delà de 25 ans" |
 | `payoffMonthWithoutPlan` | *new*: same on `baselineEnd` |
 | `interestWithPlan` / `interestWithoutPlan` | *new*: Σ over 300 months of `interest` / `baselineInterest` for this loan |
@@ -238,7 +265,7 @@ emergencyCum   (J)    = emergencyCum(m−1) + toEmergency            emergencyCu
 ③ Remainder
 remainder      (K)    = max(0, available − toMoving − toEmergency)
 toEarlyRepayment (L)  = round2(remainder × earlyRepaymentPct)
-unusedEarlyRepayment (M) = max(0, toEarlyRepayment − totalEarlyRepayment(m))
+unusedEarlyRepayment (M) = max(0, toEarlyRepayment − totalEarlyRepayment(m) − totalPenalty(m))   (penalties: D22)
 toFreeSavings  (N)    = remainder − toEarlyRepayment + unusedEarlyRepayment
 freeSavingsCum (O)    = freeSavingsCum(m−1) + toFreeSavings − extraFromFreeSavings(m)
                         freeSavingsCum(0) = freeSavingsExisting (D16, default 0); extraFromFreeSavings: D17, else 0
@@ -280,7 +307,7 @@ Behaviours kept from the spreadsheet (confirmed by the Excel scenarios):
 | `emergencyTarget` | B21 | input |
 | `emergencyReachedDate` | B22 | first month with emergencyReached, else "Non atteint (25 ans)" |
 | `debtFreeDate` | B25 | no loans → "Aucune dette"; first month with debtFree; else "Au-delà de 25 ans" |
-| `interestWithoutPlan` / `interestWithPlan` / `interestSaved` | B26–B28 | Σ totalBaselineInterest, Σ totalInterest, difference (before IRA penalties) |
+| `interestWithoutPlan` / `interestWithPlan` / `interestSaved` | B26–B28 | Σ totalBaselineInterest, Σ totalInterest, difference **minus Σ penalties paid** (`penaltiesPaid`, D22; the spreadsheet had no penalties) |
 | `freeSavingsAt12` / `emergencyFundAt12` / `remainingDebtAt12` | B31–B33 | plan month 12: O / J / P |
 | `negativeBudgetMonths` | B34 | count of negativeBudget months (should be 0) |
 | Latest actuals | B37–B40 | §8.3 |
@@ -377,12 +404,13 @@ independent reference engine disagrees with Excel on any cell.
 ### 10.1 JSON backup, `finance-backup-YYYY-MM-DD.json`
 
 ```
-{ format: "finance-plan-backup", version: 1, exportedAt: ISO timestamp,
+{ format: "finance-plan-backup", version: 2, exportedAt: ISO timestamp,
   data: { settings | null,
           budgetLines[] { id, category, label, amount, position, startMonth, endMonth },
           exceptions[]  { id, month, kind, label, amount },
           loans[]       { id, name, type, principal, principalPaidThroughMonth, apr, monthlyPayment,
-                          contractEndMonth, position, archivedAt }   active first, then archived,
+                          contractEndMonth, penaltyPct, penaltyCapMonths, position, archivedAt }
+                          active first, then archived,
           checkIns[]    { id, month, income, expenses, movingSavings, emergencySavings, freeSavings,
                           loanBalances[] { loanId, balance }, frozen | null } } }
 ```
@@ -391,7 +419,8 @@ independent reference engine disagrees with Excel on any cell.
   converted from integer cents, so no precision is lost. Rates (`apr`, `riskFreeRate`,
   `earlyRepaymentPct`) are fractions as stored. Months are `YYYY-MM`; `null` = empty.
 - Empty collections are empty arrays; `settings` is `null` before onboarding.
-- `version` changes whenever the shape changes; an import (#8) must check `format` and `version`.
+- `version` changes whenever the shape changes; an import must check `format` and `version`.
+  Version 1 (#7) had no `penaltyPct` / `penaltyCapMonths` (read them as `null`); version 2 adds them (D22).
 
 ### 10.2 Plan CSV, `finance-plan-YYYY-MM-DD.csv`
 

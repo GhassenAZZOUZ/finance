@@ -38,7 +38,7 @@ const loan = (id: string, name: string, principal: number, apr: number, monthlyP
   principalPaidThroughMonth: null,
   apr,
   monthlyPayment,
-  contractEndMonth: null,
+  contractEndMonth: null, penaltyPct: null, penaltyCapMonths: null,
   position: 0,
   archivedAt: null,
 });

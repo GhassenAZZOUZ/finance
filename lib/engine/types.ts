@@ -58,6 +58,13 @@ export interface LoanInput {
   /** Fraction, e.g. 0.189 for 18.9 %. */
   apr: number;
   monthlyPayment: Cents;
+  /**
+   * Early-repayment penalty (IRA, SPEC D22): fraction of the capital repaid early, e.g. 0.03.
+   * 0 or omitted = no penalty (the avalanche is then exactly the spreadsheet's).
+   */
+  penaltyPct?: number;
+  /** Optional cap: this many months of interest on the capital repaid early (French home loans: 6). */
+  penaltyCapMonths?: number | null;
 }
 
 /**
@@ -90,6 +97,8 @@ export interface LoanMonth {
   /** One-off extra repayment applied this month (SPEC D17), before the avalanche. */
   extraRepayment: Cents;
   earlyRepayment: Cents;
+  /** IRA paid on this month's early repayment (SPEC D22), taken from the early-repayment budget. */
+  penalty: Cents;
   endBalance: Cents;
   baselineInterest: Cents;
   baselineEndBalance: Cents;
@@ -126,6 +135,8 @@ export interface PlanMonth {
   /** Same order as `PlanInput.loans`. */
   loans: LoanMonth[];
   totalEarlyRepayment: Cents;
+  /** Σ penalty of the loans (SPEC D22). */
+  totalPenalty: Cents;
   /** Σ extraRepayment of the loans (SPEC D17). */
   totalExtraRepayment: Cents;
   /** Part of `totalExtraRepayment` taken from the free savings (deducted from `freeSavingsCumulative`). */
@@ -149,6 +160,8 @@ export interface LoanSummary {
   payoffMonthWithoutPlan: YearMonth | null;
   interestWithPlan: Cents;
   interestWithoutPlan: Cents;
+  /** Σ IRA paid on this loan's early repayments (SPEC D22). */
+  penaltiesPaid: Cents;
   /** The first month's payment does not cover the interest: the balance grows (SPEC D10). */
   paymentBelowInterest: boolean;
 }
@@ -179,7 +192,9 @@ export interface PlanKpis {
   debtFreeMonth: YearMonth | null;
   interestWithoutPlan: Cents;
   interestWithPlan: Cents;
+  /** Net of penalties: interestWithoutPlan − interestWithPlan − penaltiesPaid (SPEC D22). */
   interestSaved: Cents;
+  penaltiesPaid: Cents;
   freeSavingsAt12: Cents;
   emergencyFundAt12: Cents;
   remainingDebtAt12: Cents;

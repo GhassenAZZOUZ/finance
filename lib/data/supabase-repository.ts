@@ -46,9 +46,13 @@ interface LoanRow {
   apr: number;
   monthly_payment: number;
   contract_end_month: string | null;
+  penalty_pct: number | null;
+  penalty_cap_months: number | null;
   position: number;
   archived_at: string | null;
 }
+const LOAN_COLUMNS =
+  "id, name, type, principal, principal_paid_through_month, apr, monthly_payment, contract_end_month, penalty_pct, penalty_cap_months, position, archived_at";
 interface ExceptionRow {
   id: string;
   month: string;
@@ -120,6 +124,8 @@ function toLoan(r: LoanRow): Loan {
     apr: Number(r.apr),
     monthlyPayment: cents(r.monthly_payment),
     contractEndMonth: r.contract_end_month,
+    penaltyPct: r.penalty_pct === null ? null : Number(r.penalty_pct),
+    penaltyCapMonths: r.penalty_cap_months,
     position: r.position,
     archivedAt: r.archived_at,
   };
@@ -134,6 +140,8 @@ function loanColumns(d: LoanDraft) {
     apr: d.apr,
     monthly_payment: euros(d.monthlyPayment),
     contract_end_month: d.contractEndMonth,
+    penalty_pct: d.penaltyPct,
+    penalty_cap_months: d.penaltyCapMonths,
   };
 }
 
@@ -150,7 +158,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         .returns<LineRow[]>(),
       this.db
         .from("loans")
-        .select("id, name, type, principal, principal_paid_through_month, apr, monthly_payment, contract_end_month, position, archived_at")
+        .select(LOAN_COLUMNS)
         .order("position")
         .order("created_at")
         .returns<LoanRow[]>(),
@@ -299,7 +307,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       await this.db
         .from("loans")
         .insert({ ...loanColumns(draft), position })
-        .select("id, name, type, principal, principal_paid_through_month, apr, monthly_payment, contract_end_month, position, archived_at")
+        .select(LOAN_COLUMNS)
         .single<LoanRow>(),
     );
     return toLoan(row);

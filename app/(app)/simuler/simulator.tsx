@@ -268,7 +268,7 @@ export function Simulator({ base, currentMonth }: { base: SimulationBase; curren
             <CardTitle>
               <h2>Plan actuel et simulation</h2>
             </CardTitle>
-            <CardDescription>Intérêts avant éventuelles IRA (indemnités de remboursement anticipé).</CardDescription>
+            <CardDescription>Intérêts nets des IRA saisies sur vos crédits (indemnités de remboursement anticipé).</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div aria-live="polite" className="flex flex-col gap-2 empty:hidden">

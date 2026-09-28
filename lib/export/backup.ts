@@ -6,8 +6,11 @@ import type { Cents, YearMonth } from "@/lib/engine";
 import type { FinanceSnapshot, FrozenPlan, Loan } from "@/lib/domain/types";
 
 export const BACKUP_FORMAT = "finance-plan-backup";
-/** Bump when the shape changes; a future import (#8) reads older versions explicitly. */
-export const BACKUP_VERSION = 1;
+/**
+ * Bump when the shape changes; an import reads older versions explicitly.
+ * 1: first version (#7). 2: loans gain `penaltyPct` and `penaltyCapMonths` (IRA, #9).
+ */
+export const BACKUP_VERSION = 2;
 
 /** Euros with exactly 2 decimals and a dot ("1234.50", "-0.05"), computed from integer cents. */
 export type DecimalEuros = string;
@@ -31,12 +34,16 @@ export interface BackupLoan {
   apr: number;
   monthlyPayment: DecimalEuros;
   contractEndMonth: YearMonth | null;
+  /** IRA as a fraction of the capital repaid early; null = none (SPEC D22). */
+  penaltyPct: number | null;
+  /** Cap in months of interest; null = no cap. */
+  penaltyCapMonths: number | null;
   position: number;
   /** ISO timestamp; null for an active loan (SPEC D8). */
   archivedAt: string | null;
 }
 
-export interface BackupV1 {
+export interface Backup {
   format: typeof BACKUP_FORMAT;
   version: typeof BACKUP_VERSION;
   /** ISO timestamp of the export. */
@@ -96,6 +103,8 @@ function loan(l: Loan): BackupLoan {
     apr: l.apr,
     monthlyPayment: centsToDecimal(l.monthlyPayment),
     contractEndMonth: l.contractEndMonth,
+    penaltyPct: l.penaltyPct,
+    penaltyCapMonths: l.penaltyCapMonths,
     position: l.position,
     archivedAt: l.archivedAt,
   };
@@ -112,7 +121,7 @@ function frozen(f: FrozenPlan | null) {
   };
 }
 
-export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): BackupV1 {
+export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): Backup {
   const s = snapshot.settings;
   return {
     format: BACKUP_FORMAT,
@@ -165,7 +174,7 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
 }
 
 /** Pretty-printed JSON, as downloaded. */
-export function serializeBackup(backup: BackupV1): string {
+export function serializeBackup(backup: Backup): string {
   return `${JSON.stringify(backup, null, 2)}\n`;
 }
 

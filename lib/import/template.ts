@@ -152,6 +152,8 @@ const LOAN_COLUMNS: Record<keyof LoanForm | "form", string> = {
   monthlyPayment: "E",
   contractEndMonth: "A",
   principalPaidThroughMonth: "A",
+  penaltyPct: "A",
+  penaltyCapMonths: "A",
 };
 
 function readLoans(sheet: Sheet): { row: number; form: LoanForm }[] | null {
