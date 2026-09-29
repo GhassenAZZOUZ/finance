@@ -52,6 +52,7 @@ describe("errorMessage", () => {
     ["22P02", "Valeur refusée par la base de données. Vérifiez le formulaire."],
     ["22003", "Montant trop grand pour être enregistré."],
     ["22023", "Formulaire invalide. Rechargez la page."],
+    ["P0002", "Élément introuvable : il a peut-être déjà été supprimé. Rechargez la page."],
   ])("maps the %s code to a specific message", (code, message) => {
     expect(errorMessage(new RepositoryError("db", code), FALLBACK)).toBe(message);
   });
