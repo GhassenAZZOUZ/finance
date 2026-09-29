@@ -46,14 +46,17 @@ describe("ImportView", () => {
     expect(mocks.repo!.saveBudget).not.toHaveBeenCalled();
   });
 
-  it("imports on confirm: budget saved, loan matched by name updated, others created / removed", async () => {
+  it("imports on confirm in one call: budget, loan matched by name updated, others created / removed", async () => {
     await upload(templateFile());
     await userEvent.click(await screen.findByRole("button", { name: "Importer" }));
     await screen.findByText(/Import terminé : paramètres, 15 lignes de budget et 6 crédits/);
-    expect(mocks.repo!.saveBudget).toHaveBeenCalledOnce();
-    expect(mocks.repo!.updateLoan).toHaveBeenCalledWith("loan-1", expect.objectContaining({ name: "Prêt auto" }));
-    expect(mocks.repo!.createLoan).toHaveBeenCalledTimes(5);
-    expect(mocks.repo!.removeLoan).toHaveBeenCalledWith("loan-2");
+    expect(mocks.repo!.applyImport).toHaveBeenCalledOnce();
+    const plan = mocks.repo!.applyImport.mock.calls[0]![0];
+    expect(plan.lines).toHaveLength(15);
+    expect(plan.loanUpdates).toEqual([{ id: "loan-1", draft: expect.objectContaining({ name: "Prêt auto" }) }]);
+    expect(plan.loanCreates).toHaveLength(5);
+    expect(plan.loanRemovals).toEqual(["loan-2"]);
+    expect(mocks.repo!.saveBudget).not.toHaveBeenCalled();
     expect(mocks.notify).toHaveBeenCalled();
   });
 
@@ -61,8 +64,7 @@ describe("ImportView", () => {
     await upload(templateFile());
     await userEvent.click(await screen.findByRole("button", { name: "Annuler" }));
     expect(screen.queryByRole("button", { name: "Importer" })).toBeNull();
-    expect(mocks.repo!.saveBudget).not.toHaveBeenCalled();
-    expect(mocks.repo!.createLoan).not.toHaveBeenCalled();
+    expect(mocks.repo!.applyImport).not.toHaveBeenCalled();
   });
 
   it("rejects a file that is not the template", async () => {
@@ -71,11 +73,12 @@ describe("ImportView", () => {
     expect(screen.queryByRole("button", { name: "Importer" })).toBeNull();
   });
 
-  it("shows a retryable error when saving fails", async () => {
-    mocks.repo!.createLoan.mockRejectedValueOnce(new Error("offline"));
+  it("shows a retryable error when saving fails, with nothing to reload", async () => {
+    mocks.repo!.applyImport.mockRejectedValueOnce(new Error("offline"));
     await upload(templateFile());
     await userEvent.click(await screen.findByRole("button", { name: "Importer" }));
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Réessayez"));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("rien n’a été modifié. Réessayez"));
     expect(screen.getByRole("button", { name: "Importer" })).toBeTruthy();
+    expect(mocks.notify).not.toHaveBeenCalled();
   });
 });
