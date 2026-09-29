@@ -17,7 +17,7 @@ access to the backup repository.
    backup repository (Settings → Deploy keys, **Allow write access**). Put the content of
    `backup_deploy_key` in this repository's **secret** `BACKUP_DEPLOY_KEY`, then delete both local files.
 4. This repository's **variables**:
-   - `BACKUP_AGE_PUBLIC_KEY` = `age1lexc2eat7yumm2mk3kp43yqpmr75gxllg0prp8xjesc0u9mz2acqhpvs44`
+   - `BACKUP_AGE_PUBLIC_KEY` = `age10c5dujjqewlwztwwqzl4lwzt3hgft0m6263gqwm2sn969xlmwd9scp52lt`
      (the `# public key:` line of the key file)
    - `BACKUP_REPOSITORY` = `GhassenAZZOUZ/finance-backups`
 5. Run the workflow by hand once and check that a `.age` file appears in the backup repository.
