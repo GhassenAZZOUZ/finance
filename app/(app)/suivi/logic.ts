@@ -120,6 +120,23 @@ export function plannedForMonth(
   };
 }
 
+/**
+ * Loan balances of an early check-in (SPEC D29, issue #61): not entered, taken from the plan after
+ * that month's payment (its end balance), as typed strings for the form. "" outside the plan.
+ */
+export function earlyLoanBalances(
+  result: PlanResult,
+  startMonth: YearMonth,
+  month: YearMonth,
+  loanIds: readonly string[],
+): { loanId: string; balance: string }[] {
+  const planMonth = compareMonths(month, startMonth) < 0 ? undefined : result.months[monthsBetween(startMonth, month)];
+  return loanIds.map((loanId, j) => {
+    const balance = planMonth?.loans[j]?.endBalance;
+    return { loanId, balance: balance === undefined ? "" : amountInputValue(balance) };
+  });
+}
+
 export interface ProvisionalCheck {
   /** Required balances (savings + loans) still empty or invalid. */
   missing: number;

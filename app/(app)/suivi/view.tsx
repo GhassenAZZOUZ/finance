@@ -6,10 +6,11 @@ import { useFinance } from "@/components/app/finance-provider";
 import { Onboarding } from "@/components/app/onboarding";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { lastOpenMonth, openingOf } from "@/lib/domain/payday";
 import { planRebase } from "@/lib/domain/rebase";
 import type { ActualForm } from "@/lib/domain/validation";
 import { type ActualStatus, addMonths, compareMonths } from "@/lib/engine";
-import { currentDate, currentYearMonth, formatMonthLong } from "@/lib/format";
+import { currentDate, currentYearMonth, formatDate, formatMonthLong } from "@/lib/format";
 import { ActualVsPlannedCard } from "./actual-vs-planned";
 import { CheckInForm } from "./check-in-form";
 import { History, HistoryList } from "./history";
@@ -18,6 +19,7 @@ import {
   type PlannedValues,
   buildHistory,
   checkInMonths,
+  earlyLoanBalances,
   parseMonthParam,
   pendingCheckIns,
   plannedForMonth,
@@ -27,6 +29,8 @@ import { RebaseCard } from "./rebase-card";
 
 const TITLE = "Suivi mensuel";
 const DESCRIPTION = "En fin de mois, reportez vos soldes réels. L’écart avec le plan s’affiche pendant la saisie.";
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 export function SuiviView() {
   const { snapshot, plan } = useFinance();
@@ -42,7 +46,13 @@ export function SuiviView() {
   }
 
   const { startMonth } = snapshot.settings;
-  const currentMonth = currentYearMonth();
+  const today = currentDate();
+  const calendarMonth = currentYearMonth();
+  // The next month opens once its first income is paid (SPEC D29): it is then the newest open month.
+  const currentMonth = lastOpenMonth(calendarMonth, today, snapshot.lines, snapshot.incomePayments);
+  const earlyMonth = currentMonth !== calendarMonth ? currentMonth : null;
+  const nextMonth = addMonths(calendarMonth, 1);
+  const nextOpening = openingOf(snapshot.lines, nextMonth, snapshot.incomePayments);
   // After "Recaler le plan" the start month can be next month: the history stays visible.
   const notStarted = compareMonths(startMonth, currentMonth) > 0;
   const hasActuals = snapshot.actuals.length > 0;
@@ -57,6 +67,13 @@ export function SuiviView() {
   for (const month of months) {
     values[month] = prefillForm(month, actualsByMonth.get(month), snapshot.loans, goals);
     planned[month] = plannedForMonth(plan.result, startMonth, month, goals);
+  }
+  // An early month's loans are not entered: the plan's balances after its payment (SPEC D29).
+  if (earlyMonth && values[earlyMonth]) {
+    values[earlyMonth] = {
+      ...values[earlyMonth],
+      loanBalances: earlyLoanBalances(plan.result, startMonth, earlyMonth, snapshot.loans.map((l) => l.id)),
+    };
   }
   const statuses: Record<string, ActualStatus | null> = Object.fromEntries(plan.comparisons.map((c) => [c.month, c.status]));
   // ?mois= (sidebar, dashboard), else the oldest month still to enter, else the current month.
@@ -97,7 +114,8 @@ export function SuiviView() {
                 values={values}
                 existing={entered}
                 statuses={statuses}
-                currentMonth={currentMonth}
+                currentMonth={calendarMonth}
+                earlyMonth={earlyMonth}
                 planned={planned}
                 loans={loans}
                 goals={goals.map((g) => ({ id: g.id, label: g.name }))}
@@ -109,10 +127,19 @@ export function SuiviView() {
         <div className="flex flex-col gap-4">
           {/* Payment dates of the incomes (SPEC D29): next month first, then the open months. */}
           <IncomePaymentsCard
-            months={[addMonths(currentMonth, 1), ...months]}
+            months={earlyMonth ? months : [nextMonth, ...months]}
             lines={snapshot.lines}
             payments={snapshot.incomePayments}
-            today={currentDate()}
+            today={today}
+            footer={(month) =>
+              month === nextMonth && nextOpening ? (
+                <p className="rounded-[10px] bg-secondary px-3 py-2.5 text-[13px] leading-normal text-muted-foreground">
+                  {nextOpening.date <= today
+                    ? `${capitalize(formatMonthLong(nextMonth))} est ouvert au suivi depuis le ${formatDate(nextOpening.date)} (${nextOpening.line.label}).`
+                    : `${capitalize(formatMonthLong(nextMonth))} s’ouvrira au suivi le ${formatDate(nextOpening.date)} (${nextOpening.line.label}), dès le premier revenu versé.`}
+                </p>
+              ) : null
+            }
           />
           {notStarted && !hasActuals ? null : (
             <section aria-labelledby="suivi-history-title" className="flex flex-col gap-3.5 rounded-2xl border bg-card p-4 md:p-6">

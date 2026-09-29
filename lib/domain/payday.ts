@@ -55,3 +55,35 @@ export function isIsoDate(value: string): boolean {
   const day = Number(match[3]);
   return Number(match[2]) >= 1 && Number(match[2]) <= 12 && day >= 1 && day <= daysInMonth(month);
 }
+
+/**
+ * When `month` opens to a check-in (SPEC D29, issue #61): the earliest effective payment date of its
+ * income lines, i.e. the day its first income is paid, with that line. Null without income lines.
+ */
+export function openingOf(
+  lines: readonly BudgetLine[],
+  month: YearMonth,
+  payments: readonly IncomePayment[],
+): { date: IsoDate; line: BudgetLine } | null {
+  let first: { date: IsoDate; line: BudgetLine } | null = null;
+  for (const line of incomeLinesFor(lines, month)) {
+    const date = effectivePayDate(line, month, payments);
+    if (!first || date < first.date) first = { date, line };
+  }
+  return first;
+}
+
+/**
+ * Last month open to a check-in (SPEC D6, D29): the next month once its first income has been paid
+ * (opening date ≤ today, Europe/Paris), else the current month. Never further than the next month.
+ */
+export function lastOpenMonth(
+  currentMonth: YearMonth,
+  today: IsoDate,
+  lines: readonly BudgetLine[],
+  payments: readonly IncomePayment[],
+): YearMonth {
+  const next = addMonths(currentMonth, 1);
+  const opening = openingOf(lines, next, payments);
+  return opening && opening.date <= today ? next : currentMonth;
+}
