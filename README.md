@@ -170,6 +170,8 @@ to `main`:
 - No IBANs, account numbers or bank credentials are stored: only balances and amounts.
 - Every table has RLS; each user only sees their own rows.
 - Export and import happen in the browser: no file is uploaded anywhere.
+- « Mes données » › « Supprimer mon compte » deletes the account and every row of the user at once
+  (`delete_my_account()`, SPEC D26). The hosted project's backups keep them until their retention ends.
 
 ## Deploying (GitHub Pages)
 
