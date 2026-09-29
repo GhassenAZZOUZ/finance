@@ -440,6 +440,10 @@ export class SupabaseFinanceRepository implements FinanceRepository {
     if (updated.length === 0) throw new RepositoryError("Profil introuvable", "not_found");
   }
 
+  async deleteAccount(): Promise<void> {
+    checkMaybe(await this.db.rpc("delete_my_account"));
+  }
+
   async orderGoals(ids: string[]): Promise<void> {
     const rows = check(await this.db.from("savings_goals").select(GOAL_COLUMNS).returns<GoalRow[]>());
     const byId = new Map(rows.map((r) => [r.id, r]));
