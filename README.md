@@ -202,6 +202,11 @@ Preview the static build locally, as the E2E job does (no base path): `npm run b
 `node scripts/serve-static.mjs out 3000`. To check the Pages base path, build with
 `NEXT_PUBLIC_BASE_PATH=/finance` and serve `out/` under `/finance/` with any static server.
 
+## Backups
+
+A weekly workflow stores an age-encrypted dump of the hosted database in a private repository. Setup
+(key, deploy key, variables) and restore: [docs/BACKUPS.md](docs/BACKUPS.md).
+
 ## Roadmap
 
 Open work is tracked in [GitHub issues](https://github.com/GhassenAZZOUZ/finance/issues):

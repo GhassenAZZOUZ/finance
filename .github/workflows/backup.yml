@@ -1,0 +1,84 @@
+name: Back up the database
+
+# Weekly encrypted dump of the hosted database (real financial data): roles, schema and data
+# (public + auth) are dumped, encrypted with age for the owner's public key, and pushed to a private
+# repository. The plain dump only ever exists in this runner's temp directory. Setup and restore:
+# docs/BACKUPS.md.
+on:
+  schedule:
+    - cron: "41 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Dump, encrypt, store
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_PROJECT_REF: fayeuqhjbnuvxjiysxls
+      # Same token as the migrate job; no database password (temporary login role).
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      AGE_RECIPIENT: ${{ vars.BACKUP_AGE_PUBLIC_KEY }}
+      BACKUP_REPOSITORY: ${{ vars.BACKUP_REPOSITORY }}
+      HAS_DEPLOY_KEY: ${{ secrets.BACKUP_DEPLOY_KEY != '' }}
+    steps:
+      - name: Check configuration
+        run: |
+          missing=""
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || missing="$missing secret:SUPABASE_ACCESS_TOKEN"
+          [ "$HAS_DEPLOY_KEY" = "true" ] || missing="$missing secret:BACKUP_DEPLOY_KEY"
+          [ -n "$BACKUP_REPOSITORY" ] || missing="$missing variable:BACKUP_REPOSITORY"
+          case "$AGE_RECIPIENT" in age1*) ;; *) missing="$missing variable:BACKUP_AGE_PUBLIC_KEY" ;; esac
+          if [ -n "$missing" ]; then
+            echo "::error::Backup not configured, missing:$missing (see docs/BACKUPS.md)"
+            exit 1
+          fi
+
+      - name: Install age
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.108.0
+
+      - name: Link the hosted project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Dump and encrypt
+        run: |
+          umask 077
+          plain="$(mktemp -d)"
+          trap 'rm -rf "$plain"' EXIT
+          supabase db dump --linked --role-only -f "$plain/roles.sql"
+          supabase db dump --linked -f "$plain/schema.sql"
+          # auth.users holds the accounts every row points at; without it the data cannot be restored.
+          supabase db dump --linked --data-only --use-copy --schema public,auth -f "$plain/data.sql"
+          name="finance-$(date -u +%Y-%m-%d).tar.gz.age"
+          tar -C "$plain" -czf - roles.sql schema.sql data.sql | age -r "$AGE_RECIPIENT" -o "$RUNNER_TEMP/$name"
+          echo "BACKUP_FILE=$name" >> "$GITHUB_ENV"
+          ls -l "$RUNNER_TEMP/$name"
+
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.BACKUP_REPOSITORY }}
+          ssh-key: ${{ secrets.BACKUP_DEPLOY_KEY }}
+          path: backups
+
+      - name: Push the encrypted dump
+        working-directory: backups
+        run: |
+          dir="$(date -u +%Y)"
+          mkdir -p "$dir"
+          mv "$RUNNER_TEMP/$BACKUP_FILE" "$dir/"
+          git config user.name "finance-backup"
+          git config user.email "finance-backup@users.noreply.github.com"
+          git add "$dir/$BACKUP_FILE"
+          git commit -q -m "backup: $BACKUP_FILE"
+          git push -q
