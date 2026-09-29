@@ -20,7 +20,6 @@ test("adds and edits budget lines, then the dashboard margin reflects them", asy
 
   const start = currentYearMonth();
   await page.getByRole("textbox", { name: "Début du plan" }).fill(start);
-  await page.getByRole("textbox", { name: "Date limite déménagement" }).fill(start);
   await page.getByRole("textbox", { name: "Taux seuil (%)" }).fill("3");
   await page.getByRole("textbox", { name: "Part du reste en remboursement anticipé" }).fill("50");
   await page.getByRole("button", { name: "Enregistrer" }).click();

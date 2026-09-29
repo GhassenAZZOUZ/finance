@@ -38,7 +38,7 @@ export function ActualVsPlannedCard({ comparisons }: { comparisons: readonly Act
         </section>
         <section aria-labelledby="avp-savings-title" className="flex min-w-0 flex-col gap-2">
           <h3 id="avp-savings-title" className="text-sm font-medium">
-            Épargne totale (déménagement + urgence + libre)
+            Épargne totale (objectifs + urgence + libre)
           </h3>
           <PlanLineChart
             data={points}

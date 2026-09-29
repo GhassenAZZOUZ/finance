@@ -27,14 +27,13 @@ function actual(month: string, overrides: Partial<MonthlyActual> = {}): MonthlyA
     month,
     income: null,
     expenses: null,
-    movingSavings: 100_000,
     emergencySavings: 150_000,
     freeSavings: 0,
     loanBalances: [
       { loanId: "loan-1", balance: 450_000 },
       { loanId: "loan-2", balance: 480_000 },
     ],
-    goalBalances: [],
+    goalBalances: [{ goalId: "goal-primary", balance: 100_000 }],
     frozen: null,
     ...overrides,
   };
@@ -46,7 +45,7 @@ const SNAPSHOT = makeSnapshot({
   actuals: [
     actual("2026-02"),
     actual("2026-03", {
-      movingSavings: 150_000,
+      goalBalances: [{ goalId: "goal-primary", balance: 150_000 }],
       emergencySavings: 200_000,
       freeSavings: 5_000,
       loanBalances: [
@@ -130,7 +129,6 @@ describe("RebaseCard", () => {
     expect(changes.settings).toEqual(
       expect.objectContaining({
         startMonth: "2026-04",
-        movingAlreadySaved: 150_000,
         emergencyExisting: 200_000,
         freeSavingsExisting: 5_000,
       }),
@@ -139,6 +137,8 @@ describe("RebaseCard", () => {
       { id: "loan-1", draft: expect.objectContaining({ principal: 400_000, principalPaidThroughMonth: "2026-03" }) },
     ]);
     expect(changes.loansToArchive).toEqual(["loan-2"]);
+    // The primary goal restarts from its balance, like any goal (SPEC D23).
+    expect(changes.goalUpdates).toEqual([{ id: "goal-primary", draft: expect.objectContaining({ alreadySaved: 150_000 }) }]);
     // Nothing is written piece by piece any more.
     for (const fn of [repo.freezeActuals, repo.saveSettings, repo.updateLoan, repo.removeLoan, repo.updateGoal]) {
       expect(fn).not.toHaveBeenCalled();

@@ -127,8 +127,17 @@ describe("validateGoal (AC-06)", () => {
     expect(validateGoal(form(over), opts)).toEqual({ ok: false, errors: { [field]: message } });
   });
 
-  it("the current month is a valid deadline; the primary goal may keep a past one", () => {
+  it("the current month is a valid deadline; a goal may keep the past deadline it has, not get a new one", () => {
     expect(validateGoal(form({ deadlineMonth: "2026-09" }), opts).ok).toBe(true);
-    expect(validateGoal(form({ deadlineMonth: "2025-01" }), { ...opts, primary: true }).ok).toBe(true);
+    expect(validateGoal(form({ deadlineMonth: "2025-01" }), { ...opts, savedDeadline: "2025-01" }).ok).toBe(true);
+    expect(validateGoal(form({ deadlineMonth: "2025-02" }), { ...opts, savedDeadline: "2025-01" })).toMatchObject({
+      ok: false,
+      errors: { deadlineMonth: "La date limite est déjà passée" },
+    });
+  });
+
+  it("only the primary goal may have no target yet (SPEC D23)", () => {
+    expect(validateGoal(form({ target: "0" }), opts)).toMatchObject({ ok: false, errors: { target: "L’objectif doit être supérieur à 0" } });
+    expect(validateGoal(form({ target: "0" }), { ...opts, primary: true })).toMatchObject({ ok: true, value: { target: 0 } });
   });
 });

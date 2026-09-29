@@ -1,6 +1,7 @@
 /**
- * GoalsCard (/budget, issue #10): lists the goals by priority with their status, adds a goal with
- * field errors, reorders, and never offers to delete the primary goal.
+ * GoalsCard (/budget, issues #10 and tech-debt 6): lists the goals by priority with their status,
+ * adds a goal with field errors, reorders, edits every goal the same way, and deletes the primary
+ * goal only after choosing the goal that replaces it.
  */
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -13,8 +14,9 @@ import { type RepositoryMock, createRepositoryMock, makeSnapshot } from "./helpe
 const mocks = vi.hoisted(() => ({ repo: null as RepositoryMock | null, notify: vi.fn() }));
 vi.mock("@/lib/data/client-store", () => ({ getRepository: () => mocks.repo, notifyDataChanged: mocks.notify }));
 
+// The primary goal has a real id; the engine's KPIs name it PRIMARY_GOAL_ID ("moving").
 const GOALS: SavingsGoal[] = [
-  { id: "moving", name: "Déménagement", target: 400_000, deadlineMonth: "2027-06", alreadySaved: 50_000, priority: 1, primary: true },
+  { id: "goal-primary", name: "Déménagement", target: 400_000, deadlineMonth: "2027-06", alreadySaved: 50_000, priority: 1, primary: true },
   { id: "car", name: "Voiture", target: 800_000, deadlineMonth: "2028-06", alreadySaved: 0, priority: 2, primary: false },
 ];
 const KPIS: GoalKpis[] = [
@@ -42,11 +44,46 @@ describe("GoalsCard", () => {
     expect(items[1]!.textContent).toMatch(/Hors délai : il manquera 1\s500,00\s€ fin juin 2028/);
   });
 
-  it("offers no delete button for the primary goal", () => {
+  it("edits the primary goal's amounts like any goal (SPEC D23)", async () => {
     renderCard();
-    expect(screen.queryByRole("button", { name: "Supprimer « Déménagement »" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Supprimer « Voiture »" })).toBeTruthy();
     expect((screen.getByRole("button", { name: "Monter « Déménagement »" }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: "Modifier « Déménagement »" }));
+    const form = screen.getByRole("form", { name: "Modifier « Déménagement »" });
+    const target = within(form).getByLabelText("Montant visé (€)");
+    await userEvent.clear(target);
+    await userEvent.type(target, "4500");
+    await userEvent.click(within(form).getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() =>
+      expect(mocks.repo!.updateGoal).toHaveBeenCalledWith("goal-primary", {
+        name: "Déménagement",
+        target: 450_000,
+        deadlineMonth: "2027-06",
+        alreadySaved: 50_000,
+      }),
+    );
+  });
+
+  it("deletes another goal directly", async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole("button", { name: "Supprimer « Voiture »" }));
+    await waitFor(() => expect(mocks.repo!.deleteGoal).toHaveBeenCalledWith("car", undefined));
+    expect((await screen.findByRole("status")).textContent).toContain("« Voiture » a été supprimé.");
+  });
+
+  it("deletes the primary goal only once its successor is chosen", async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole("button", { name: "Supprimer « Déménagement »" }));
+    expect(mocks.repo!.deleteGoal).not.toHaveBeenCalled();
+    const group = screen.getByRole("group", { name: "Supprimer l’objectif principal « Déménagement »" });
+    expect((within(group).getByLabelText("Nouvel objectif principal") as HTMLSelectElement).value).toBe("car");
+
+    await userEvent.click(within(group).getByRole("button", { name: "Annuler" }));
+    expect(screen.queryByRole("group", { name: "Supprimer l’objectif principal « Déménagement »" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Supprimer « Déménagement »" }));
+    await userEvent.click(within(screen.getByRole("group", { name: /Supprimer l’objectif principal/ })).getByRole("button", { name: "Supprimer « Déménagement »" }));
+    await waitFor(() => expect(mocks.repo!.deleteGoal).toHaveBeenCalledWith("goal-primary", "car"));
+    expect((await screen.findByRole("status")).textContent).toContain("« Voiture » devient l’objectif principal.");
   });
 
   it("shows field errors and saves nothing for an invalid goal (AC-06)", async () => {
@@ -74,7 +111,7 @@ describe("GoalsCard", () => {
     expect((await screen.findByRole("status")).textContent).toContain("« Vacances » a été ajouté.");
 
     await userEvent.click(screen.getByRole("button", { name: "Monter « Voiture »" }));
-    await waitFor(() => expect(mocks.repo!.orderGoals).toHaveBeenLastCalledWith(["car", "moving"]));
+    await waitFor(() => expect(mocks.repo!.orderGoals).toHaveBeenLastCalledWith(["car", "goal-primary"]));
     expect(mocks.notify).toHaveBeenCalled();
   });
 });

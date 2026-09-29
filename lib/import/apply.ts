@@ -4,11 +4,16 @@
  * same loan name) so importing the same file twice changes nothing. `FinanceRepository.applyImport`
  * writes the plan all-or-nothing.
  */
-import type { BudgetLineDraft, BudgetSettings, FinanceSnapshot, LoanDraft } from "@/lib/domain/types";
+import type { BudgetLineDraft, BudgetSettings, FinanceSnapshot, LoanDraft, SavingsGoalDraft } from "@/lib/domain/types";
 import type { TemplateData } from "./template";
 
 export interface ImportPlan {
   settings: BudgetSettings;
+  /**
+   * The file's moving fund, written to the primary goal (its name is kept); a user without goals
+   * gets a primary goal with this name.
+   */
+  primaryGoal: SavingsGoalDraft;
   /** With the id of the existing line in the same slot (category, rank), when there is one. */
   lines: BudgetLineDraft[];
   loanUpdates: { id: string; draft: LoanDraft }[];
@@ -16,6 +21,9 @@ export interface ImportPlan {
   /** Active loans absent from the file: deleted, or archived when check-ins use them (D8). */
   loanRemovals: string[];
 }
+
+/** The spreadsheet's single savings goal. */
+export const TEMPLATE_GOAL_NAME = "Déménagement";
 
 const loanKey = (name: string | null) => (name ?? "").trim().toLocaleLowerCase("fr");
 
@@ -55,6 +63,7 @@ export function planImport(snapshot: FinanceSnapshot, data: TemplateData): Impor
 
   return {
     settings: { ...data.settings, freeSavingsExisting: snapshot.settings?.freeSavingsExisting ?? 0 },
+    primaryGoal: { name: snapshot.goals.find((g) => g.primary)?.name ?? TEMPLATE_GOAL_NAME, ...data.primaryGoal },
     lines,
     loanUpdates,
     loanCreates,

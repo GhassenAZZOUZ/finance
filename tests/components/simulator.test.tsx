@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type SimulationBase, simulationBase } from "@/app/(app)/simuler/logic";
 import { Simulator } from "@/app/(app)/simuler/simulator";
 import type { BudgetLine } from "@/lib/domain/types";
-import { type RepositoryMock, createRepositoryMock, makeLoan, makeSettings, makeSnapshot } from "./helpers";
+import { type RepositoryMock, createRepositoryMock, makeLoan, makeSettings, makeSnapshot, primaryGoal } from "./helpers";
 
 const mocks = vi.hoisted(() => ({ repo: null as RepositoryMock | null, notify: vi.fn() }));
 // jsdom has no layout: give the charts a fixed size instead of measuring their container.
@@ -34,7 +34,8 @@ const line = (id: string, category: BudgetLine["category"], label: string, amoun
 });
 
 const SNAPSHOT = makeSnapshot({
-  settings: makeSettings({ startMonth: "2027-01", movingDeadlineMonth: "2027-12", riskFreeRate: 0.03, earlyRepaymentPct: 0.5 }),
+  settings: makeSettings({ startMonth: "2027-01", riskFreeRate: 0.03, earlyRepaymentPct: 0.5 }),
+  goals: [primaryGoal({ deadlineMonth: "2027-12" })],
   lines: [line("salary", "income", "Salaire", 300_000), line("rent", "fixed", "Loyer", 120_000), line("food", "variable", "Courses", 40_000)],
   loans: [makeLoan(1, { name: "Prêt auto", apr: 0.06 }), makeLoan(2, { name: "Prêt perso", principal: 300_000, apr: 0.04, monthlyPayment: 15_000 })],
 });
@@ -73,7 +74,7 @@ describe("Simulator", () => {
     expect((screen.getByLabelText("Taux seuil (%)") as HTMLInputElement).value).toBe("3");
     expect((screen.getByLabelText("Courses (€ / mois)") as HTMLInputElement).value).toBe("400,00");
     expect(screen.getByText("La simulation est identique à votre plan. Modifiez une hypothèse pour comparer.")).toBeTruthy();
-    for (const label of ["Sans dette en", "Intérêts économisés", "Objectif déménagement", "Fonds d’urgence complet en", "Épargne libre à 12 mois"]) {
+    for (const label of ["Sans dette en", "Intérêts économisés", "Objectif « Déménagement »", "Fonds d’urgence complet en", "Épargne libre à 12 mois"]) {
       expect(comparisonRow(label).difference).toBe("Identique");
     }
   });

@@ -49,6 +49,8 @@ export interface BudgetParams {
   /** Last month that can still receive moving savings (inclusive). */
   movingDeadlineMonth: YearMonth;
   movingAlreadySaved: Cents;
+  /** Name of the moving fund when it is the only goal; "Déménagement" (the spreadsheet's) when omitted. */
+  movingName?: string;
   emergencyTarget: Cents;
   emergencyExisting: Cents;
   /** Free savings already available at the plan start (SPEC D16); 0 when omitted. */

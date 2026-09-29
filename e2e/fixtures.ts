@@ -38,20 +38,27 @@ export async function signIn(page: Page, user: TestUser): Promise<void> {
   );
 }
 
-/** Plan parameters and budget written straight to the database, for journeys that need a plan. */
+/** Plan parameters, budget and primary savings goal written straight to the database, for journeys that need a plan. */
 export async function seedPlan(client: SupabaseClient, userId: string, startMonth: string): Promise<void> {
   const settings = await client.from("budget_settings").upsert({
     user_id: userId,
     start_month: startMonth,
-    moving_goal: 1000,
-    moving_deadline_month: startMonth,
-    moving_already_saved: 1000,
     emergency_target: 1000,
     emergency_existing: 1000,
     risk_free_rate: 0.02,
     early_repayment_pct: 0.5,
   });
   if (settings.error) throw settings.error;
+  // The moving fund of the spreadsheet: the primary savings goal (SPEC D23).
+  const goal = await client.from("savings_goals").insert({
+    user_id: userId,
+    name: "Déménagement",
+    target: 1000,
+    deadline_month: startMonth,
+    already_saved: 1000,
+    priority: 1,
+  });
+  if (goal.error) throw goal.error;
   const lines = await client.from("budget_lines").delete().eq("user_id", userId);
   if (lines.error) throw lines.error;
   const insert = await client.from("budget_lines").insert([

@@ -51,12 +51,11 @@ export function SuiviView() {
   const actualsByMonth = new Map(snapshot.actuals.map((a) => [a.month, a]));
   const values: Record<string, ActualForm> = {};
   const planned: Record<string, PlannedValues | null> = {};
-  // Savings goals (SPEC D23): the primary one is the « moving » field, the others get one field each.
-  const extraGoals = snapshot.goals.filter((g) => !g.primary);
-  const primaryGoal = snapshot.goals.find((g) => g.primary);
+  // Savings goals (SPEC D23): one field each, in priority order.
+  const goals = snapshot.goals;
   for (const month of months) {
-    values[month] = prefillForm(month, actualsByMonth.get(month), snapshot.loans, extraGoals);
-    planned[month] = plannedForMonth(plan.result, startMonth, month, extraGoals.map((g) => g.id));
+    values[month] = prefillForm(month, actualsByMonth.get(month), snapshot.loans, goals);
+    planned[month] = plannedForMonth(plan.result, startMonth, month, goals);
   }
   const statuses: Record<string, ActualStatus | null> = Object.fromEntries(plan.comparisons.map((c) => [c.month, c.status]));
   // ?mois= (sidebar, dashboard), else the oldest month still to enter, else the current month.
@@ -100,8 +99,7 @@ export function SuiviView() {
                 currentMonth={currentMonth}
                 planned={planned}
                 loans={loans}
-                primaryGoalName={primaryGoal?.name ?? "Déménagement"}
-                goals={extraGoals.map((g) => ({ id: g.id, label: g.name }))}
+                goals={goals.map((g) => ({ id: g.id, label: g.name }))}
               />
             </CardContent>
           </Card>

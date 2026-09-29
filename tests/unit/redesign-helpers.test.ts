@@ -45,8 +45,7 @@ describe("parseMonthParam", () => {
 
 describe("provisionalCheck", () => {
   const planned: PlannedValues = {
-    movingSavings: 138_710,
-    goalBalances: [],
+    goalBalances: [138_710],
     emergencySavings: 80_000,
     freeSavings: 0,
     income: 290_000,
@@ -57,7 +56,7 @@ describe("provisionalCheck", () => {
     month: "2026-08",
     income: "",
     expenses: "",
-    movingSavings: "1 387,10",
+    goalBalances: [{ goalId: "p", balance: "1 387,10" }],
     emergencySavings: "800",
     freeSavings: "0",
     loanBalances: [

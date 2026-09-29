@@ -143,7 +143,7 @@ export function History({ entries }: { entries: HistoryEntry[] }) {
                     <Gap gap={c.savingsGap} good={isSavingsGapGood} />
                   </dd>
                 </dl>
-                <Meter label="% objectif déménagement" value={c.movingGoalPct} />
+                <Meter label="% objectifs d’épargne" value={c.movingGoalPct} />
                 <Meter label="% dettes remboursées" value={c.debtRepaidPct} />
                 <div className="text-sm">
                   <p className="text-xs font-medium text-muted-foreground">Budget (pour information)</p>
@@ -209,7 +209,7 @@ export function History({ entries }: { entries: HistoryEntry[] }) {
                   </TableCell>
                   <TableCell className="align-top">
                     <div className="flex w-32 flex-col gap-2">
-                      <Meter label="% objectif déménagement" shortLabel="Déménagement" value={c.movingGoalPct} />
+                      <Meter label="% objectifs d’épargne" shortLabel="Objectifs" value={c.movingGoalPct} />
                       <Meter label="% dettes remboursées" shortLabel="Dettes remb." value={c.debtRepaidPct} />
                     </div>
                   </TableCell>

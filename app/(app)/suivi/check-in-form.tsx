@@ -30,24 +30,19 @@ export interface CheckInFormProps {
   planned: Record<YearMonth, PlannedValues | null>;
   /** Active loans, same order as `ActualForm.loanBalances` and `PlannedValues.loanBalances`. */
   loans: { id: string; label: string }[];
-  /** Name of the primary goal (the moving fund, SPEC D23). */
-  primaryGoalName?: string;
-  /** Extra savings goals, same order as `ActualForm.goalBalances` and `PlannedValues.goalBalances`. */
+  /** Savings goals, the primary one included (SPEC D23); same order as `ActualForm.goalBalances` and `PlannedValues.goalBalances`. */
   goals?: { id: string; label: string }[];
 }
 
-type SavingsField = "movingSavings" | "emergencySavings" | "freeSavings";
+type SavingsField = "emergencySavings" | "freeSavings";
 
-/** « Épargne déménagement », « Épargne voiture »… */
+/** « Épargne voyage », « Épargne voiture »… */
 export const goalFieldLabel = (name: string) => `Épargne ${name.toLocaleLowerCase("fr")}`;
 
-function savingsFields(primaryGoalName: string): { name: SavingsField; label: string }[] {
-  return [
-    { name: "movingSavings", label: goalFieldLabel(primaryGoalName) },
-    { name: "emergencySavings", label: "Fonds d’urgence" },
-    { name: "freeSavings", label: "Épargne libre" },
-  ];
-}
+const SAVINGS_FIELDS: { name: SavingsField; label: string }[] = [
+  { name: "emergencySavings", label: "Fonds d’urgence" },
+  { name: "freeSavings", label: "Épargne libre" },
+];
 
 /** How a field's gap is judged: savings must not fall short, debts must not exceed; budget = information. */
 type GapRule = "savings" | "debt" | "info";
@@ -67,10 +62,8 @@ export function CheckInForm({
   currentMonth,
   planned,
   loans,
-  primaryGoalName = "Déménagement",
   goals = [],
 }: CheckInFormProps) {
-  const SAVINGS_FIELDS = savingsFields(primaryGoalName);
   const [state, action, pending] = useActionState<SaveActualState, FormData>(saveActualAction, { status: "idle" });
   const [form, setForm] = useState<ActualForm>(() => values[initialMonth ?? months[0] ?? ""]!);
   // Feedback of a previous submission is hidden once the user switches month.
@@ -161,20 +154,6 @@ export function CheckInForm({
       <fieldset className="flex flex-col">
         <legend className="mb-1 text-[15px] font-semibold">Épargne en fin de mois</legend>
         <ColumnHeads />
-        {SAVINGS_FIELDS.map((field) => (
-          <AmountRow
-            key={field.name}
-            id={`suivi-${field.name}`}
-            name={field.name}
-            label={field.label}
-            required
-            value={form[field.name]}
-            onChange={(v) => setField(field.name, v)}
-            planned={plan ? plan[field.name] : null}
-            rule="savings"
-            error={errors[field.name]}
-          />
-        ))}
         {goals.map((goal, j) => (
           <AmountRow
             key={goal.id}
@@ -187,6 +166,20 @@ export function CheckInForm({
             planned={plan?.goalBalances[j] ?? null}
             rule="savings"
             error={errors[`goal.${goal.id}`]}
+          />
+        ))}
+        {SAVINGS_FIELDS.map((field) => (
+          <AmountRow
+            key={field.name}
+            id={`suivi-${field.name}`}
+            name={field.name}
+            label={field.label}
+            required
+            value={form[field.name]}
+            onChange={(v) => setField(field.name, v)}
+            planned={plan ? plan[field.name] : null}
+            rule="savings"
+            error={errors[field.name]}
           />
         ))}
       </fieldset>

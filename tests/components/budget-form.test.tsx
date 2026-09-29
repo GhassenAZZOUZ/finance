@@ -47,6 +47,13 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("BudgetForm", () => {
+  it("leaves the goals' amounts to the goals card and links to it (SPEC D23)", () => {
+    renderForm();
+    const group = screen.getByRole("group", { name: "Paramètres du plan" });
+    expect(within(group).queryByLabelText(/déménagement/i)).toBeNull();
+    expect(within(group).getByRole("link", { name: "Objectifs d’épargne" }).getAttribute("href")).toBe("#section-goals");
+  });
+
   it("shows the error on the negative line and does not save", async () => {
     const user = renderForm();
     await user.clear(amountInput("Loyer"));
@@ -113,7 +120,7 @@ describe("BudgetForm", () => {
     expect((input as HTMLInputElement).value).toBe("0,00");
     expect(input.getAttribute("aria-describedby")).toBe("param-freeSavingsExisting-hint");
     expect(
-      screen.getByText("Épargne disponible hors déménagement et fonds d’urgence au début du plan (0 si aucune)."),
+      screen.getByText("Épargne disponible hors objectifs d’épargne et fonds d’urgence au début du plan (0 si aucune)."),
     ).toBeTruthy();
 
     await user.clear(input);

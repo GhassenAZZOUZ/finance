@@ -28,9 +28,6 @@ import { affectedMonthCount } from "./exceptions-view";
 
 export const PARAM_FIELDS = [
   "startMonth",
-  "movingGoal",
-  "movingDeadlineMonth",
-  "movingAlreadySaved",
   "emergencyTarget",
   "emergencyExisting",
   "freeSavingsExisting",
@@ -68,9 +65,6 @@ export function initialFormState(settings: BudgetSettings | null, lines: readonl
   const params: ParamValues = settings
     ? {
         startMonth: settings.startMonth,
-        movingGoal: amountInputValue(settings.movingGoal),
-        movingDeadlineMonth: settings.movingDeadlineMonth,
-        movingAlreadySaved: amountInputValue(settings.movingAlreadySaved),
         emergencyTarget: amountInputValue(settings.emergencyTarget),
         emergencyExisting: amountInputValue(settings.emergencyExisting),
         freeSavingsExisting: amountInputValue(settings.freeSavingsExisting),
@@ -79,9 +73,6 @@ export function initialFormState(settings: BudgetSettings | null, lines: readonl
       }
     : {
         startMonth: currentMonth,
-        movingGoal: "0",
-        movingDeadlineMonth: "",
-        movingAlreadySaved: "0",
         emergencyTarget: "0",
         emergencyExisting: "0",
         freeSavingsExisting: "0",
@@ -153,9 +144,6 @@ export function parsePayload(raw: unknown, maxLines = 200): BudgetPayload | null
   return {
     form: {
       startMonth: text(form.startMonth),
-      movingGoal: text(form.movingGoal),
-      movingDeadlineMonth: text(form.movingDeadlineMonth),
-      movingAlreadySaved: text(form.movingAlreadySaved),
       emergencyTarget: text(form.emergencyTarget),
       emergencyExisting: text(form.emergencyExisting),
       freeSavingsExisting: text(form.freeSavingsExisting),

@@ -4,7 +4,7 @@ import { PHASE_STYLE } from "@/components/app/tones";
 import type { ComputedPlan } from "@/lib/domain/plan";
 import { formatEurosWhole, formatMonthShort } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { type PlanPhase, type RoadmapEvent, goalsName, phaseLabel, planPhases, roadmapEvents, roadmapWindow } from "./logic";
+import { type PlanPhase, type RoadmapEvent, goalsName, goalsPhrase, phaseLabel, planPhases, roadmapEvents, roadmapWindow } from "./logic";
 import { CARD } from "./styles";
 
 export function Roadmap({ plan, refIndex }: { plan: ComputedPlan; refIndex: number }) {
@@ -29,7 +29,7 @@ export function Roadmap({ plan, refIndex }: { plan: ComputedPlan; refIndex: numb
             Feuille de route
           </h2>
           <p className="hidden max-w-3xl text-sm leading-normal text-muted-foreground md:block">
-            Chaque mois, l’argent disponible remplit d’abord le déménagement, puis le fonds d’urgence.{" "}
+            Chaque mois, l’argent disponible remplit d’abord {goalsPhrase(plan.result.kpis)}, puis le fonds d’urgence.{" "}
             {pct > 0
               ? `Le reste part à ${repayPct} % en remboursement anticipé, à ${100 - repayPct} % en épargne libre.`
               : "Le reste va en épargne libre."}

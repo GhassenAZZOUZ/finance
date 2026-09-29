@@ -82,11 +82,17 @@ export function debtSavingsSummary(months: readonly PlanMonth[], count = 24): st
 }
 
 /** Text alternative for chart (b). */
-export function fundsSummary(months: readonly PlanMonth[], movingGoal: Cents, emergencyTarget: Cents, count = 12): string {
+export function fundsSummary(
+  months: readonly PlanMonth[],
+  movingGoal: Cents,
+  emergencyTarget: Cents,
+  count = 12,
+  goals = GOALS_BUCKET,
+): string {
   const slice = months.slice(0, count);
   if (!isNonEmpty(slice)) return "Aucune donnée.";
   return (
-    `Évolution sur ${slice.length} mois. Fonds déménagement : ${range(slice, (m) => m.movingCumulative)}, ` +
+    `Évolution sur ${slice.length} mois. ${goals} : ${range(slice, (m) => m.movingCumulative)}, ` +
     `objectif ${formatEurosWhole(movingGoal)}. Fonds d'urgence : ${range(slice, (m) => m.emergencyCumulative)}, ` +
     `objectif ${formatEurosWhole(emergencyTarget)}.`
   );
@@ -175,7 +181,13 @@ export function dashboardHeadline(k: PlanKpis): string {
   else if (k.debtFreeMonth) parts.push(`Plus de dettes en ${formatMonthLong(k.debtFreeMonth)}.`);
   else parts.push("Dettes remboursées au-delà de 25 ans.");
   if (k.movingGoal > 0) {
-    parts.push(k.movingGoalMet ? "Le déménagement est financé." : "Le déménagement demande un ajustement.");
+    const several = k.goals.length > 1;
+    const subject = several ? "Les objectifs d’épargne" : `« ${goalsName(k)} »`;
+    parts.push(
+      k.movingGoalMet
+        ? `${subject} ${several ? "sont financés" : "est financé"}.`
+        : `${subject} ${several ? "demandent" : "demande"} un ajustement.`,
+    );
   }
   if (k.negativeBudgetMonths > 0) {
     parts.push(`${k.negativeBudgetMonths} mois en budget négatif à corriger.`);
@@ -246,18 +258,26 @@ export function movingShortfallOptions(input: PlanInput, result: PlanResult, ref
 /** Allocation phase of a month: which bucket receives the money available that month. */
 export type PhaseKind = "moving" | "emergency" | "repay" | "free";
 
+/** The savings-goals bucket in general (SPEC D23). */
+export const GOALS_BUCKET = "Objectifs d’épargne";
+
 /** Name of the savings-goals bucket: the only goal's name, « Objectifs » when there are several (SPEC D23). */
 export function goalsName(kpis: Pick<PlanKpis, "goals">): string {
-  return kpis.goals.length === 1 ? (kpis.goals[0]?.name ?? "Déménagement") : kpis.goals.length > 1 ? "Objectifs" : "Déménagement";
+  return kpis.goals.length === 1 ? (kpis.goals[0]?.name ?? GOALS_BUCKET) : kpis.goals.length > 1 ? "Objectifs" : GOALS_BUCKET;
 }
 
-/** Name of the primary goal (the moving fund). */
+/** The bucket in a sentence: « Voyage » for a single goal, « les objectifs d’épargne » otherwise. */
+export function goalsPhrase(kpis: Pick<PlanKpis, "goals">): string {
+  return kpis.goals.length === 1 ? `« ${goalsName(kpis)} »` : "les objectifs d’épargne";
+}
+
+/** Name of the primary goal. */
 export function primaryGoalName(kpis: Pick<PlanKpis, "goals">): string {
-  return kpis.goals.find((g) => g.id === PRIMARY_GOAL_ID)?.name ?? "Déménagement";
+  return kpis.goals.find((g) => g.id === PRIMARY_GOAL_ID)?.name ?? "Objectif principal";
 }
 
-/** "① Déménagement", "② Fonds d’urgence", "③ Remb. anticipé + épargne", "④ Épargne libre". */
-export function phaseLabel(kind: PhaseKind, earlyRepaymentPct: number, goals = "Déménagement"): string {
+/** "① Voyage", "② Fonds d’urgence", "③ Remb. anticipé + épargne", "④ Épargne libre". */
+export function phaseLabel(kind: PhaseKind, earlyRepaymentPct: number, goals = GOALS_BUCKET): string {
   if (kind === "moving") return `① ${goals}`;
   if (kind === "emergency") return "② Fonds d’urgence";
   if (kind === "repay") return earlyRepaymentPct > 0 ? "③ Remb. anticipé + épargne" : "③ Épargne libre, crédits en cours";

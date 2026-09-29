@@ -105,9 +105,6 @@ describe("form parsing", () => {
 describe("computePreview with exceptions", () => {
   const settings: BudgetSettings = {
     startMonth: "2027-01",
-    movingGoal: 0,
-    movingDeadlineMonth: "2027-06",
-    movingAlreadySaved: 0,
     emergencyTarget: 0,
     emergencyExisting: 0, freeSavingsExisting: 0,
     riskFreeRate: 0.02,

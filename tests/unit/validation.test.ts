@@ -134,9 +134,6 @@ describe("validateLoan", () => {
 describe("validateBudget", () => {
   const form: BudgetForm = {
     startMonth: "2027-01",
-    movingGoal: "4000",
-    movingDeadlineMonth: "2027-06",
-    movingAlreadySaved: "500",
     emergencyTarget: "4000",
     emergencyExisting: "800",
     riskFreeRate: "2,4",
@@ -150,7 +147,7 @@ describe("validateBudget", () => {
 
   it("accepts a valid budget and numbers positions per category", () => {
     const result = validateBudget(form);
-    expect(result.ok && result.value.settings).toMatchObject({ riskFreeRate: 0.024, earlyRepaymentPct: 0.6, movingGoal: 400000 });
+    expect(result.ok && result.value.settings).toMatchObject({ riskFreeRate: 0.024, earlyRepaymentPct: 0.6, emergencyTarget: 400000 });
     expect(result.ok && result.value.lines.map((l) => [l.category, l.position])).toEqual([
       ["income", 0],
       ["fixed", 0],
@@ -200,12 +197,12 @@ describe("validateException (SPEC D14)", () => {
 });
 
 describe("validateActual (complete check-ins only)", () => {
-  const ctx = { startMonth: "2027-01", currentMonth: "2027-04", activeLoanIds: ["a", "b"] };
+  const ctx = { startMonth: "2027-01", currentMonth: "2027-04", activeLoanIds: ["a", "b"], goalIds: ["p"] };
   const form: ActualForm = {
     month: "2027-03",
     income: "",
     expenses: "1 700",
-    movingSavings: "900",
+    goalBalances: [{ goalId: "p", balance: "900" }],
     emergencySavings: "800",
     freeSavings: "0",
     loanBalances: [
@@ -216,12 +213,17 @@ describe("validateActual (complete check-ins only)", () => {
 
   it("accepts a complete month; income and expenses are optional", () => {
     const result = validateActual(form, ctx);
-    expect(result.ok && result.value).toMatchObject({ income: null, expenses: 170000, loanBalances: [{ balance: 790000 }, { balance: 0 }] });
+    expect(result.ok && result.value).toMatchObject({
+      income: null,
+      expenses: 170000,
+      goalBalances: [{ goalId: "p", balance: 90000 }],
+      loanBalances: [{ balance: 790000 }, { balance: 0 }],
+    });
   });
 
-  it("requires every savings balance and every active loan balance", () => {
-    const result = validateActual({ ...form, freeSavings: "", loanBalances: [{ loanId: "a", balance: "1" }] }, ctx);
-    expect(!result.ok && result.errors).toEqual({ freeSavings: "Montant requis", "loan.b": "Montant requis" });
+  it("requires every savings balance, every goal balance and every active loan balance", () => {
+    const result = validateActual({ ...form, freeSavings: "", goalBalances: [], loanBalances: [{ loanId: "a", balance: "1" }] }, ctx);
+    expect(!result.ok && result.errors).toEqual({ freeSavings: "Montant requis", "goal.p": "Montant requis", "loan.b": "Montant requis" });
   });
 
   it("rejects months before the plan start or in the future", () => {

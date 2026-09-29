@@ -13,11 +13,10 @@ const checkIn: MonthlyActual = {
   month: "2026-02",
   income: null,
   expenses: 123456,
-  movingSavings: 10000,
   emergencySavings: 0,
   freeSavings: 5,
   loanBalances: [{ loanId: "loan-1", balance: 450000 }],
-  goalBalances: [],
+  goalBalances: [{ goalId: "goal-primary", balance: 10000 }],
   frozen: { plannedDebt: 1, plannedSavings: 2, plannedIncome: 3, plannedExpenses: 4, planStartMonth: "2026-01" },
 };
 
@@ -56,7 +55,11 @@ describe("buildBackup", () => {
 
   it("contains every collection with 2-decimal amounts and YYYY-MM months", () => {
     const { data } = buildBackup(full, NOW);
-    expect(data.settings).toMatchObject({ startMonth: "2026-01", movingGoal: "3000.00", emergencyExisting: "1000.00", riskFreeRate: 0.03 });
+    expect(data.settings).toMatchObject({ startMonth: "2026-01", emergencyExisting: "1000.00", riskFreeRate: 0.03 });
+    expect(data.settings).not.toHaveProperty("movingGoal");
+    expect(data.goals).toEqual([
+      { id: "goal-primary", name: "Déménagement", target: "3000.00", deadlineMonth: "2026-12", alreadySaved: "0.00", priority: 1, primary: true },
+    ]);
     expect(data.budgetLines.map((l) => [l.label, l.amount, l.startMonth])).toEqual([
       ["Salaire", "2500.00", null],
       ["Électricité; gaz", "80.50", "2026-03"],
@@ -72,11 +75,10 @@ describe("buildBackup", () => {
         month: "2026-02",
         income: null,
         expenses: "1234.56",
-        movingSavings: "100.00",
         emergencySavings: "0.00",
         freeSavings: "0.05",
         loanBalances: [{ loanId: "loan-1", balance: "4500.00" }],
-        goalBalances: [],
+        goalBalances: [{ goalId: "goal-primary", balance: "100.00" }],
         frozen: { plannedDebt: "0.01", plannedSavings: "0.02", plannedIncome: "0.03", plannedExpenses: "0.04", planStartMonth: "2026-01" },
       },
     ]);

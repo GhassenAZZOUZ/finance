@@ -15,7 +15,7 @@ export const PLAN_GROUP = {
     stroke: "var(--bucket-payments)",
   },
   moving: {
-    label: "① Déménagement",
+    label: "① Objectifs d’épargne",
     swatch: "bg-bucket-moving",
     header: "text-bucket-moving-ink",
     cell: "bg-bucket-moving-tint",

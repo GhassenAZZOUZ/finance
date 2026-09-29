@@ -46,13 +46,15 @@ export interface FinanceRepository {
   /** Creates or replaces the check-in of `draft.month`. */
   saveActual(draft: MonthlyActualDraft): Promise<void>;
   deleteActual(month: string): Promise<void>;
-  /** Adds an extra savings goal with this priority (SPEC D23). */
+  /** Adds a savings goal with this priority (SPEC D23); the first one becomes the primary goal. */
   createGoal(draft: SavingsGoalDraft, priority: number): Promise<SavingsGoal>;
-  /** Updates a goal; the primary goal (id "moving") writes the moving fund of the settings. */
   updateGoal(id: string, draft: SavingsGoalDraft): Promise<void>;
-  /** Deletes an extra goal (and its check-in balances); the primary goal cannot be deleted. */
-  deleteGoal(id: string): Promise<void>;
-  /** Sets priorities 1..n in this order (all goal ids, "moving" included). */
+  /**
+   * Deletes a goal (and its check-in balances) and closes the priority gap. Deleting the primary
+   * goal while others remain needs `newPrimaryId`, the goal that becomes primary.
+   */
+  deleteGoal(id: string, newPrimaryId?: string): Promise<void>;
+  /** Sets priorities 1..n in this order (all goal ids). */
   orderGoals(ids: string[]): Promise<void>;
   /** Turns the monthly e-mail reminder on or off (SPEC D25). */
   setReminder(enabled: boolean): Promise<void>;

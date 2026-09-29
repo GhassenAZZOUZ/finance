@@ -16,11 +16,10 @@ const actual = (month: string, extra: Partial<MonthlyActual> = {}): MonthlyActua
   income: null,
   frozen: null,
   expenses: 123456,
-  movingSavings: 10000,
   emergencySavings: 0,
   freeSavings: 5,
   loanBalances: [{ loanId: "a", balance: 250050 }],
-  goalBalances: [],
+  goalBalances: [{ goalId: "p", balance: 10000 }],
   ...extra,
 });
 
@@ -38,34 +37,35 @@ describe("checkInMonths", () => {
 
 describe("prefillForm", () => {
   it("is empty without an entry, one balance per active loan", () => {
-    expect(prefillForm("2027-01", undefined, [{ id: "a" }, { id: "b" }])).toEqual({
+    expect(prefillForm("2027-01", undefined, [{ id: "a" }, { id: "b" }], [{ id: "p" }])).toEqual({
       month: "2027-01",
       income: "",
       expenses: "",
-      movingSavings: "",
       emergencySavings: "",
       freeSavings: "",
       loanBalances: [
         { loanId: "a", balance: "" },
         { loanId: "b", balance: "" },
       ],
-      goalBalances: [],
+      goalBalances: [{ goalId: "p", balance: "" }],
     });
   });
 
-  it("uses the existing entry; a loan added since stays empty", () => {
-    expect(prefillForm("2027-01", actual("2027-01"), [{ id: "a" }, { id: "b" }])).toEqual({
+  it("uses the existing entry; a loan or goal added since stays empty", () => {
+    expect(prefillForm("2027-01", actual("2027-01"), [{ id: "a" }, { id: "b" }], [{ id: "p" }, { id: "new" }])).toEqual({
       month: "2027-01",
       income: "",
       expenses: "1234,56",
-      movingSavings: "100,00",
       emergencySavings: "0,00",
       freeSavings: "0,05",
       loanBalances: [
         { loanId: "a", balance: "2500,50" },
         { loanId: "b", balance: "" },
       ],
-      goalBalances: [],
+      goalBalances: [
+        { goalId: "p", balance: "100,00" },
+        { goalId: "new", balance: "" },
+      ],
     });
   });
 });
@@ -91,14 +91,14 @@ describe("plannedForMonth", () => {
 
   it("reads the plan month at index = months since start", () => {
     const m = result.months[2]!;
-    expect(plannedForMonth(result, "2027-01", "2027-03")).toEqual({
-      movingSavings: m.movingCumulative,
+    // The primary goal is the engine's moving fund.
+    expect(plannedForMonth(result, "2027-01", "2027-03", [{ id: "p", primary: true }])).toEqual({
       emergencySavings: m.emergencyCumulative,
       freeSavings: m.freeSavingsCumulative,
       income: m.income,
       expenses: m.expenses,
       loanBalances: [m.loans[0]!.endBalance],
-      goalBalances: [],
+      goalBalances: [m.movingCumulative],
     });
   });
 

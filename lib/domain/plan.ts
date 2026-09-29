@@ -74,22 +74,25 @@ export function buildPlanInput(
   exceptions: readonly Pick<BudgetException, "month" | "kind" | "amount">[] = [],
   /** Month the KPI sums describe; defaults to the plan start. */
   kpiMonth: YearMonth = settings.startMonth,
-  /**
-   * Savings goals in priority order (SPEC D23). The primary goal's amounts always come from
-   * `settings` (the budget form edits them); without goals, the moving fund is the only goal.
-   */
+  /** Savings goals in priority order, the primary one included (SPEC D23). */
   goals: readonly SavingsGoal[] = [],
 ): PlanInput {
   const dated = lines.some((l) => (l.startMonth ?? null) !== null || (l.endMonth ?? null) !== null);
+  // The engine keeps the spreadsheet's shape: the primary goal is its moving fund (no goal: 0 €).
+  const primary = goals.find((g) => g.primary);
   return {
     budget: {
       income: sumCategory(lines, "income", kpiMonth),
       fixedCosts: sumCategory(lines, "fixed", kpiMonth),
       variableExpenses: sumCategory(lines, "variable", kpiMonth),
       ...settings,
+      movingGoal: primary?.target ?? 0,
+      movingDeadlineMonth: primary?.deadlineMonth ?? settings.startMonth,
+      movingAlreadySaved: primary?.alreadySaved ?? 0,
+      movingName: primary?.name ?? NO_GOAL_NAME,
       exceptions: exceptions.map((e) => ({ month: e.month, kind: e.kind, amount: e.amount })),
       // Only with extra goals, so a moving fund alone gives the exact same input as before (D23).
-      ...(goals.some((g) => !g.primary) ? { goals: goalInputs(settings, goals) } : {}),
+      ...(goals.some((g) => !g.primary) ? { goals: goalInputs(goals) } : {}),
       // Only needed when some line has a period; otherwise the constant sums are exact.
       ...(dated
         ? {
@@ -116,21 +119,19 @@ export function buildPlanInput(
   };
 }
 
-/** Goals in priority order for the engine; the primary goal takes the settings' moving fund. */
-function goalInputs(settings: BudgetSettings, goals: readonly SavingsGoal[]) {
+/** Name of the (empty) moving fund of a user without savings goals. */
+export const NO_GOAL_NAME = "Objectif d’épargne";
+
+/** Id of a goal in the engine's input and results: the primary goal is PRIMARY_GOAL_ID there. */
+export function engineGoalId(goal: Pick<SavingsGoal, "id" | "primary">): string {
+  return goal.primary ? PRIMARY_GOAL_ID : goal.id;
+}
+
+/** Goals in priority order for the engine. */
+function goalInputs(goals: readonly SavingsGoal[]) {
   return [...goals]
     .sort((a, b) => a.priority - b.priority)
-    .map((g) =>
-      g.primary
-        ? {
-            id: PRIMARY_GOAL_ID,
-            name: g.name,
-            target: settings.movingGoal,
-            deadlineMonth: settings.movingDeadlineMonth,
-            alreadySaved: settings.movingAlreadySaved,
-          }
-        : { id: g.id, name: g.name, target: g.target, deadlineMonth: g.deadlineMonth, alreadySaved: g.alreadySaved },
-    );
+    .map((g) => ({ id: engineGoalId(g), name: g.name, target: g.target, deadlineMonth: g.deadlineMonth, alreadySaved: g.alreadySaved }));
 }
 
 export function toActualInput(actual: MonthlyActual): ActualInput {
@@ -138,8 +139,8 @@ export function toActualInput(actual: MonthlyActual): ActualInput {
     month: actual.month,
     income: actual.income,
     expenses: actual.expenses,
-    // All goals together (SPEC D23): the primary goal's balance plus the extra goals'.
-    movingSavings: actual.movingSavings + sumCents(actual.goalBalances.map((b) => b.balance)),
+    // All goals together (SPEC D23).
+    movingSavings: sumCents(actual.goalBalances.map((b) => b.balance)),
     emergencySavings: actual.emergencySavings,
     freeSavings: actual.freeSavings,
     loanBalances: actual.loanBalances.map((b) => b.balance),

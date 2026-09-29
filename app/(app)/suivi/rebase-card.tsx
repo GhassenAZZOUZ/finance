@@ -74,9 +74,11 @@ export function RebaseCard({ preview, startMonth, loanLabels }: RebaseCardProps)
                 <strong>{formatMonthLong(preview.fromMonth)}</strong> :
               </p>
               <ul className="flex list-disc flex-col gap-1 pl-5">
-                <li>
-                  épargne déménagement <Amount cents={preview.settings.movingAlreadySaved} />
-                </li>
+                {preview.goalUpdates.map(({ id, draft }) => (
+                  <li key={id} className="break-words">
+                    épargne {draft.name.toLocaleLowerCase("fr")} <Amount cents={draft.alreadySaved} />
+                  </li>
+                ))}
                 <li>
                   fonds d’urgence <Amount cents={preview.settings.emergencyExisting} />
                 </li>

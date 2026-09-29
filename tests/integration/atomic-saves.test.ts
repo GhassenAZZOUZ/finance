@@ -10,9 +10,6 @@ import { anonClient, createTestUser, deleteTestUser, type TestUser } from "./sup
 
 const settings: BudgetSettings = {
   startMonth: "2027-01",
-  movingGoal: 400000,
-  movingDeadlineMonth: "2027-06",
-  movingAlreadySaved: 0,
   emergencyTarget: 400000,
   emergencyExisting: 0,
   freeSavingsExisting: 0,
@@ -54,7 +51,6 @@ describe("saveActual", () => {
     month: "2027-02",
     income: 290000,
     expenses: 172500,
-    movingSavings: 94355,
     emergencySavings: 80000,
     freeSavings: 1234,
     loanBalances: [],
@@ -128,7 +124,6 @@ describe("rebasePlan / freezeActuals", () => {
     month,
     income: null,
     expenses: null,
-    movingSavings: 10000,
     emergencySavings: 20000,
     freeSavings: 3000,
     loanBalances: [
@@ -156,7 +151,7 @@ describe("rebasePlan / freezeActuals", () => {
       { month: "2027-01", frozen: frozen("2027-01") },
       { month: "2027-02", frozen: frozen("2027-01") },
     ],
-    settings: { ...settings, startMonth: "2027-03", movingAlreadySaved: 10000, emergencyExisting: 20000, freeSavingsExisting: 3000 },
+    settings: { ...settings, startMonth: "2027-03", emergencyExisting: 20000, freeSavingsExisting: 3000 },
     loanUpdates: [{ id: kept, draft: { ...LOAN, principal: 450000, principalPaidThroughMonth: "2027-02" } }],
     loansToArchive: [repaid],
     goalUpdates: [{ id: goal, draft: { name: "Voyage", target: 300000, deadlineMonth: "2027-12", alreadySaved: 7000 } }],
@@ -181,7 +176,7 @@ describe("rebasePlan / freezeActuals", () => {
   it("applies the whole re-base", async () => {
     await r.rebasePlan(changes());
     const snap = await r.load();
-    expect(snap.settings).toMatchObject({ startMonth: "2027-03", movingAlreadySaved: 10000, freeSavingsExisting: 3000 });
+    expect(snap.settings).toMatchObject({ startMonth: "2027-03", emergencyExisting: 20000, freeSavingsExisting: 3000 });
     expect(snap.actuals.map((a) => a.frozen)).toEqual([frozen("2027-01"), frozen("2027-01")]);
     expect(snap.loans).toEqual([expect.objectContaining({ id: kept, principal: 450000, principalPaidThroughMonth: "2027-02" })]);
     expect(snap.archivedLoans.map((l) => l.id)).toEqual([repaid]);

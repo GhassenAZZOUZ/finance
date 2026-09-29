@@ -9,9 +9,6 @@ let repo: SupabaseFinanceRepository;
 
 const settings: BudgetSettings = {
   startMonth: "2027-01",
-  movingGoal: 400000,
-  movingDeadlineMonth: "2027-06",
-  movingAlreadySaved: 50000,
   emergencyTarget: 400000,
   emergencyExisting: 80000, freeSavingsExisting: 0,
   riskFreeRate: 0.024,
@@ -85,7 +82,6 @@ describe("SupabaseFinanceRepository", () => {
       month: "2027-01",
       income: null,
       expenses: 172500,
-      movingSavings: 94355,
       emergencySavings: 80000,
       freeSavings: 0,
       loanBalances: [
