@@ -8,10 +8,11 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   signInWithOtp: vi.fn(),
   verifyOtp: vi.fn(),
+  params: "",
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mocks.replace }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(mocks.params),
 }));
 vi.mock("@/lib/supabase/client", () => ({
   authConfirmUrl: () => "http://localhost/auth/confirm/",
@@ -25,6 +26,7 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 beforeEach(() => {
+  mocks.params = "";
   mocks.replace.mockClear();
   mocks.signInWithOtp.mockReset().mockResolvedValue({ error: null });
   mocks.verifyOtp.mockReset().mockResolvedValue({ error: null });
@@ -40,6 +42,12 @@ async function requestCode(email = "someone@example.com") {
 }
 
 describe("LoginForm", () => {
+  it("confirms a deleted account (SPEC D26)", () => {
+    mocks.params = "compte-supprime";
+    render(<LoginForm />);
+    expect(screen.getByRole("status").textContent).toContain("Votre compte et toutes vos données ont été supprimés.");
+  });
+
   it("rejects an invalid address without sending anything", async () => {
     await requestCode("not-an-email");
     expect(await screen.findByText("Adresse e-mail invalide")).toBeTruthy();
