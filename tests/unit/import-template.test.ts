@@ -1,11 +1,10 @@
 /** Template import (issue #8): .xlsx reader, template parser and import plan. Anonymized template only. */
 import { readFileSync } from "node:fs";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import type { FinanceRepository } from "@/lib/data/repository";
-import { applyImport, planImport } from "@/lib/import/apply";
+import { planImport } from "@/lib/import/apply";
 import { MAX_IMPORT_BYTES, type TemplateData, monthText, parseTemplate, readTemplateFile } from "@/lib/import/template";
 import { type Sheet, decodeXml, openWorkbook, parseSheet } from "@/lib/import/xlsx";
-import { createRepositoryMock, makeLoan, makeSettings, makeSnapshot } from "../components/helpers";
+import { makeLoan, makeSettings, makeSnapshot } from "../components/helpers";
 
 const TEMPLATE = readFileSync("docs/plan_financier.template.xlsx");
 const asFile = (bytes: Uint8Array, name = "plan_financier.xlsx") => ({
@@ -160,7 +159,7 @@ describe("readTemplateFile", () => {
   });
 });
 
-describe("planImport / applyImport", () => {
+describe("planImport", () => {
   const data = (): TemplateData => {
     const r = parseTemplate(budget, loans);
     if (!r.ok) throw new Error("template");
@@ -198,24 +197,5 @@ describe("planImport / applyImport", () => {
     expect(plan.loanUpdates).toEqual([{ id: "loan-1", draft: expect.objectContaining({ name: "Prêt auto", principal: 820000, contractEndMonth: "2030-01" }) }]);
     expect(plan.loanCreates.map((l) => l.name)).toEqual(["Carte revolving", "Prêt travaux", "Prêt étudiant", "Dette perso A", "Dette perso B"]);
     expect(plan.loanRemovals).toEqual(["loan-2"]);
-  });
-
-  it("writes budget, then removals, updates and creations through the repository", async () => {
-    const repo = createRepositoryMock();
-    const calls: string[] = [];
-    for (const key of ["saveBudget", "removeLoan", "updateLoan", "createLoan"] as const) {
-      (repo[key] as ReturnType<typeof vi.fn>).mockImplementation(async () => {
-        calls.push(key);
-        return key === "removeLoan" ? "deleted" : key === "createLoan" ? makeLoan(9) : undefined;
-      });
-    }
-    await applyImport(repo as unknown as FinanceRepository, {
-      settings: makeSettings(),
-      lines: [],
-      loanUpdates: [{ id: "a", draft: makeLoan(1) }],
-      loanCreates: [makeLoan(2)],
-      loanRemovals: ["b"],
-    });
-    expect(calls).toEqual(["saveBudget", "removeLoan", "updateLoan", "createLoan"]);
   });
 });

@@ -16,7 +16,8 @@ import type {
   SavingsGoal,
   SavingsGoalDraft,
 } from "@/lib/domain/types";
-import { type FinanceRepository, RepositoryError } from "./repository";
+import type { ImportPlan } from "@/lib/import/apply";
+import { type FinanceRepository, type RebaseChanges, RepositoryError } from "./repository";
 
 // Row shapes as returned by PostgREST (numeric columns arrive as JSON numbers).
 interface SettingsRow {
@@ -164,6 +165,34 @@ function loanColumns(d: LoanDraft) {
   };
 }
 
+function settingsColumns(s: BudgetSettings) {
+  return {
+    start_month: s.startMonth,
+    moving_goal: euros(s.movingGoal),
+    moving_deadline_month: s.movingDeadlineMonth,
+    moving_already_saved: euros(s.movingAlreadySaved),
+    emergency_target: euros(s.emergencyTarget),
+    emergency_existing: euros(s.emergencyExisting),
+    free_savings_existing: euros(s.freeSavingsExisting),
+    risk_free_rate: s.riskFreeRate,
+    early_repayment_pct: s.earlyRepaymentPct,
+  };
+}
+
+function lineColumns(l: BudgetLineDraft) {
+  return {
+    category: l.category,
+    label: l.label.trim(),
+    amount: euros(l.amount),
+    position: l.position,
+    start_month: l.startMonth,
+    end_month: l.endMonth,
+  };
+}
+
+const freezeRows = (items: { month: string; frozen: FrozenPlan }[]) =>
+  items.map(({ month, frozen }) => ({ month, ...frozenColumns(frozen) }));
+
 function goalColumns(d: SavingsGoalDraft) {
   return {
     name: d.name.trim(),
@@ -292,56 +321,48 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   }
 
   async saveSettings(settings: BudgetSettings): Promise<void> {
+    checkMaybe(await this.db.from("budget_settings").upsert(settingsColumns(settings), { onConflict: "user_id" }));
+  }
+
+  /** One statement (Postgres function `freeze_actuals`), whatever the number of months. */
+  async freezeActuals(items: { month: string; frozen: FrozenPlan }[]): Promise<void> {
+    checkMaybe(await this.db.rpc("freeze_actuals", { p_freezes: freezeRows(items) }));
+  }
+
+  /** One transaction (Postgres function `rebase_plan`). */
+  async rebasePlan(changes: RebaseChanges): Promise<void> {
     checkMaybe(
-      await this.db.from("budget_settings").upsert(
-        {
-          start_month: settings.startMonth,
-          moving_goal: euros(settings.movingGoal),
-          moving_deadline_month: settings.movingDeadlineMonth,
-          moving_already_saved: euros(settings.movingAlreadySaved),
-          emergency_target: euros(settings.emergencyTarget),
-          emergency_existing: euros(settings.emergencyExisting),
-          free_savings_existing: euros(settings.freeSavingsExisting),
-          risk_free_rate: settings.riskFreeRate,
-          early_repayment_pct: settings.earlyRepaymentPct,
-        },
-        { onConflict: "user_id" },
-      ),
+      await this.db.rpc("rebase_plan", {
+        p_settings: settingsColumns(changes.settings),
+        p_freezes: freezeRows(changes.freezes),
+        p_loan_updates: changes.loanUpdates.map(({ id, draft }) => ({ id, ...loanColumns(draft) })),
+        p_loans_to_archive: changes.loansToArchive,
+        p_goal_updates: changes.goalUpdates.map(({ id, draft }) => ({ id, ...goalColumns(draft) })),
+      }),
     );
   }
 
-  async freezeActuals(items: { month: string; frozen: FrozenPlan }[]): Promise<void> {
-    for (const { month, frozen } of items) {
-      checkMaybe(
-        await this.db
-          .from("monthly_actuals")
-          .update(frozenColumns(frozen))
-          .eq("month", month)
-          .is("planned_debt", null),
-      );
-    }
+  /** One transaction (Postgres function `save_budget`): settings and lines, or nothing. */
+  async saveBudget(settings: BudgetSettings, lines: BudgetLineDraft[]): Promise<void> {
+    checkMaybe(
+      await this.db.rpc("save_budget", {
+        p_settings: settingsColumns(settings),
+        p_lines: lines.map((l) => ({ id: l.id ?? null, ...lineColumns(l) })),
+      }),
+    );
   }
 
-  async saveBudget(settings: BudgetSettings, lines: BudgetLineDraft[]): Promise<void> {
-    await this.saveSettings(settings);
-
-    const existing = check(await this.db.from("budget_lines").select("id").returns<{ id: string }[]>());
-    const kept = new Set(lines.flatMap((l) => (l.id ? [l.id] : [])));
-    const removed = existing.map((r) => r.id).filter((id) => !kept.has(id));
-    if (removed.length > 0) checkMaybe(await this.db.from("budget_lines").delete().in("id", removed));
-
-    const columns = (l: BudgetLineDraft) => ({
-      category: l.category,
-      label: l.label.trim(),
-      amount: euros(l.amount),
-      position: l.position,
-      start_month: l.startMonth,
-      end_month: l.endMonth,
-    });
-    const updates = lines.filter((l) => l.id).map((l) => ({ id: l.id, ...columns(l) }));
-    const inserts = lines.filter((l) => !l.id).map(columns);
-    if (updates.length > 0) checkMaybe(await this.db.from("budget_lines").upsert(updates, { onConflict: "id" }));
-    if (inserts.length > 0) checkMaybe(await this.db.from("budget_lines").insert(inserts));
+  /** One transaction (Postgres function `apply_import`). */
+  async applyImport(plan: ImportPlan): Promise<void> {
+    checkMaybe(
+      await this.db.rpc("apply_import", {
+        p_settings: settingsColumns(plan.settings),
+        p_lines: plan.lines.map((l) => ({ id: l.id ?? null, ...lineColumns(l) })),
+        p_loan_removals: plan.loanRemovals,
+        p_loan_updates: plan.loanUpdates.map(({ id, draft }) => ({ id, ...loanColumns(draft) })),
+        p_loan_creates: plan.loanCreates.map(loanColumns),
+      }),
+    );
   }
 
   async addException(draft: BudgetExceptionDraft): Promise<BudgetException> {
@@ -396,41 +417,23 @@ export class SupabaseFinanceRepository implements FinanceRepository {
     return "deleted";
   }
 
+  /** One transaction (Postgres function `save_actual`): the month and its balances, or nothing. */
   async saveActual(draft: MonthlyActualDraft): Promise<void> {
-    const actual = check(
-      await this.db
-        .from("monthly_actuals")
-        .upsert(
-          {
-            month: draft.month,
-            income: eurosOrNull(draft.income),
-            expenses: eurosOrNull(draft.expenses),
-            moving_savings: euros(draft.movingSavings),
-            emergency_savings: euros(draft.emergencySavings),
-            free_savings: euros(draft.freeSavings),
-            ...(draft.frozen ? frozenColumns(draft.frozen) : {}),
-          },
-          { onConflict: "user_id,month" },
-        )
-        .select("id")
-        .single<{ id: string }>(),
+    checkMaybe(
+      await this.db.rpc("save_actual", {
+        p_actual: {
+          month: draft.month,
+          income: eurosOrNull(draft.income),
+          expenses: eurosOrNull(draft.expenses),
+          moving_savings: euros(draft.movingSavings),
+          emergency_savings: euros(draft.emergencySavings),
+          free_savings: euros(draft.freeSavings),
+          ...(draft.frozen ? frozenColumns(draft.frozen) : {}),
+        },
+        p_loan_balances: draft.loanBalances.map((b) => ({ loan_id: b.loanId, balance: euros(b.balance) })),
+        p_goal_balances: draft.goalBalances.map((b) => ({ goal_id: b.goalId, balance: euros(b.balance) })),
+      }),
     );
-    checkMaybe(await this.db.from("monthly_actual_loan_balances").delete().eq("monthly_actual_id", actual.id));
-    if (draft.loanBalances.length > 0) {
-      checkMaybe(
-        await this.db.from("monthly_actual_loan_balances").insert(
-          draft.loanBalances.map((b) => ({ monthly_actual_id: actual.id, loan_id: b.loanId, balance: euros(b.balance) })),
-        ),
-      );
-    }
-    checkMaybe(await this.db.from("monthly_actual_goal_balances").delete().eq("monthly_actual_id", actual.id));
-    if (draft.goalBalances.length > 0) {
-      checkMaybe(
-        await this.db.from("monthly_actual_goal_balances").insert(
-          draft.goalBalances.map((b) => ({ monthly_actual_id: actual.id, goal_id: b.goalId, balance: euros(b.balance) })),
-        ),
-      );
-    }
   }
 
   async createGoal(draft: SavingsGoalDraft, priority: number): Promise<SavingsGoal> {

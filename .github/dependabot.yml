@@ -10,6 +10,17 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    # Majors that cannot land yet (checked 2026-09-29); remove a line once its blocker is fixed.
+    ignore:
+      # typescript-eslint (via eslint-config-next) does not support TypeScript 7.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # eslint-plugin-react (via eslint-config-next) breaks on ESLint 10 (context.getFilename removed).
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      # The app runs on Node 24 (engines, CI): its types must not offer newer Node APIs.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /

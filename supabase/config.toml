@@ -243,6 +243,15 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Login email with a one-time code + link (French). Same content for both flows (issue #3).
+[auth.email.template.magic_link]
+subject = "Votre code de connexion : {{ .Token }}"
+content_path = "./supabase/templates/login.html"
+
+[auth.email.template.confirmation]
+subject = "Votre code de connexion : {{ .Token }}"
+content_path = "./supabase/templates/login.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

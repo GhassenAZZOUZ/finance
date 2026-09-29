@@ -1,9 +1,9 @@
 /**
- * Applies a template import (SPEC D20): the budget and the active loans are **replaced** by the
+ * Plans a template import (SPEC D20): the budget and the active loans are **replaced** by the
  * file's; check-ins and one-off exceptions are kept. Existing rows are reused (same line slot,
- * same loan name) so importing the same file twice changes nothing.
+ * same loan name) so importing the same file twice changes nothing. `FinanceRepository.applyImport`
+ * writes the plan all-or-nothing.
  */
-import type { FinanceRepository } from "@/lib/data/repository";
 import type { BudgetLineDraft, BudgetSettings, FinanceSnapshot, LoanDraft } from "@/lib/domain/types";
 import type { TemplateData } from "./template";
 
@@ -60,16 +60,4 @@ export function planImport(snapshot: FinanceSnapshot, data: TemplateData): Impor
     loanCreates,
     loanRemovals: available.map((l) => l.id),
   };
-}
-
-/**
- * Writes the plan through the repository. Not atomic: on failure the caller shows an error and
- * the user retries; the same file then converges to the same result (idempotent).
- * Removals come first so the 6-active-loan limit holds at every step.
- */
-export async function applyImport(repo: FinanceRepository, plan: ImportPlan): Promise<void> {
-  await repo.saveBudget(plan.settings, plan.lines);
-  for (const id of plan.loanRemovals) await repo.removeLoan(id);
-  for (const { id, draft } of plan.loanUpdates) await repo.updateLoan(id, draft);
-  for (const draft of plan.loanCreates) await repo.createLoan(draft);
 }
