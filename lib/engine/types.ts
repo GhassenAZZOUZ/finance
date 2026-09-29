@@ -20,6 +20,8 @@ export interface DatedBudgetLineInput {
   startMonth: YearMonth | null;
   /** Last month the line applies (inclusive); null = no end. */
   endMonth: YearMonth | null;
+  /** « Non indexé » (SPEC D27): false keeps the entered amount in every year; omitted = indexed. */
+  indexed?: boolean;
 }
 
 /**
@@ -59,8 +61,14 @@ export interface BudgetParams {
   riskFreeRate: number;
   /** Fraction 0..1 of the monthly remainder sent to early repayment. */
   earlyRepaymentPct: number;
-  /** One-off exceptions; months outside the plan are ignored. */
+  /** One-off exceptions; months outside the plan are ignored. Never indexed (SPEC D27). */
   exceptions?: readonly BudgetExceptionInput[];
+  /**
+   * Yearly indexation (SPEC D27), fractions from −1 to 1: every January, fixed and variable lines
+   * grow by `expenseInflationRate` and income lines by `incomeGrowthRate`. 0 or omitted = constant.
+   */
+  expenseInflationRate?: number;
+  incomeGrowthRate?: number;
   /**
    * Budget lines with optional periods (SPEC D15). When present, each month's regular income and
    * expenses are the sums of the lines active that month; `income`, `fixedCosts` and

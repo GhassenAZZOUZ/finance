@@ -33,6 +33,8 @@ export const PARAM_FIELDS = [
   "freeSavingsExisting",
   "riskFreeRate",
   "earlyRepaymentPct",
+  "expenseInflationRate",
+  "incomeGrowthRate",
 ] as const;
 export type ParamField = (typeof PARAM_FIELDS)[number];
 export type ParamValues = Record<ParamField, string>;
@@ -47,6 +49,8 @@ export interface LineState {
   /** Optional period (SPEC D15), YYYY-MM or "" for no limit; both bounds inclusive. */
   startMonth: string;
   endMonth: string;
+  /** false = « non indexé » (SPEC D27); omitted = indexed. */
+  indexed?: boolean;
 }
 
 export interface BudgetFormState {
@@ -70,6 +74,8 @@ export function initialFormState(settings: BudgetSettings | null, lines: readonl
         freeSavingsExisting: amountInputValue(settings.freeSavingsExisting),
         riskFreeRate: percentInputValue(settings.riskFreeRate),
         earlyRepaymentPct: percentInputValue(settings.earlyRepaymentPct),
+        expenseInflationRate: percentInputValue(settings.expenseInflationRate ?? 0),
+        incomeGrowthRate: percentInputValue(settings.incomeGrowthRate ?? 0),
       }
     : {
         startMonth: currentMonth,
@@ -78,6 +84,8 @@ export function initialFormState(settings: BudgetSettings | null, lines: readonl
         freeSavingsExisting: "0",
         riskFreeRate: "",
         earlyRepaymentPct: "",
+        expenseInflationRate: "0",
+        incomeGrowthRate: "0",
       };
   const sorted = [...lines].sort(
     (a, b) => BUDGET_CATEGORIES.indexOf(a.category) - BUDGET_CATEGORIES.indexOf(b.category) || a.position - b.position,
@@ -92,6 +100,7 @@ export function initialFormState(settings: BudgetSettings | null, lines: readonl
       amount: amountInputValue(l.amount),
       startMonth: l.startMonth ?? "",
       endMonth: l.endMonth ?? "",
+      ...(l.indexed === false ? { indexed: false } : {}),
     })),
   };
 }
@@ -113,6 +122,7 @@ export function toPayload(state: BudgetFormState): BudgetPayload {
         amount: l.amount,
         startMonth: l.startMonth,
         endMonth: l.endMonth,
+        ...(l.indexed === false ? { indexed: false } : {}),
       })),
     },
     keys: lines.map((l) => l.key),
@@ -149,6 +159,8 @@ export function parsePayload(raw: unknown, maxLines = 200): BudgetPayload | null
       freeSavingsExisting: text(form.freeSavingsExisting),
       riskFreeRate: text(form.riskFreeRate),
       earlyRepaymentPct: text(form.earlyRepaymentPct),
+      expenseInflationRate: text(form.expenseInflationRate),
+      incomeGrowthRate: text(form.incomeGrowthRate),
       lines: rawLines.map((l) => {
         const line = isRecord(l) ? l : {};
         const id = text(line.id);
@@ -159,6 +171,7 @@ export function parsePayload(raw: unknown, maxLines = 200): BudgetPayload | null
           amount: text(line.amount),
           startMonth: month(line.startMonth),
           endMonth: month(line.endMonth),
+          ...(line.indexed === false ? { indexed: false } : {}),
         };
       }),
     },
@@ -285,11 +298,12 @@ export function computePreview(
   { currentMonth, savedStartMonth = null, goals = [] }: PreviewOptions = {},
 ): BudgetPreview {
   let invalidAmounts = 0;
-  const validLines: ({ category: BudgetCategory; amount: Cents } & LinePeriod)[] = [];
+  const validLines: ({ category: BudgetCategory; amount: Cents; indexed?: boolean } & LinePeriod)[] = [];
   for (const line of state.lines) {
     const parsed = parseAmount(line.amount);
-    if (parsed.ok && parsed.value !== null) validLines.push({ category: line.category, amount: parsed.value, ...linePeriod(line) });
-    else invalidAmounts++;
+    if (parsed.ok && parsed.value !== null) {
+      validLines.push({ category: line.category, amount: parsed.value, ...linePeriod(line), ...(line.indexed === false ? { indexed: false } : {}) });
+    } else invalidAmounts++;
   }
   const settings = parseSettings(state.params);
   const planStart = formPlanStart(state.params, savedStartMonth);

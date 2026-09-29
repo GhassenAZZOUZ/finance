@@ -10,7 +10,10 @@ import {
   addMonths,
   compareActual,
   compareMonths,
+  indexationYears,
+  indexedAmount,
   isLineActive,
+  lineRate,
   paymentsBeforeStart,
   projectBalance,
   simulatePlan,
@@ -30,16 +33,27 @@ import type {
 } from "./types";
 
 type LineLike = Pick<BudgetLine | BudgetLineDraft, "category" | "amount"> &
-  Partial<Pick<BudgetLine, "startMonth" | "endMonth">>;
+  Partial<Pick<BudgetLine, "startMonth" | "endMonth" | "indexed">>;
 
-/** Sum of a category; with `month`, only the lines active that month (SPEC D15). */
-export function sumCategory(lines: readonly LineLike[], category: BudgetCategory, month?: YearMonth) {
+type IndexSettings = Pick<BudgetSettings, "startMonth" | "expenseInflationRate" | "incomeGrowthRate">;
+
+/**
+ * Sum of a category; with `month`, only the lines active that month (SPEC D15), and with
+ * `indexation` too, each line indexed to that month's year (D27).
+ */
+export function sumCategory(lines: readonly LineLike[], category: BudgetCategory, month?: YearMonth, indexation?: IndexSettings) {
+  const years = month && indexation ? indexationYears(indexation.startMonth, month) : 0;
   return sumCents(
     lines
       .filter((l) => l.category === category)
       .filter((l) => !month || isLineActive({ startMonth: l.startMonth ?? null, endMonth: l.endMonth ?? null }, month))
-      .map((l) => l.amount),
+      .map((l) => (indexation ? indexedAmount(l.amount, lineRate(l, indexation), years) : l.amount)),
   );
+}
+
+/** Some yearly rate is set (SPEC D27). */
+export function isIndexed(settings: Pick<BudgetSettings, "expenseInflationRate" | "incomeGrowthRate">): boolean {
+  return (settings.expenseInflationRate ?? 0) !== 0 || (settings.incomeGrowthRate ?? 0) !== 0;
 }
 
 /**
@@ -78,13 +92,16 @@ export function buildPlanInput(
   goals: readonly SavingsGoal[] = [],
 ): PlanInput {
   const dated = lines.some((l) => (l.startMonth ?? null) !== null || (l.endMonth ?? null) !== null);
+  // Indexed plans (D27) need the lines: each one is rounded on its own, and some may be « non indexé ».
+  const indexed = isIndexed(settings);
   // The engine keeps the spreadsheet's shape: the primary goal is its moving fund (no goal: 0 €).
   const primary = goals.find((g) => g.primary);
   return {
     budget: {
-      income: sumCategory(lines, "income", kpiMonth),
-      fixedCosts: sumCategory(lines, "fixed", kpiMonth),
-      variableExpenses: sumCategory(lines, "variable", kpiMonth),
+      // The KPIs describe the reference month, at that month's indexed amounts (D27).
+      income: sumCategory(lines, "income", kpiMonth, settings),
+      fixedCosts: sumCategory(lines, "fixed", kpiMonth, settings),
+      variableExpenses: sumCategory(lines, "variable", kpiMonth, settings),
       ...settings,
       movingGoal: primary?.target ?? 0,
       movingDeadlineMonth: primary?.deadlineMonth ?? settings.startMonth,
@@ -94,13 +111,14 @@ export function buildPlanInput(
       // Only with extra goals, so a moving fund alone gives the exact same input as before (D23).
       ...(goals.some((g) => !g.primary) ? { goals: goalInputs(goals) } : {}),
       // Only needed when some line has a period; otherwise the constant sums are exact.
-      ...(dated
+      ...(dated || indexed
         ? {
             lines: lines.map((l) => ({
               category: l.category,
               amount: l.amount,
               startMonth: l.startMonth ?? null,
               endMonth: l.endMonth ?? null,
+              ...(l.indexed === false ? { indexed: false } : {}),
             })),
           }
         : {}),

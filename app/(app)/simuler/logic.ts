@@ -4,7 +4,7 @@
  */
 import { buildPlanInput, referenceMonth } from "@/lib/domain/plan";
 import type { BudgetException, BudgetLine, BudgetSettings, FinanceSnapshot, Loan, SavingsGoal } from "@/lib/domain/types";
-import { type Errors, parseAmount, parseMonth, parsePercent } from "@/lib/domain/validation";
+import { type Errors, parseAmount, parseMonth, parsePercent, parseYearlyRate } from "@/lib/domain/validation";
 import {
   type Cents,
   type ExtraRepaymentInput,
@@ -42,6 +42,9 @@ export interface ExtraRow {
 export interface SimulationForm {
   earlyRepaymentPct: string;
   riskFreeRate: string;
+  /** Yearly indexation in % (SPEC D27). */
+  expenseInflationRate: string;
+  incomeGrowthRate: string;
   /** By budget line id. */
   lineAmounts: Record<string, string>;
   extras: ExtraRow[];
@@ -51,6 +54,8 @@ export interface SimulationForm {
 export interface Scenario {
   earlyRepaymentPct: number;
   riskFreeRate: number;
+  expenseInflationRate: number;
+  incomeGrowthRate: number;
   lineAmounts: Record<string, Cents>;
   extras: (ExtraRepaymentInput & { key: string })[];
 }
@@ -92,12 +97,16 @@ export function initialSimulation(base: SimulationBase): SimulationState {
     form: {
       earlyRepaymentPct: percentInputValue(base.settings.earlyRepaymentPct),
       riskFreeRate: percentInputValue(base.settings.riskFreeRate),
+      expenseInflationRate: percentInputValue(base.settings.expenseInflationRate ?? 0),
+      incomeGrowthRate: percentInputValue(base.settings.incomeGrowthRate ?? 0),
       lineAmounts: Object.fromEntries(base.lines.map((l) => [l.id, amountInputValue(l.amount)])),
       extras: [],
     },
     scenario: {
       earlyRepaymentPct: base.settings.earlyRepaymentPct,
       riskFreeRate: base.settings.riskFreeRate,
+      expenseInflationRate: base.settings.expenseInflationRate ?? 0,
+      incomeGrowthRate: base.settings.incomeGrowthRate ?? 0,
       lineAmounts: Object.fromEntries(base.lines.map((l) => [l.id, l.amount])),
       extras: [],
     },
@@ -107,7 +116,13 @@ export function initialSimulation(base: SimulationBase): SimulationState {
 
 /** Engine input of a scenario: the saved plan with the simulated values. */
 export function scenarioInput(base: SimulationBase, scenario: Scenario): PlanInput {
-  const settings = { ...base.settings, earlyRepaymentPct: scenario.earlyRepaymentPct, riskFreeRate: scenario.riskFreeRate };
+  const settings = {
+    ...base.settings,
+    earlyRepaymentPct: scenario.earlyRepaymentPct,
+    riskFreeRate: scenario.riskFreeRate,
+    expenseInflationRate: scenario.expenseInflationRate,
+    incomeGrowthRate: scenario.incomeGrowthRate,
+  };
   const lines = base.lines.map((l) => ({ ...l, amount: scenario.lineAmounts[l.id] ?? l.amount }));
   const input = buildPlanInput(settings, lines, base.loans, base.exceptions, base.kpiMonth, base.goals);
   const extraRepayments = scenario.extras.map(({ loanId, month, amount, source }) => ({ loanId, month, amount, source }));
@@ -140,6 +155,8 @@ export function updateSimulation(prev: SimulationState, form: SimulationForm, ba
   const scenario: Scenario = {
     earlyRepaymentPct: pick("earlyRepaymentPct", parsePercent(form.earlyRepaymentPct), prev.scenario.earlyRepaymentPct),
     riskFreeRate: pick("riskFreeRate", parsePercent(form.riskFreeRate), prev.scenario.riskFreeRate),
+    expenseInflationRate: pick("expenseInflationRate", parseYearlyRate(form.expenseInflationRate), prev.scenario.expenseInflationRate),
+    incomeGrowthRate: pick("incomeGrowthRate", parseYearlyRate(form.incomeGrowthRate), prev.scenario.incomeGrowthRate),
     lineAmounts,
     extras: [],
   };

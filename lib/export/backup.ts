@@ -13,8 +13,9 @@ export const BACKUP_FORMAT = "finance-plan-backup";
  * 4: loans gain `kind` and `creditLimit` (bank overdraft, #28).
  * 5: the primary goal is a goal like the others (real id); `settings` loses the moving fund and
  *    check-ins lose `movingSavings`, whose value is the primary goal's entry in `goalBalances`.
+ * 6: `settings` gain `expenseInflationRate` and `incomeGrowthRate`, budget lines `indexed` (#36).
  */
-export const BACKUP_VERSION = 5;
+export const BACKUP_VERSION = 6;
 
 /** Euros with exactly 2 decimals and a dot ("1234.50", "-0.05"), computed from integer cents. */
 export type DecimalEuros = string;
@@ -64,6 +65,9 @@ export interface Backup {
       freeSavingsExisting: DecimalEuros;
       riskFreeRate: number;
       earlyRepaymentPct: number;
+      /** Yearly indexation, fractions (SPEC D27). */
+      expenseInflationRate: number;
+      incomeGrowthRate: number;
     } | null;
     budgetLines: {
       id: string;
@@ -73,6 +77,8 @@ export interface Backup {
       position: number;
       startMonth: YearMonth | null;
       endMonth: YearMonth | null;
+      /** false = « non indexé » (SPEC D27). */
+      indexed: boolean;
     }[];
     exceptions: { id: string; month: YearMonth; kind: string; label: string; amount: DecimalEuros }[];
     /** Active loans first (entry order), then archived ones. */
@@ -154,6 +160,8 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
             freeSavingsExisting: centsToDecimal(s.freeSavingsExisting),
             riskFreeRate: s.riskFreeRate,
             earlyRepaymentPct: s.earlyRepaymentPct,
+            expenseInflationRate: s.expenseInflationRate ?? 0,
+            incomeGrowthRate: s.incomeGrowthRate ?? 0,
           }
         : null,
       budgetLines: snapshot.lines.map((l) => ({
@@ -164,6 +172,7 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
         position: l.position,
         startMonth: l.startMonth,
         endMonth: l.endMonth,
+        indexed: l.indexed !== false,
       })),
       exceptions: snapshot.exceptions.map((e) => ({
         id: e.id,

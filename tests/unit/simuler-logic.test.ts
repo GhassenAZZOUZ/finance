@@ -86,6 +86,8 @@ describe("initialSimulation (AC-01)", () => {
     expect(state.form).toEqual({
       earlyRepaymentPct: "50",
       riskFreeRate: "3",
+      expenseInflationRate: "0",
+      incomeGrowthRate: "0",
       lineAmounts: { salary: "3000,00", rent: "1200,00", food: "400,00" },
       extras: [],
     });

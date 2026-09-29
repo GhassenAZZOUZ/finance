@@ -118,6 +118,22 @@ export function Simulator({ base, currentMonth }: { base: SimulationBase; curren
                 hint={`Plan actuel : ${formatPercent(base.settings.riskFreeRate)}. Seuls les crédits au TAEG supérieur reçoivent des remboursements anticipés.`}
                 onChange={(v) => change((f) => ({ ...f, riskFreeRate: v }))}
               />
+              <Field
+                id="sim-inflation"
+                label="Inflation des charges, par an (%)"
+                value={state.form.expenseInflationRate}
+                error={state.errors.expenseInflationRate}
+                hint={`Plan actuel : ${formatPercent(base.settings.expenseInflationRate ?? 0)}. Appliquée chaque 1ᵉʳ janvier.`}
+                onChange={(v) => change((f) => ({ ...f, expenseInflationRate: v }))}
+              />
+              <Field
+                id="sim-growth"
+                label="Évolution des revenus, par an (%)"
+                value={state.form.incomeGrowthRate}
+                error={state.errors.incomeGrowthRate}
+                hint={`Plan actuel : ${formatPercent(base.settings.incomeGrowthRate ?? 0)}. Appliquée chaque 1ᵉʳ janvier.`}
+                onChange={(v) => change((f) => ({ ...f, incomeGrowthRate: v }))}
+              />
             </div>
 
             <section aria-labelledby="sim-extras-title" className="flex flex-col gap-3 border-t pt-4">

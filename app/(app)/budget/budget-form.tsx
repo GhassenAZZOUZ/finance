@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { BudgetCategory, BudgetException, BudgetLine, BudgetSettings, Loan, SavingsGoal } from "@/lib/domain/types";
-import type { YearMonth } from "@/lib/engine";
+import { type YearMonth, indexationYears } from "@/lib/engine";
+import { isIndexed } from "@/lib/domain/plan";
 import { amountInputValue, formatEuros, formatMonthShort } from "@/lib/format";
 import { type BudgetActionState, saveBudgetAction } from "./actions";
 import {
@@ -64,7 +65,7 @@ const INITIAL_ACTION_STATE: BudgetActionState = { status: "idle", errors: {}, li
 
 type LineFieldErrors = { label?: string; amount?: string; startMonth?: string; endMonth?: string };
 type LineErrors = Map<string, LineFieldErrors>;
-type LinePatch = Partial<Pick<LineState, "label" | "amount" | "startMonth" | "endMonth">>;
+type LinePatch = Partial<Pick<LineState, "label" | "amount" | "startMonth" | "endMonth" | "indexed">>;
 
 export function BudgetForm({
   settings,
@@ -121,6 +122,18 @@ export function BudgetForm({
   const savedAmounts = useMemo(() => new Map(saved.lines.map((l) => [l.key, l.amount])), [saved]);
   const [showZero, setShowZero] = useState<Partial<Record<BudgetCategory, boolean>>>({});
   const movingKpis = preview.plan?.kpis ?? null;
+  // Indexed amounts of the reference month (SPEC D27), once a yearly rate is set.
+  const liveSettings = parseSettings(form.params);
+  const indexedKpis =
+    liveSettings && isIndexed(liveSettings) && movingKpis && preview.referenceMonth
+      ? {
+          startYear: liveSettings.startMonth.slice(0, 4),
+          month: preview.referenceMonth,
+          years: indexationYears(liveSettings.startMonth, preview.referenceMonth),
+          income: movingKpis.monthlyIncome,
+          expenses: movingKpis.monthlyExpenses,
+        }
+      : null;
 
   const nextKey = useRef(0);
   const focusKey = useRef<string | null>(null);
@@ -294,6 +307,29 @@ export function BudgetForm({
               <SharePicker {...paramProps("earlyRepaymentPct")} />
             </ParamGroup>
 
+            <ParamGroup title="Évolution chaque 1ᵉʳ janvier" dot="bg-muted-foreground">
+              <ParamInput
+                {...paramProps("expenseInflationRate")}
+                kind="percent"
+                hint="Les charges fixes et variables augmentent de ce taux chaque année (0 = montants constants)."
+              />
+              <ParamInput
+                {...paramProps("incomeGrowthRate")}
+                kind="percent"
+                hint="Les revenus évoluent de ce taux chaque année ; négatif possible (temps partiel, retraite)."
+              />
+              {indexedKpis ? (
+                <p className="text-[13px] leading-snug text-muted-foreground tabular-nums sm:col-span-3">
+                  Les montants saisis sont ceux de {indexedKpis.startYear}.
+                  {indexedKpis.years > 0
+                    ? ` En ${formatMonthShort(indexedKpis.month)}, montants indexés : revenus ${formatEuros(indexedKpis.income)}, charges ${formatEuros(indexedKpis.expenses)}.`
+                    : ""}{" "}
+                  Les mensualités de crédit et les mois exceptionnels ne sont pas indexés ; une ligne peut être marquée « non indexée » (bouton
+                  période).
+                </p>
+              ) : null}
+            </ParamGroup>
+
             <div className="grid gap-4 border-t border-divider pt-4 sm:grid-cols-3">
               <ParamInput {...paramProps("startMonth")} kind="month" hint="Premier mois simulé." />
               <ParamInput
@@ -376,6 +412,7 @@ function LineRow({
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const periodErrors = Boolean(errors?.startMonth || errors?.endMonth);
+  const fixedAmount = line.indexed === false;
   // A period error keeps the fields visible so the message sits next to its input.
   const expanded = open || periodErrors;
   const period = linePeriod(line);
@@ -415,7 +452,7 @@ function LineRow({
         type="button"
         variant="ghost"
         size="icon"
-        className={`size-10.5 ${summary ? "bg-good-bg text-link" : "text-muted-foreground"} aria-expanded:bg-good-bg aria-expanded:text-link`}
+        className={`size-10.5 ${summary || fixedAmount ? "bg-good-bg text-link" : "text-muted-foreground"} aria-expanded:bg-good-bg aria-expanded:text-link`}
         onClick={() => setOpen(!expanded)}
         aria-expanded={expanded}
         aria-controls={periodId}
@@ -460,14 +497,17 @@ function LineRow({
       >
         <Trash2 aria-hidden className="size-4.5" />
       </Button>
-      {summary && (!expanded || outside) ? (
+      {(summary || fixedAmount) && (!expanded || outside) ? (
         <p id={`${periodId}-summary`} className="col-span-full flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-          {expanded ? null : (
+          {expanded || !summary ? null : (
             <span className="inline-flex items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-xs font-medium">
               <CalendarRange aria-hidden className="size-3" />
               <span className="sr-only">Période : </span>
               {summary}
             </span>
+          )}
+          {expanded || !fixedAmount ? null : (
+            <span className="inline-flex items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-xs font-medium">non indexé</span>
           )}
           {outside ? (
             <span className="inline-flex items-center gap-1 text-warning">
@@ -506,6 +546,15 @@ function LineRow({
         <p className="mt-2 text-sm text-muted-foreground">
           {summary ? `Ligne prise en compte ${summary}.` : "Vide = sans limite : la ligne s’applique à tous les mois."}
         </p>
+        <label className="mt-2 flex min-h-10 cursor-pointer items-center gap-2.5 text-sm">
+          <input
+            type="checkbox"
+            checked={fixedAmount}
+            onChange={(e) => onChange({ indexed: e.target.checked ? false : undefined })}
+            className="size-4 accent-primary"
+          />
+          Montant fixe : non indexé chaque 1ᵉʳ janvier (ex. abonnement à prix garanti)
+        </label>
       </div>
     </li>
   );

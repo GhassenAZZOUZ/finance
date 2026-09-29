@@ -46,6 +46,9 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+/** What the form saves: the settings plus the yearly rates (SPEC D27), 0 when untouched. */
+const SAVED_SETTINGS = { ...SETTINGS, expenseInflationRate: 0, incomeGrowthRate: 0 };
+
 describe("BudgetForm", () => {
   it("leaves the goals' amounts to the goals card and links to it (SPEC D23)", () => {
     renderForm();
@@ -105,7 +108,7 @@ describe("BudgetForm", () => {
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await waitFor(() => expect(mocks.repo?.saveBudget).toHaveBeenCalledTimes(1));
-    expect(mocks.repo?.saveBudget).toHaveBeenCalledWith(SETTINGS, [
+    expect(mocks.repo?.saveBudget).toHaveBeenCalledWith(SAVED_SETTINGS, [
       { id: "l-income", category: "income", label: "Salaire", amount: 300_000, position: 0, startMonth: null, endMonth: null },
       { id: "l-rent", category: "fixed", label: "Loyer", amount: 95_050, position: 0, startMonth: null, endMonth: null },
       { id: "l-food", category: "variable", label: "Courses", amount: 40_000, position: 0, startMonth: null, endMonth: null },
@@ -134,7 +137,7 @@ describe("BudgetForm", () => {
     await user.type(input, "1 234,56");
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
     await waitFor(() => expect(mocks.repo?.saveBudget).toHaveBeenCalledTimes(1));
-    expect(mocks.repo?.saveBudget).toHaveBeenCalledWith({ ...SETTINGS, freeSavingsExisting: 123_456 }, expect.any(Array));
+    expect(mocks.repo?.saveBudget).toHaveBeenCalledWith({ ...SAVED_SETTINGS, freeSavingsExisting: 123_456 }, expect.any(Array));
   });
 
   it("does not save when the session has expired", async () => {
@@ -164,11 +167,44 @@ describe("BudgetForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
     await waitFor(() => expect(mocks.repo?.saveBudget).toHaveBeenCalledTimes(1));
-    expect(mocks.repo?.saveBudget).toHaveBeenCalledWith(SETTINGS, [
+    expect(mocks.repo?.saveBudget).toHaveBeenCalledWith(SAVED_SETTINGS, [
       { id: "l-income", category: "income", label: "Salaire", amount: 300_000, position: 0, startMonth: null, endMonth: null },
       { id: "l-rent", category: "fixed", label: "Loyer", amount: 90_000, position: 0, startMonth: null, endMonth: "2026-06" },
       { id: "l-food", category: "variable", label: "Courses", amount: 40_000, position: 0, startMonth: null, endMonth: null },
     ]);
+  });
+
+  it("saves the yearly rates and a « non indexé » line, and states the indexed amounts (SPEC D27)", async () => {
+    render(<BudgetForm settings={SETTINGS} lines={LINES} loans={[]} exceptions={[]} currentMonth="2028-03" />);
+    const user = userEvent.setup();
+    await user.clear(screen.getByLabelText(/Inflation des charges, par an/));
+    await user.type(screen.getByLabelText(/Inflation des charges, par an/), "2");
+    await user.clear(screen.getByLabelText(/Évolution des revenus, par an/));
+    await user.type(screen.getByLabelText(/Évolution des revenus, par an/), "1,5");
+    await user.click(screen.getByRole("button", { name: "Période (Courses)" }));
+    await user.click(within(screen.getByRole("group", { name: "Période de Courses" })).getByRole("checkbox", { name: /non indexé/ }));
+
+    // March 2028 is two Januaries after the January 2026 start: 3 000 × 1,015² and 900 × 1,02² + 400.
+    const note = screen.getByText(/Les montants saisis sont ceux de 2026/);
+    expect(note.textContent).toContain(`revenus ${formatEuros(309_068)}`);
+    expect(note.textContent).toContain(`charges ${formatEuros(133_636)}`);
+
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(mocks.repo?.saveBudget).toHaveBeenCalledTimes(1));
+    expect(mocks.repo?.saveBudget).toHaveBeenCalledWith({ ...SETTINGS, expenseInflationRate: 0.02, incomeGrowthRate: 0.015 }, [
+      { id: "l-income", category: "income", label: "Salaire", amount: 300_000, position: 0, startMonth: null, endMonth: null },
+      { id: "l-rent", category: "fixed", label: "Loyer", amount: 90_000, position: 0, startMonth: null, endMonth: null },
+      { id: "l-food", category: "variable", label: "Courses", amount: 40_000, position: 0, startMonth: null, endMonth: null, indexed: false },
+    ]);
+  });
+
+  it("reports an out-of-range yearly rate on its field", async () => {
+    const user = renderForm();
+    await user.clear(screen.getByLabelText(/Évolution des revenus, par an/));
+    await user.type(screen.getByLabelText(/Évolution des revenus, par an/), "-150");
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    expect(await screen.findByText("Le taux doit être compris entre −100 % et 100 %")).toBeTruthy();
+    expect(mocks.repo?.saveBudget).not.toHaveBeenCalled();
   });
 
   it("flags a line whose period is outside the plan", async () => {
