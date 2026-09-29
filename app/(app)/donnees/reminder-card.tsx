@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useFinance } from "@/components/app/finance-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
+import { errorMessage, reportError } from "@/lib/errors";
 
 /**
  * Monthly check-in reminder by e-mail (issue #6, SPEC D25): on by default; sent on the last day of
@@ -22,8 +23,9 @@ export function ReminderCard() {
     try {
       await getRepository().setReminder(next);
       notifyDataChanged();
-    } catch {
-      setError("Le changement n’a pas été enregistré. Réessayez dans un instant.");
+    } catch (toggleError) {
+      reportError(toggleError, "reminder.toggle");
+      setError(errorMessage(toggleError, "Le changement n’a pas été enregistré. Réessayez dans un instant."));
     } finally {
       setBusy(false);
     }

@@ -54,6 +54,7 @@ npm run dev                    # http://localhost:3000
 | `NEXT_PUBLIC_SUPABASE_URL` | App | Supabase API URL (local: `http://127.0.0.1:55321`) |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | App | Publishable key (`sb_publishable_…`) |
 | `NEXT_PUBLIC_BASE_PATH` | App build | Path on GitHub Pages (`/finance`); empty locally |
+| `NEXT_PUBLIC_SENTRY_DSN` | App build, optional | Sentry DSN; unset → errors go to the console only (`lib/errors.ts`) |
 | `SUPABASE_URL` | Integration / E2E tests only | Local API URL |
 | `SUPABASE_PUBLISHABLE_KEY` | Integration / E2E tests only | Local publishable key |
 | `SUPABASE_SECRET_KEY` | Integration / E2E tests only | Local secret key, used to create/delete test users |
@@ -192,7 +193,8 @@ One-time setup (already done for this repository):
    `https://<user>.github.io/<repo>/`, redirect URL `https://<user>.github.io/<repo>/**`.
 2. GitHub → Settings → Pages → Source: **GitHub Actions**. Free Pages requires a public repository.
 3. GitHub → Settings → Secrets and variables → Actions → **Variables**:
-   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public values, not secrets);
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public values, not secrets),
+   optionally `NEXT_PUBLIC_SENTRY_DSN` (Sentry project → Client Keys);
    **Secret**: `SUPABASE_ACCESS_TOKEN` (Supabase account → Access tokens), used only by the `migrate`
    job. No database password is needed: the CLI logs in with a temporary role created through the token.
 
