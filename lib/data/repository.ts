@@ -58,6 +58,8 @@ export interface FinanceRepository {
   orderGoals(ids: string[]): Promise<void>;
   /** Turns the monthly e-mail reminder on or off (SPEC D25). */
   setReminder(enabled: boolean): Promise<void>;
+  /** Deletes the signed-in user's account and every row of theirs, for good (SPEC D26). */
+  deleteAccount(): Promise<void>;
 }
 
 export class RepositoryError extends Error {
