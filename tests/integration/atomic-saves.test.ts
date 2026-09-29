@@ -203,3 +203,36 @@ describe("rebasePlan / freezeActuals", () => {
     expect((await anonClient().rpc("freeze_actuals", { p_freezes: [] })).error?.code).toBe("42501");
   });
 });
+
+describe("saveBudget", () => {
+  let user: TestUser;
+  let r: SupabaseFinanceRepository;
+  beforeAll(async () => {
+    user = await createTestUser("atomic-budget");
+    r = new SupabaseFinanceRepository(user.client);
+    await r.saveBudget(settings, []);
+    await r.saveBudget(settings, [
+      { category: "income", label: "Salaire", amount: 280000, position: 0, startMonth: null, endMonth: null },
+      { category: "fixed", label: "Loyer", amount: 85000, position: 0, startMonth: null, endMonth: null },
+    ]);
+  });
+  afterAll(() => deleteTestUser(user));
+
+  it("writes nothing when a line after valid changes is refused", async () => {
+    const before = await r.load();
+    const [salary] = before.lines;
+    await expect(
+      r.saveBudget({ ...settings, startMonth: "2028-01" }, [
+        // Update, then delete (Loyer left out), then a valid insert, then an invalid one.
+        { id: salary!.id, category: salary!.category, label: "Salaire net", amount: 1, position: 0, startMonth: null, endMonth: null },
+        { category: "variable", label: "Courses", amount: 30000, position: 0, startMonth: null, endMonth: null },
+        { category: "variable", label: "Période", amount: 100, position: 1, startMonth: "2028-06", endMonth: "2028-01" },
+      ]),
+    ).rejects.toMatchObject({ code: "23514" });
+    expect(await r.load()).toEqual(before);
+  });
+
+  it("is not callable without a session", async () => {
+    expect((await anonClient().rpc("save_budget", { p_settings: {}, p_lines: [] })).error?.code).toBe("42501");
+  });
+});
