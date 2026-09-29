@@ -396,41 +396,23 @@ export class SupabaseFinanceRepository implements FinanceRepository {
     return "deleted";
   }
 
+  /** One transaction (Postgres function `save_actual`): the month and its balances, or nothing. */
   async saveActual(draft: MonthlyActualDraft): Promise<void> {
-    const actual = check(
-      await this.db
-        .from("monthly_actuals")
-        .upsert(
-          {
-            month: draft.month,
-            income: eurosOrNull(draft.income),
-            expenses: eurosOrNull(draft.expenses),
-            moving_savings: euros(draft.movingSavings),
-            emergency_savings: euros(draft.emergencySavings),
-            free_savings: euros(draft.freeSavings),
-            ...(draft.frozen ? frozenColumns(draft.frozen) : {}),
-          },
-          { onConflict: "user_id,month" },
-        )
-        .select("id")
-        .single<{ id: string }>(),
+    checkMaybe(
+      await this.db.rpc("save_actual", {
+        p_actual: {
+          month: draft.month,
+          income: eurosOrNull(draft.income),
+          expenses: eurosOrNull(draft.expenses),
+          moving_savings: euros(draft.movingSavings),
+          emergency_savings: euros(draft.emergencySavings),
+          free_savings: euros(draft.freeSavings),
+          ...(draft.frozen ? frozenColumns(draft.frozen) : {}),
+        },
+        p_loan_balances: draft.loanBalances.map((b) => ({ loan_id: b.loanId, balance: euros(b.balance) })),
+        p_goal_balances: draft.goalBalances.map((b) => ({ goal_id: b.goalId, balance: euros(b.balance) })),
+      }),
     );
-    checkMaybe(await this.db.from("monthly_actual_loan_balances").delete().eq("monthly_actual_id", actual.id));
-    if (draft.loanBalances.length > 0) {
-      checkMaybe(
-        await this.db.from("monthly_actual_loan_balances").insert(
-          draft.loanBalances.map((b) => ({ monthly_actual_id: actual.id, loan_id: b.loanId, balance: euros(b.balance) })),
-        ),
-      );
-    }
-    checkMaybe(await this.db.from("monthly_actual_goal_balances").delete().eq("monthly_actual_id", actual.id));
-    if (draft.goalBalances.length > 0) {
-      checkMaybe(
-        await this.db.from("monthly_actual_goal_balances").insert(
-          draft.goalBalances.map((b) => ({ monthly_actual_id: actual.id, goal_id: b.goalId, balance: euros(b.balance) })),
-        ),
-      );
-    }
   }
 
   async createGoal(draft: SavingsGoalDraft, priority: number): Promise<SavingsGoal> {
