@@ -118,12 +118,15 @@ describe("History", () => {
     expect(within(card(/février 2027/)).queryByText(/Comparé au plan/)).toBeNull();
   });
 
-  it("shows the progress meters, named, with their percentage", () => {
+  it("shows the progress meters, named, with their percentage for everyone", () => {
     render(<History entries={[MARCH]} />);
     const march = within(card(/mars 2027/));
     const meter = (name: string) => plain(march.getByRole("progressbar", { name }).parentElement?.textContent);
     expect(meter("% objectif déménagement")).toBe("% objectif déménagement25 %");
     expect(meter("% dettes remboursées")).toBe("% dettes remboursées40 %");
+    // The value reaches screen readers too, not only the visible text.
+    const bar = march.getByRole("progressbar", { name: "% objectif déménagement" });
+    expect([bar.getAttribute("aria-valuenow"), bar.getAttribute("aria-valuemax"), bar.getAttribute("aria-valuetext")]).toEqual(["25", "100", "25%"]);
   });
 
   it("shows the typed income and expenses as information only", () => {
