@@ -1,5 +1,5 @@
 /** Pure helpers of the /suivi page (unit-tested in tests/unit/suivi-logic.test.ts). */
-import { PRIMARY_GOAL_ID,
+import {
   type ActualComparison,
   type ActualStatus,
   type Cents,
@@ -13,7 +13,8 @@ import { PRIMARY_GOAL_ID,
   sumCents,
 } from "@/lib/engine";
 import { type ActualForm, parseAmount } from "@/lib/domain/validation";
-import type { Loan, MonthlyActual } from "@/lib/domain/types";
+import { engineGoalId } from "@/lib/domain/plan";
+import type { Loan, MonthlyActual, SavingsGoal } from "@/lib/domain/types";
 import { amountInputValue, formatMonthLong, formatMonthShort } from "@/lib/format";
 
 /** Months open to a check-in, newest first: from `startMonth` to `currentMonth` (SPEC D6). */
@@ -64,7 +65,7 @@ export function prefillForm(
   month: YearMonth,
   actual: MonthlyActual | undefined,
   loans: readonly Pick<Loan, "id">[],
-  /** Extra savings goals (SPEC D23), priority order; the primary goal is `movingSavings`. */
+  /** Savings goals (SPEC D23), priority order, the primary one included. */
   goals: readonly { id: string }[] = [],
 ): ActualForm {
   const balances = new Map(actual?.loanBalances.map((b) => [b.loanId, b.balance]));
@@ -73,7 +74,6 @@ export function prefillForm(
     month,
     income: amountInputValue(actual?.income),
     expenses: amountInputValue(actual?.expenses),
-    movingSavings: amountInputValue(actual?.movingSavings),
     emergencySavings: amountInputValue(actual?.emergencySavings),
     freeSavings: amountInputValue(actual?.freeSavings),
     loanBalances: loans.map((l) => ({ loanId: l.id, balance: amountInputValue(balances.get(l.id)) })),
@@ -82,15 +82,13 @@ export function prefillForm(
 }
 
 export interface PlannedValues {
-  /** The primary goal (the moving fund). */
-  movingSavings: Cents;
   emergencySavings: Cents;
   freeSavings: Cents;
   income: Cents;
   expenses: Cents;
   /** Same order as the active loans. */
   loanBalances: Cents[];
-  /** Same order as the `extraGoalIds` given to plannedForMonth. */
+  /** Same order as the goals given to plannedForMonth. */
   goalBalances: Cents[];
 }
 
@@ -99,18 +97,21 @@ export function plannedForMonth(
   result: PlanResult,
   startMonth: YearMonth,
   month: YearMonth,
-  /** Extra goals to report, in the form's order (SPEC D23). */
-  extraGoalIds: readonly string[] = [],
+  /** Goals to report, in the form's order (SPEC D23). */
+  goals: readonly Pick<SavingsGoal, "id" | "primary">[] = [],
 ): PlannedValues | null {
   if (compareMonths(month, startMonth) < 0) return null;
   const planMonth = result.months[monthsBetween(startMonth, month)];
   if (!planMonth) return null;
-  // The engine's goal order = result.kpis.goals; the primary goal has id PRIMARY_GOAL_ID.
+  // The engine's goal order = result.kpis.goals, with its own id for the primary goal.
   const goalIndex = new Map(result.kpis.goals.map((g, i) => [g.id, i]));
-  const cumulative = (id: string) => planMonth.goals[goalIndex.get(id) ?? -1]?.cumulative ?? 0;
+  const cumulative = (goal: Pick<SavingsGoal, "id" | "primary">) => {
+    const index = goalIndex.get(engineGoalId(goal));
+    if (index === undefined) return goal.primary ? planMonth.movingCumulative : 0;
+    return planMonth.goals[index]?.cumulative ?? 0;
+  };
   return {
-    movingSavings: goalIndex.has(PRIMARY_GOAL_ID) ? cumulative(PRIMARY_GOAL_ID) : planMonth.movingCumulative,
-    goalBalances: extraGoalIds.map(cumulative),
+    goalBalances: goals.map(cumulative),
     emergencySavings: planMonth.emergencyCumulative,
     freeSavings: planMonth.freeSavingsCumulative,
     income: planMonth.income,
@@ -136,7 +137,7 @@ export function provisionalCheck(form: ActualForm, planned: PlannedValues | null
     const parsed = parseAmount(raw);
     return parsed.ok ? parsed.value : null;
   };
-  const savings = [form.movingSavings, form.emergencySavings, form.freeSavings, ...(form.goalBalances ?? []).map((b) => b.balance)].map(value);
+  const savings = [...(form.goalBalances ?? []).map((b) => b.balance), form.emergencySavings, form.freeSavings].map(value);
   const loans = form.loanBalances.map((b) => value(b.balance));
   const missing = [...savings, ...loans].filter((v) => v === null).length;
   const total = (values: (Cents | null)[]) => (values.every((v) => v !== null) ? sumCents(values as Cents[]) : null);
@@ -145,7 +146,7 @@ export function provisionalCheck(form: ActualForm, planned: PlannedValues | null
   const debtGap = planned && actualDebt !== null ? actualDebt - sumCents(planned.loanBalances) : null;
   const savingsGap =
     planned && actualSavings !== null
-      ? actualSavings - (planned.movingSavings + planned.emergencySavings + planned.freeSavings + sumCents(planned.goalBalances))
+      ? actualSavings - (sumCents(planned.goalBalances) + planned.emergencySavings + planned.freeSavings)
       : null;
   return { missing, debtGap, savingsGap, status: debtGap !== null && savingsGap !== null ? statusFor(debtGap, savingsGap) : null };
 }

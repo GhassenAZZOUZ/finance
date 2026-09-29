@@ -4,13 +4,11 @@ import type { Cents } from "@/lib/engine";
 import { formatEuros, formatMonthLong, formatMonthShort, formatPercent } from "@/lib/format";
 import { DEBT_ALERT_LABEL, debtFreeText, emergencyReachedText } from "@/lib/labels";
 import { cn } from "@/lib/utils";
+import { goalsName } from "../_dashboard/logic";
 import { type BudgetPreview, type ParamField } from "./budget-form-state";
 
 export const PARAM_LABEL: Record<ParamField, string> = {
   startMonth: "Début du plan",
-  movingGoal: "Objectif déménagement",
-  movingDeadlineMonth: "Date limite déménagement",
-  movingAlreadySaved: "Déjà épargné (déménagement)",
   emergencyTarget: "Objectif fonds d’urgence",
   emergencyExisting: "Fonds d’urgence existant",
   freeSavingsExisting: "Épargne libre existante",
@@ -163,10 +161,10 @@ export function BudgetSummary({
             <Result label="Disponible le 1er mois" className={cn("tabular-nums", firstMonth.available < 0 ? NEGATIVE : "font-medium")}>
               {formatEuros(firstMonth.available)}
             </Result>
-            <Result label="Épargne déménagement / mois" className="font-medium tabular-nums">
+            <Result label={`Épargne ${goalsName(k).toLocaleLowerCase("fr")} / mois`} className="font-medium tabular-nums">
               {k.deadlineBeforeStart ? "Date limite dépassée" : formatEuros(k.movingMonthlyNeeded)}
             </Result>
-            <Result label="Déménagement" className={k.movingGoalMet ? "font-semibold text-good" : NEGATIVE}>
+            <Result label={goalsName(k)} className={k.movingGoalMet ? "font-semibold text-good" : NEGATIVE}>
               {k.movingGoal === 0
                 ? "Aucun objectif"
                 : k.movingGoalMet

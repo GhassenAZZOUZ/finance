@@ -1,5 +1,6 @@
 /** /credits view-model: rows (with and without a plan), totals (SPEC §5) and form reading. */
 import { describe, expect, it } from "vitest";
+import { primaryGoal } from "../components/helpers";
 import {
   buildLoanRows,
   computeLoanTotals,
@@ -41,9 +42,6 @@ function snapshot(withSettings: boolean): FinanceSnapshot {
     settings: withSettings
       ? {
           startMonth: "2026-01",
-          movingGoal: 500_000,
-          movingDeadlineMonth: "2027-06",
-          movingAlreadySaved: 0,
           emergencyTarget: 300_000,
           emergencyExisting: 0, freeSavingsExisting: 0,
           riskFreeRate: 0.03,
@@ -55,7 +53,9 @@ function snapshot(withSettings: boolean): FinanceSnapshot {
       { id: "f", category: "fixed", label: "Loyer", amount: 90_000, position: 0, startMonth: null, endMonth: null },
     ],
     loans,
-    archivedLoans: [], goals: [], reminderEnabled: true,
+    archivedLoans: [],
+    goals: withSettings ? [primaryGoal({ target: 500_000, deadlineMonth: "2027-06" })] : [],
+    reminderEnabled: true,
     exceptions: [],
     actuals: [],
   };
@@ -212,9 +212,6 @@ describe("checkContractEnd (SPEC D5b)", () => {
     const snapshot: FinanceSnapshot = {
       settings: {
         startMonth: "2027-01",
-        movingGoal: 0,
-        movingDeadlineMonth: "2027-01",
-        movingAlreadySaved: 0,
         emergencyTarget: 0,
         emergencyExisting: 0, freeSavingsExisting: 0,
         riskFreeRate: 0.02,
@@ -235,9 +232,6 @@ describe("checkContractEnd (SPEC D5b)", () => {
 describe("principal read before the plan start (SPEC D5c)", () => {
   const settings = {
     startMonth: "2026-11",
-    movingGoal: 0,
-    movingDeadlineMonth: "2026-11",
-    movingAlreadySaved: 0,
     emergencyTarget: 0,
     emergencyExisting: 0, freeSavingsExisting: 0,
     riskFreeRate: 0.02,
@@ -284,9 +278,6 @@ describe("loan repaid before the plan start", () => {
     const snapshot: FinanceSnapshot = {
       settings: {
         startMonth: "2026-11",
-        movingGoal: 0,
-        movingDeadlineMonth: "2026-11",
-        movingAlreadySaved: 0,
         emergencyTarget: 0,
         emergencyExisting: 0, freeSavingsExisting: 0,
         riskFreeRate: 0.02,

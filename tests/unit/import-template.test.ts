@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { planImport } from "@/lib/import/apply";
 import { MAX_IMPORT_BYTES, type TemplateData, monthText, parseTemplate, readTemplateFile } from "@/lib/import/template";
 import { type Sheet, decodeXml, openWorkbook, parseSheet } from "@/lib/import/xlsx";
-import { makeLoan, makeSettings, makeSnapshot } from "../components/helpers";
+import { makeLoan, makeSettings, makeSnapshot, primaryGoal } from "../components/helpers";
 
 const TEMPLATE = readFileSync("docs/plan_financier.template.xlsx");
 const asFile = (bytes: Uint8Array, name = "plan_financier.xlsx") => ({
@@ -70,12 +70,11 @@ describe("parseTemplate", () => {
   it("reads the parameters, the 15 budget lines and the 6 loans of the template", () => {
     const result = parseTemplate(budget, loans);
     if (!result.ok) throw new Error(JSON.stringify(result));
-    const { settings, lines, loans: drafts } = result.data;
+    const { settings, primaryGoal, lines, loans: drafts } = result.data;
+    // The spreadsheet's moving fund is the primary savings goal (SPEC D23).
+    expect(primaryGoal).toEqual({ target: 400000, deadlineMonth: "2027-06", alreadySaved: 50000 });
     expect(settings).toEqual({
       startMonth: "2027-01",
-      movingGoal: 400000,
-      movingDeadlineMonth: "2027-06",
-      movingAlreadySaved: 50000,
       emergencyTarget: 400000,
       emergencyExisting: 80000,
       riskFreeRate: 0.024,
@@ -175,6 +174,8 @@ describe("planImport", () => {
     });
     const plan = planImport(snapshot, data());
     expect(plan.settings.freeSavingsExisting).toBe(0);
+    // No goal yet: the primary goal is created with the spreadsheet's name.
+    expect(plan.primaryGoal).toEqual({ name: "Déménagement", target: 400000, deadlineMonth: "2027-06", alreadySaved: 50000 });
     expect(plan.lines.filter((l) => l.id).map((l) => [l.id, l.label])).toEqual([
       ["i0", "Salaire net (après impôt à la source)"],
       ["v0", "Courses"],
@@ -187,6 +188,7 @@ describe("planImport", () => {
   it("is idempotent: loans matched by name, others removed, free savings and contract end kept", () => {
     const snapshot = makeSnapshot({
       settings: makeSettings({ freeSavingsExisting: 12345 }),
+      goals: [primaryGoal({ name: "Appartement" })],
       loans: [
         makeLoan(1, { name: "prêt AUTO ", contractEndMonth: "2030-01" }),
         makeLoan(2, { name: "Vieux prêt" }),
@@ -194,6 +196,7 @@ describe("planImport", () => {
     });
     const plan = planImport(snapshot, data());
     expect(plan.settings.freeSavingsExisting).toBe(12345);
+    expect(plan.primaryGoal).toMatchObject({ name: "Appartement", target: 400000 });
     expect(plan.loanUpdates).toEqual([{ id: "loan-1", draft: expect.objectContaining({ name: "Prêt auto", principal: 820000, contractEndMonth: "2030-01" }) }]);
     expect(plan.loanCreates.map((l) => l.name)).toEqual(["Carte revolving", "Prêt travaux", "Prêt étudiant", "Dette perso A", "Dette perso B"]);
     expect(plan.loanRemovals).toEqual(["loan-2"]);

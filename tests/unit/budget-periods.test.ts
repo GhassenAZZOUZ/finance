@@ -6,9 +6,6 @@ import { type BudgetForm, validateBudget } from "@/lib/domain/validation";
 
 const settings: BudgetSettings = {
   startMonth: "2027-01",
-  movingGoal: 0,
-  movingDeadlineMonth: "2027-01",
-  movingAlreadySaved: 0,
   emergencyTarget: 0,
   emergencyExisting: 0, freeSavingsExisting: 0,
   riskFreeRate: 0.02,
@@ -25,7 +22,7 @@ const lines = [
 
 describe("validateBudget with line periods", () => {
   const form: BudgetForm = {
-    startMonth: "2027-01", movingGoal: "0", movingDeadlineMonth: "2027-06", movingAlreadySaved: "0",
+    startMonth: "2027-01",
     emergencyTarget: "0", emergencyExisting: "0", riskFreeRate: "2", earlyRepaymentPct: "50",
     lines: [{ category: "fixed", label: "Loyer", amount: "850", startMonth: "", endMonth: "2027-06" }],
   };

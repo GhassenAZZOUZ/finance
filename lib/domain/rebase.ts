@@ -61,11 +61,11 @@ export function planRebase(snapshot: FinanceSnapshot, plan: ComputedPlan): Rebas
     else loanUpdates.push({ id: loan.id, draft: loanDraft(loan, balance, latest.month) });
   }
 
-  // Extra goals added after that check-in have no balance there: unchanged.
+  // Goals added after that check-in have no balance there: unchanged.
   const goalBalances = new Map(latest.goalBalances.map((b) => [b.goalId, b.balance]));
   const goalUpdates = snapshot.goals.flatMap((g) => {
     const balance = goalBalances.get(g.id);
-    if (g.primary || balance === undefined) return [];
+    if (balance === undefined) return [];
     const { name, target, deadlineMonth } = g;
     return [{ id: g.id, draft: { name, target, deadlineMonth, alreadySaved: balance } }];
   });
@@ -82,7 +82,6 @@ export function planRebase(snapshot: FinanceSnapshot, plan: ComputedPlan): Rebas
     settings: {
       ...settings,
       startMonth: newStartMonth,
-      movingAlreadySaved: latest.movingSavings,
       emergencyExisting: latest.emergencySavings,
       freeSavingsExisting: latest.freeSavings,
     },

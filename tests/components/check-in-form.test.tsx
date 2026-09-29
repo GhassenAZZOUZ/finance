@@ -26,10 +26,11 @@ function renderForm() {
   render(
     <CheckInForm
       months={months}
-      values={Object.fromEntries(months.map((m) => [m, prefillForm(m, undefined, LOANS)]))}
+      values={Object.fromEntries(months.map((m) => [m, prefillForm(m, undefined, LOANS, SNAPSHOT.goals)]))}
       existing={[]}
       planned={{}}
       loans={LOANS.map((l) => ({ id: l.id, label: l.name ?? l.id }))}
+      goals={SNAPSHOT.goals.map((g) => ({ id: g.id, label: g.name }))}
     />,
   );
   return userEvent.setup();
@@ -112,14 +113,14 @@ describe("CheckInForm", () => {
       month: CURRENT,
       income: 250_000,
       expenses: null,
-      movingSavings: 120_000,
       emergencySavings: 300_050,
       freeSavings: 0,
       loanBalances: [
         { loanId: "loan-1", balance: 410_025 },
         { loanId: "loan-2", balance: 999_900 },
       ],
-      goalBalances: [],
+      // The primary goal (« Déménagement ») is a goal like the others (SPEC D23).
+      goalBalances: [{ goalId: "goal-primary", balance: 120_000 }],
       frozen: frozenFor(CURRENT, computePlan(SNAPSHOT, CURRENT)!, undefined),
     });
     // The frozen values are the plan's expectation for that month, tagged with the plan version.

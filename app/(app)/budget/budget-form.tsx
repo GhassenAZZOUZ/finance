@@ -101,7 +101,7 @@ export function BudgetForm({
     [form, loans, exceptions, currentMonth, savedStart, goals],
   );
   const missingParams = useMemo(() => invalidParams(form.params), [form.params]);
-  const primaryName = goals.find((g) => g.primary)?.name ?? "Déménagement";
+  const goalsTitle = goals.length === 1 ? goals[0]!.name : "Objectifs d’épargne";
   // Plan start for the exceptions' "outside the plan" notes: the live value when valid, else the saved one.
   const planStart = useMemo(() => parseSettings(form.params)?.startMonth ?? settings?.startMonth ?? null, [form.params, settings]);
   // Plan start for the lines' "outside the plan" notes: the typed month as soon as it is valid.
@@ -248,14 +248,14 @@ export function BudgetForm({
               Paramètres du plan
             </h2>
 
-            <ParamGroup title={`① ${primaryName}`} dot="bg-bucket-moving">
-              <ParamInput {...paramProps("movingGoal")} kind="amount" />
-              <ParamInput
-                {...paramProps("movingDeadlineMonth")}
-                kind="month"
-                hint="Dernier mois qui reçoit encore de l’épargne (inclus)."
-              />
-              <ParamInput {...paramProps("movingAlreadySaved")} kind="amount" />
+            <ParamGroup title={`① ${goalsTitle}`} dot="bg-bucket-moving">
+              <p className="text-[13px] text-muted-foreground sm:col-span-3">
+                Montants visés, dates limites et priorités : dans{" "}
+                <a href="#section-goals" className="font-medium text-foreground underline underline-offset-2">
+                  Objectifs d’épargne
+                </a>
+                , plus bas.
+              </p>
               {movingKpis && movingKpis.movingGoal > 0 && !movingKpis.deadlineBeforeStart && movingKpis.movingMonthlyNeeded > preview.margin ? (
                 <p className="rounded-[10px] bg-warning-bg px-3 py-2.5 text-[13px] text-warning tabular-nums sm:col-span-3">
                   Il faudrait {formatEuros(movingKpis.movingMonthlyNeeded)} par mois ; la marge n’est que de{" "}
@@ -299,7 +299,7 @@ export function BudgetForm({
               <ParamInput
                 {...paramProps("freeSavingsExisting")}
                 kind="amount"
-                hint="Épargne disponible hors déménagement et fonds d’urgence au début du plan (0 si aucune)."
+                hint="Épargne disponible hors objectifs d’épargne et fonds d’urgence au début du plan (0 si aucune)."
               />
             </div>
           </section>

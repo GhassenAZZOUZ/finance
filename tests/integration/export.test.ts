@@ -7,9 +7,6 @@ import { createTestUser, deleteTestUser, type TestUser } from "./supabase-env";
 
 const settings: BudgetSettings = {
   startMonth: "2027-01",
-  movingGoal: 400000,
-  movingDeadlineMonth: "2027-06",
-  movingAlreadySaved: 0,
   emergencyTarget: 400000,
   emergencyExisting: 0,
   freeSavingsExisting: 0,
@@ -31,6 +28,7 @@ beforeAll(async () => {
       { category: "income", label: `Salaire ${tag}`, amount: 250000, position: 0, startMonth: null, endMonth: null },
     ]);
     await repo.addException({ month: "2027-03", kind: "income", label: `Prime ${tag}`, amount: 10000 });
+    const goal = await repo.createGoal({ name: `Objectif ${tag}`, target: 400000, deadlineMonth: "2027-06", alreadySaved: 0 }, 1);
     const loan = await repo.createLoan({
       name: `Prêt ${tag}`,
       type: null,
@@ -44,11 +42,10 @@ beforeAll(async () => {
       month: "2027-01",
       income: null,
       expenses: null,
-      movingSavings: 0,
       emergencySavings: 0,
       freeSavings: 0,
       loanBalances: [{ loanId: loan.id, balance: 490000 }],
-      goalBalances: [],
+      goalBalances: [{ goalId: goal.id, balance: 12300 }],
       frozen: null,
     });
   }
@@ -63,6 +60,8 @@ describe("JSON backup", () => {
     expect(backup.data.budgetLines.map((l) => l.label)).toEqual(["Salaire AAA"]);
     expect(backup.data.exceptions.map((e) => e.label)).toEqual(["Prime AAA"]);
     expect(backup.data.loans.map((l) => l.name)).toEqual(["Prêt AAA"]);
+    expect(backup.data.goals.map((g) => [g.name, g.primary])).toEqual([["Objectif AAA", true]]);
+    expect(backup.data.checkIns[0]?.goalBalances.map((b) => b.balance)).toEqual(["123.00"]);
     expect(backup.data.checkIns).toHaveLength(1);
     const text = serializeBackup(backup);
     expect(text).not.toContain("BBB");

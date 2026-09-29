@@ -1,5 +1,6 @@
 /** "Et si…" simulator view-model (issue #2, SPEC D17). */
 import { describe, expect, it } from "vitest";
+import { primaryGoal } from "../components/helpers";
 import {
   type ExtraRow,
   type SimulationBase,
@@ -46,9 +47,6 @@ const loan = (id: string, name: string, principal: number, apr: number, monthlyP
 const SNAPSHOT: FinanceSnapshot = {
   settings: {
     startMonth: "2027-01",
-    movingGoal: 300_000,
-    movingDeadlineMonth: "2027-12",
-    movingAlreadySaved: 0,
     emergencyTarget: 600_000,
     emergencyExisting: 100_000,
     freeSavingsExisting: 0,
@@ -58,7 +56,9 @@ const SNAPSHOT: FinanceSnapshot = {
   lines: [line("salary", "income", "Salaire", 300_000), line("rent", "fixed", "Loyer", 120_000), line("food", "variable", "Courses", 40_000)],
   exceptions: [],
   loans: [loan("auto", "Prêt auto", 500_000, 0.06, 20_000), loan("perso", "Prêt perso", 300_000, 0.04, 15_000)],
-  archivedLoans: [], goals: [], reminderEnabled: true,
+  archivedLoans: [],
+  goals: [primaryGoal({ target: 300_000, deadlineMonth: "2027-12" })],
+  reminderEnabled: true,
   actuals: [],
 };
 const CURRENT = "2027-01";

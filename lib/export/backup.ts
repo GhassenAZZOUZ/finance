@@ -11,8 +11,10 @@ export const BACKUP_FORMAT = "finance-plan-backup";
  * 1: first version (#7). 2: loans gain `penaltyPct` and `penaltyCapMonths` (IRA, #9).
  * 3: `goals` and check-ins' `goalBalances` (several savings goals, #10).
  * 4: loans gain `kind` and `creditLimit` (bank overdraft, #28).
+ * 5: the primary goal is a goal like the others (real id); `settings` loses the moving fund and
+ *    check-ins lose `movingSavings`, whose value is the primary goal's entry in `goalBalances`.
  */
-export const BACKUP_VERSION = 4;
+export const BACKUP_VERSION = 5;
 
 /** Euros with exactly 2 decimals and a dot ("1234.50", "-0.05"), computed from integer cents. */
 export type DecimalEuros = string;
@@ -57,9 +59,6 @@ export interface Backup {
   data: {
     settings: {
       startMonth: YearMonth;
-      movingGoal: DecimalEuros;
-      movingDeadlineMonth: YearMonth;
-      movingAlreadySaved: DecimalEuros;
       emergencyTarget: DecimalEuros;
       emergencyExisting: DecimalEuros;
       freeSavingsExisting: DecimalEuros;
@@ -78,10 +77,7 @@ export interface Backup {
     exceptions: { id: string; month: YearMonth; kind: string; label: string; amount: DecimalEuros }[];
     /** Active loans first (entry order), then archived ones. */
     loans: BackupLoan[];
-    /**
-     * Savings goals in priority order (SPEC D23). The primary one (`primary: true`, id "moving")
-     * mirrors the moving fund of `settings`.
-     */
+    /** Savings goals in priority order, the primary one (`primary: true`) included (SPEC D23). */
     goals: {
       id: string;
       name: string;
@@ -97,11 +93,10 @@ export interface Backup {
       month: YearMonth;
       income: DecimalEuros | null;
       expenses: DecimalEuros | null;
-      movingSavings: DecimalEuros;
       emergencySavings: DecimalEuros;
       freeSavings: DecimalEuros;
       loanBalances: { loanId: string; balance: DecimalEuros }[];
-      /** Extra goals only; the primary goal's balance is `movingSavings`. */
+      /** Every goal, the primary one included. */
       goalBalances: { goalId: string; balance: DecimalEuros }[];
       frozen: {
         plannedDebt: DecimalEuros;
@@ -154,9 +149,6 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
       settings: s
         ? {
             startMonth: s.startMonth,
-            movingGoal: centsToDecimal(s.movingGoal),
-            movingDeadlineMonth: s.movingDeadlineMonth,
-            movingAlreadySaved: centsToDecimal(s.movingAlreadySaved),
             emergencyTarget: centsToDecimal(s.emergencyTarget),
             emergencyExisting: centsToDecimal(s.emergencyExisting),
             freeSavingsExisting: centsToDecimal(s.freeSavingsExisting),
@@ -195,7 +187,6 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
         month: a.month,
         income: money(a.income),
         expenses: money(a.expenses),
-        movingSavings: centsToDecimal(a.movingSavings),
         emergencySavings: centsToDecimal(a.emergencySavings),
         freeSavings: centsToDecimal(a.freeSavings),
         loanBalances: a.loanBalances.map((b) => ({ loanId: b.loanId, balance: centsToDecimal(b.balance) })),

@@ -4,7 +4,7 @@
  */
 import { vi } from "vitest";
 import type { FinanceRepository } from "@/lib/data/repository";
-import type { BudgetSettings, FinanceSnapshot, Loan } from "@/lib/domain/types";
+import type { BudgetSettings, FinanceSnapshot, Loan, SavingsGoal } from "@/lib/domain/types";
 
 export type RepositoryMock = { [K in keyof FinanceRepository]: ReturnType<typeof vi.fn<FinanceRepository[K]>> };
 
@@ -56,9 +56,6 @@ export function makeLoan(i: number, overrides: Partial<Loan> = {}): Loan {
 export function makeSettings(overrides: Partial<BudgetSettings> = {}): BudgetSettings {
   return {
     startMonth: "2026-01",
-    movingGoal: 300_000,
-    movingDeadlineMonth: "2026-12",
-    movingAlreadySaved: 0,
     emergencyTarget: 600_000,
     emergencyExisting: 100_000, freeSavingsExisting: 0,
     riskFreeRate: 0.03,
@@ -67,6 +64,32 @@ export function makeSettings(overrides: Partial<BudgetSettings> = {}): BudgetSet
   };
 }
 
+/** The primary savings goal (the spreadsheet's moving fund, SPEC D23): 3 000 € by 2026-12 by default. */
+export function primaryGoal(overrides: Partial<SavingsGoal> = {}): SavingsGoal {
+  return {
+    id: "goal-primary",
+    name: "Déménagement",
+    target: 300_000,
+    deadlineMonth: "2026-12",
+    alreadySaved: 0,
+    priority: 1,
+    primary: true,
+    ...overrides,
+  };
+}
+
+/** With settings and no `goals` given, the snapshot has the default primary goal, as every user with a budget had. */
 export function makeSnapshot(overrides: Partial<FinanceSnapshot> = {}): FinanceSnapshot {
-  return { settings: null, lines: [], exceptions: [], loans: [], archivedLoans: [], goals: [], actuals: [], reminderEnabled: true, ...overrides };
+  const goals = overrides.goals ?? (overrides.settings ? [primaryGoal()] : []);
+  return {
+    settings: null,
+    lines: [],
+    exceptions: [],
+    loans: [],
+    archivedLoans: [],
+    actuals: [],
+    reminderEnabled: true,
+    ...overrides,
+    goals,
+  };
 }

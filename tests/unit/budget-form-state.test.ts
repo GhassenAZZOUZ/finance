@@ -14,18 +14,19 @@ import {
 } from "@/app/(app)/budget/budget-form-state";
 import type { BudgetLine, BudgetSettings, Loan } from "@/lib/domain/types";
 import { validateBudget } from "@/lib/domain/validation";
+import { primaryGoal } from "../components/helpers";
 
 const settings: BudgetSettings = {
   startMonth: "2027-01",
-  movingGoal: 300000,
-  movingDeadlineMonth: "2027-06",
-  movingAlreadySaved: 50000,
   emergencyTarget: 600000,
   emergencyExisting: 100000,
   freeSavingsExisting: 25000,
   riskFreeRate: 0.024,
   earlyRepaymentPct: 0.5,
 };
+
+// The primary goal, now edited in the goals card (SPEC D23): 3 000 € by June 2027, 500 € saved.
+const goals = [primaryGoal({ target: 300000, deadlineMonth: "2027-06", alreadySaved: 50000 })];
 
 const lines: BudgetLine[] = [
   { id: "v1", category: "variable", label: "Courses", amount: 40000, position: 0, startMonth: null, endMonth: null },
@@ -52,9 +53,6 @@ describe("initialFormState", () => {
     const state = initialFormState(settings, lines, "2026-09");
     expect(state.params).toEqual({
       startMonth: "2027-01",
-      movingGoal: "3000,00",
-      movingDeadlineMonth: "2027-06",
-      movingAlreadySaved: "500,00",
       emergencyTarget: "6000,00",
       emergencyExisting: "1000,00",
       freeSavingsExisting: "250,00",
@@ -73,13 +71,10 @@ describe("initialFormState", () => {
     });
   });
 
-  it("first visit: current month, empty deadline and rates, zero amounts", () => {
+  it("first visit: current month, empty rates, zero amounts", () => {
     const state = initialFormState(null, [], "2026-09");
     expect(state.params).toEqual({
       startMonth: "2026-09",
-      movingGoal: "0",
-      movingDeadlineMonth: "",
-      movingAlreadySaved: "0",
       emergencyTarget: "0",
       emergencyExisting: "0",
       freeSavingsExisting: "0",
@@ -87,7 +82,7 @@ describe("initialFormState", () => {
       earlyRepaymentPct: "",
     });
     expect(parseSettings(state.params)).toBeNull();
-    expect(invalidParams(state.params)).toEqual(["movingDeadlineMonth", "riskFreeRate", "earlyRepaymentPct"]);
+    expect(invalidParams(state.params)).toEqual(["riskFreeRate", "earlyRepaymentPct"]);
   });
 });
 
@@ -165,7 +160,7 @@ describe("computePreview", () => {
   it("sums valid amounts, skips invalid ones and simulates when parameters are valid", () => {
     const state = initialFormState(settings, lines, "2026-09");
     state.lines.push({ key: "new-1", category: "fixed", label: "Cassé", amount: "12,345", startMonth: "", endMonth: "" });
-    const preview = computePreview(state, [loan]);
+    const preview = computePreview(state, [loan], [], { goals });
     expect(preview).toMatchObject({
       income: 260000,
       fixed: 80000,

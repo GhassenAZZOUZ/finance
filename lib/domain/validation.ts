@@ -73,9 +73,6 @@ class Collector {
 
 export interface BudgetForm {
   startMonth: string;
-  movingGoal: string;
-  movingDeadlineMonth: string;
-  movingAlreadySaved: string;
   emergencyTarget: string;
   emergencyExisting: string;
   /** Optional ("" or missing = 0). */
@@ -90,9 +87,6 @@ export function validateBudget(form: BudgetForm): Validated<{ settings: BudgetSe
   const c = new Collector();
   const settings: BudgetSettings = {
     startMonth: c.take("startMonth", parseMonth(form.startMonth)),
-    movingGoal: c.take("movingGoal", parseAmount(form.movingGoal)) as Cents,
-    movingDeadlineMonth: c.take("movingDeadlineMonth", parseMonth(form.movingDeadlineMonth)),
-    movingAlreadySaved: c.take("movingAlreadySaved", parseAmount(form.movingAlreadySaved)) as Cents,
     emergencyTarget: c.take("emergencyTarget", parseAmount(form.emergencyTarget)) as Cents,
     emergencyExisting: c.take("emergencyExisting", parseAmount(form.emergencyExisting)) as Cents,
     freeSavingsExisting: (c.take("freeSavingsExisting", parseAmount(form.freeSavingsExisting, { required: false })) ?? 0) as Cents,
@@ -257,12 +251,11 @@ export interface ActualForm {
   month: string;
   income: string;
   expenses: string;
-  movingSavings: string;
   emergencySavings: string;
   freeSavings: string;
   /** One entry per active loan. */
   loanBalances: { loanId: string; balance: string }[];
-  /** One entry per extra savings goal (SPEC D23); the primary goal is `movingSavings`. */
+  /** One entry per savings goal, the primary one included (SPEC D23). */
   goalBalances?: { goalId: string; balance: string }[];
 }
 
@@ -294,7 +287,6 @@ export function validateActual(
     month,
     income: c.take("income", parseAmount(form.income, { required: false })),
     expenses: c.take("expenses", parseAmount(form.expenses, { required: false })),
-    movingSavings: c.take("movingSavings", parseAmount(form.movingSavings)) as Cents,
     emergencySavings: c.take("emergencySavings", parseAmount(form.emergencySavings)) as Cents,
     freeSavings: c.take("freeSavings", parseAmount(form.freeSavings)) as Cents,
     loanBalances,
@@ -311,22 +303,26 @@ export interface GoalForm {
 }
 
 /**
- * A savings goal (SPEC D23): name, target > 0, deadline month not in the past, amount already
- * saved ≥ 0. The primary goal (the moving fund) may keep a past deadline: its amounts are edited
- * with the budget, where « Date limite dépassée » is only a warning (D10).
+ * A savings goal (SPEC D23): name, target > 0 (0 allowed for the primary goal: no target yet),
+ * deadline month not in the past, amount already saved ≥ 0. A goal may keep the past deadline it
+ * already has (« Date limite dépassée » is then a warning, D10); only a new one is refused.
  */
 export function validateGoal(
   form: GoalForm,
-  { currentMonth, primary = false }: { currentMonth: YearMonth; primary?: boolean },
+  {
+    currentMonth,
+    primary = false,
+    savedDeadline,
+  }: { currentMonth: YearMonth; primary?: boolean; savedDeadline?: YearMonth },
 ): Validated<SavingsGoalDraft> {
   const c = new Collector();
   const name = form.name.trim();
   if (name === "") c.fail("name", "Nom requis");
   else if (name.length > 100) c.fail("name", "100 caractères maximum");
   const target = c.take("target", parseAmount(form.target)) as Cents;
-  if (target === 0) c.fail("target", "L’objectif doit être supérieur à 0");
+  if (target === 0 && !primary) c.fail("target", "L’objectif doit être supérieur à 0");
   const deadlineMonth = c.take("deadlineMonth", parseMonth(form.deadlineMonth));
-  if (!primary && deadlineMonth && compareMonths(deadlineMonth, currentMonth) < 0) {
+  if (deadlineMonth && deadlineMonth !== savedDeadline && compareMonths(deadlineMonth, currentMonth) < 0) {
     c.fail("deadlineMonth", "La date limite est déjà passée");
   }
   const alreadySaved = c.take("alreadySaved", parseAmount(form.alreadySaved)) as Cents;

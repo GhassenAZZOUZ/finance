@@ -26,12 +26,11 @@ export async function saveActualAction(_prev: SaveActualState, formData: FormDat
       return { status: "error", message: "Renseignez d’abord votre budget.", errors: {} };
     }
     const activeLoanIds = snapshot.loans.map((l) => l.id);
-    const goalIds = snapshot.goals.filter((g) => !g.primary).map((g) => g.id);
+    const goalIds = snapshot.goals.map((g) => g.id);
     const form: ActualForm = {
       month: text(formData, "month"),
       income: text(formData, "income"),
       expenses: text(formData, "expenses"),
-      movingSavings: text(formData, "movingSavings"),
       emergencySavings: text(formData, "emergencySavings"),
       freeSavings: text(formData, "freeSavings"),
       loanBalances: activeLoanIds.map((loanId) => ({ loanId, balance: text(formData, `loan.${loanId}`) })),

@@ -4,7 +4,7 @@ export const BUDGET_CATEGORIES = ["income", "fixed", "variable"] as const;
 export type BudgetCategory = (typeof BUDGET_CATEGORIES)[number];
 
 export const MAX_ACTIVE_LOANS = 6;
-/** Savings goals, the primary one (the moving fund) included (SPEC D23). */
+/** Savings goals, the primary one included (SPEC D23). */
 export const MAX_GOALS = 6;
 
 export interface BudgetLine {
@@ -29,11 +29,9 @@ export interface BudgetLineDraft {
   endMonth: YearMonth | null;
 }
 
+/** Plan parameters. The savings goals, the primary one included, are `SavingsGoal`s (SPEC D23). */
 export interface BudgetSettings {
   startMonth: YearMonth;
-  movingGoal: Cents;
-  movingDeadlineMonth: YearMonth;
-  movingAlreadySaved: Cents;
   emergencyTarget: Cents;
   emergencyExisting: Cents;
   /** Free savings already available at the plan start (SPEC D16). */
@@ -72,8 +70,8 @@ export interface Loan {
 export type LoanDraft = Omit<Loan, "id" | "position" | "archivedAt">;
 
 /**
- * A savings goal (SPEC D23). The primary goal (id PRIMARY_GOAL_ID, `primary: true`) is the moving
- * fund of `BudgetSettings`: its amounts live there and it cannot be deleted.
+ * A savings goal (SPEC D23). Exactly one goal is `primary` (the spreadsheet's moving fund) as soon as
+ * there is one; it is deleted only by handing the flag to another goal. Its target may be 0.
  */
 export interface SavingsGoal {
   id: string;
@@ -115,11 +113,10 @@ export interface MonthlyActual {
   month: YearMonth;
   income: Cents | null;
   expenses: Cents | null;
-  movingSavings: Cents;
   emergencySavings: Cents;
   freeSavings: Cents;
   loanBalances: { loanId: string; balance: Cents }[];
-  /** Balances of the extra goals (SPEC D23); the primary goal's is `movingSavings`. */
+  /** Balance of each savings goal, the primary one included (SPEC D23). */
   goalBalances: { goalId: string; balance: Cents }[];
   /** Null for check-ins saved before D16 (compared with the current plan). */
   frozen: FrozenPlan | null;
@@ -136,7 +133,7 @@ export interface FinanceSnapshot {
   /** Active loans, in entry order. */
   loans: Loan[];
   archivedLoans: Loan[];
-  /** Priority order; the primary goal first-class among them once settings exist (SPEC D23). */
+  /** Priority order, the primary goal included (SPEC D23). */
   goals: SavingsGoal[];
   /** Oldest first. */
   actuals: MonthlyActual[];

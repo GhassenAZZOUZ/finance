@@ -10,7 +10,7 @@ import { PlanTable } from "@/app/(app)/plan/plan-table";
 import { computePlan } from "@/lib/domain/plan";
 import type { BudgetLine } from "@/lib/domain/types";
 import { formatEuros } from "@/lib/format";
-import { makeLoan, makeSettings, makeSnapshot } from "./helpers";
+import { makeLoan, makeSettings, makeSnapshot, primaryGoal } from "./helpers";
 
 afterEach(cleanup);
 
@@ -26,7 +26,8 @@ const line = (id: string, category: BudgetLine["category"], amount: number): Bud
 
 const PLAN = computePlan(
   makeSnapshot({
-    settings: makeSettings({ startMonth: "2027-11", movingDeadlineMonth: "2028-03", earlyRepaymentPct: 0.5 }),
+    settings: makeSettings({ startMonth: "2027-11", earlyRepaymentPct: 0.5 }),
+    goals: [primaryGoal({ deadlineMonth: "2028-03" })],
     lines: [line("salary", "income", 300_000), line("rent", "fixed", 120_000)],
     loans: [makeLoan(1, { name: "Prêt auto" })],
   }),
@@ -76,7 +77,7 @@ describe("PlanTable", () => {
     expect(region.getAttribute("tabindex")).toBe("0");
     expect(within(region).getByRole("table", { name: "Plan mois par mois" })).toBeTruthy();
     const groups = screen.getAllByRole("columnheader").filter((h) => h.getAttribute("scope") === "colgroup");
-    expect(groups.map((g) => g.textContent)).toEqual(["Budget du mois", "① Déménag.", "② Urgence", "③ Reste du mois", "Dettes"]);
+    expect(groups.map((g) => g.textContent)).toEqual(["Budget du mois", "① Objectifs", "② Urgence", "③ Reste du mois", "Dettes"]);
   });
 
   it("names the goals group after the goals when it is not the moving fund (SPEC D23)", () => {
@@ -129,6 +130,7 @@ describe("PlanTable", () => {
         loanPayoffs: new Map([[6, ["Prêt auto"]]]),
       },
       movingGoalMet: true,
+      goalsName: "Déménagement",
       primaryName: "Déménagement",
     });
     expect(within(row(/févr\. 2028/)).getByText("Déménagement financé")).toBeTruthy();

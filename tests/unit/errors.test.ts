@@ -53,6 +53,7 @@ describe("errorMessage", () => {
     ["22003", "Montant trop grand pour être enregistré."],
     ["22023", "Formulaire invalide. Rechargez la page."],
     ["P0002", "Élément introuvable : il a peut-être déjà été supprimé. Rechargez la page."],
+    ["P0003", "Il faut un objectif principal : choisissez celui qui remplace l’actuel."],
   ])("maps the %s code to a specific message", (code, message) => {
     expect(errorMessage(new RepositoryError("db", code), FALLBACK)).toBe(message);
   });

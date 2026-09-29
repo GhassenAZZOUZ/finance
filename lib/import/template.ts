@@ -3,8 +3,16 @@
  * budget settings, budget lines and loans, validated with the same rules as the forms. Errors
  * name the sheet and cell. Rows are found by their labels, so inserted rows are tolerated.
  */
-import { type BudgetForm, type Errors, type LoanForm, validateBudget, validateLoan } from "@/lib/domain/validation";
-import { type BudgetCategory, type BudgetLineDraft, type BudgetSettings, type LoanDraft, MAX_ACTIVE_LOANS } from "@/lib/domain/types";
+import { type BudgetForm, type Errors, type LoanForm, parseAmount, parseMonth, validateBudget, validateLoan } from "@/lib/domain/validation";
+import {
+  type BudgetCategory,
+  type BudgetLineDraft,
+  type BudgetSettings,
+  type LoanDraft,
+  MAX_ACTIVE_LOANS,
+  type SavingsGoalDraft,
+} from "@/lib/domain/types";
+import type { Cents } from "@/lib/engine";
 import { reportError } from "@/lib/errors";
 import { type CellValue, type Sheet, XlsxError, openWorkbook } from "./xlsx";
 
@@ -22,6 +30,8 @@ export interface CellError {
 export interface TemplateData {
   /** The template has no free-savings starting amount: the import keeps the current one. */
   settings: Omit<BudgetSettings, "freeSavingsExisting">;
+  /** The spreadsheet's moving fund: the primary savings goal's amounts (its name is kept, SPEC D23). */
+  primaryGoal: Omit<SavingsGoalDraft, "name">;
   lines: BudgetLineDraft[];
   loans: LoanDraft[];
 }
@@ -94,7 +104,10 @@ export function monthText(v: CellValue | undefined): string {
   return text;
 }
 
-const PARAMS: { field: keyof Omit<BudgetForm, "lines" | "freeSavingsExisting">; label: string; kind: "amount" | "percent" | "month" }[] = [
+/** The budget form plus the moving fund, which the app keeps as the primary goal. */
+type TemplateForm = BudgetForm & { movingGoal: string; movingDeadlineMonth: string; movingAlreadySaved: string };
+
+const PARAMS: { field: keyof Omit<TemplateForm, "lines" | "freeSavingsExisting">; label: string; kind: "amount" | "percent" | "month" }[] = [
   { field: "startMonth", label: "date de debut du plan", kind: "month" },
   { field: "movingGoal", label: "objectif epargne demenagement", kind: "amount" },
   { field: "movingDeadlineMonth", label: "date limite demenagement", kind: "month" },
@@ -111,7 +124,7 @@ const SECTIONS: { category: BudgetCategory; header: string }[] = [
   { category: "variable", header: "depenses variables" },
 ];
 
-function readBudget(sheet: Sheet): { form: BudgetForm; cells: Record<string, string> } | null {
+function readBudget(sheet: Sheet): { form: TemplateForm; cells: Record<string, string> } | null {
   const cells: Record<string, string> = {};
   const lines: BudgetForm["lines"] = [];
   for (const { category, header } of SECTIONS) {
@@ -131,7 +144,7 @@ function readBudget(sheet: Sheet): { form: BudgetForm; cells: Record<string, str
       lines.push({ category, label: label === undefined ? "" : String(label), amount: amount === undefined ? "0" : amountText(amount) });
     }
   }
-  const form = { lines } as BudgetForm;
+  const form = { lines } as TemplateForm;
   const params = findRow(sheet, ["parametres"]);
   if (params === null) return null;
   for (const p of PARAMS) {
@@ -199,6 +212,18 @@ export function parseTemplate(budget: Sheet, loans: Sheet): TemplateResult {
   const errors: CellError[] = [];
   const validBudget = validateBudget(b.form);
   if (!validBudget.ok) errors.push(...toCellErrors(BUDGET_SHEET, validBudget.errors, (f) => b.cells[f]));
+  // The moving fund: same rules as when it was part of the budget form (any amount >= 0, any month).
+  const target = parseAmount(b.form.movingGoal);
+  const deadline = parseMonth(b.form.movingDeadlineMonth);
+  const saved = parseAmount(b.form.movingAlreadySaved);
+  const fundFields = [
+    ["movingGoal", target],
+    ["movingDeadlineMonth", deadline],
+    ["movingAlreadySaved", saved],
+  ] as const;
+  for (const [field, parsed] of fundFields) {
+    if (!parsed.ok) errors.push({ sheet: BUDGET_SHEET, cell: b.cells[field], message: parsed.error });
+  }
 
   const loanDrafts: LoanDraft[] = [];
   l.forEach(({ row, form }, i) => {
@@ -211,10 +236,11 @@ export function parseTemplate(budget: Sheet, loans: Sheet): TemplateResult {
     }
   });
 
-  if (errors.length > 0 || !validBudget.ok) return { ok: false, kind: "cells", errors };
+  if (errors.length > 0 || !validBudget.ok || !target.ok || !deadline.ok || !saved.ok) return { ok: false, kind: "cells", errors };
   const settings: TemplateData["settings"] = { ...validBudget.value.settings };
   delete (settings as Partial<BudgetSettings>).freeSavingsExisting;
-  return { ok: true, data: { settings, lines: validBudget.value.lines, loans: loanDrafts } };
+  const primaryGoal = { target: target.value as Cents, deadlineMonth: deadline.value, alreadySaved: saved.value as Cents };
+  return { ok: true, data: { settings, primaryGoal, lines: validBudget.value.lines, loans: loanDrafts } };
 }
 
 /** Checks the file, opens it and parses the template. Never throws. */

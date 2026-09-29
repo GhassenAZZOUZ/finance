@@ -65,8 +65,19 @@ describe("movingShortfallOptions", () => {
 });
 
 describe("dashboardHeadline / monthsGained", () => {
-  it("states the debt-free month and the moving status", () => {
-    expect(dashboardHeadline(RESULT.kpis)).toBe("Plus de dettes en juin 2028. Le déménagement demande un ajustement.");
+  it("states the debt-free month and the goals' status, with the goal's own name (SPEC D23)", () => {
+    expect(dashboardHeadline(RESULT.kpis)).toBe("Plus de dettes en juin 2028. « Déménagement » demande un ajustement.");
+    const two = simulatePlan({
+      ...DEMO,
+      budget: {
+        ...DEMO.budget,
+        goals: [
+          { id: "moving", name: "Voyage", target: 400_000, deadlineMonth: "2026-12", alreadySaved: 50_000 },
+          { id: "car", name: "Voiture", target: 100_000, deadlineMonth: "2027-12", alreadySaved: 0 },
+        ],
+      },
+    });
+    expect(dashboardHeadline(two.kpis)).toMatch(/ Les objectifs d’épargne (sont financés|demandent un ajustement)\.$/);
   });
 
   it("counts the months gained on the debt-free date", () => {

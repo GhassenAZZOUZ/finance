@@ -32,7 +32,11 @@ describe("template import", () => {
   it("replaces the onboarding defaults with the template", async () => {
     await importOnce();
     const snap = await repo.load();
-    expect(snap.settings).toMatchObject({ startMonth: "2027-01", movingGoal: 400000, freeSavingsExisting: 0 });
+    expect(snap.settings).toMatchObject({ startMonth: "2027-01", freeSavingsExisting: 0 });
+    // The spreadsheet's moving fund becomes the primary savings goal (SPEC D23).
+    expect(snap.goals).toEqual([
+      expect.objectContaining({ name: "Déménagement", target: 400000, deadlineMonth: "2027-06", alreadySaved: 50000, priority: 1, primary: true }),
+    ]);
     expect(snap.lines).toHaveLength(15);
     expect(snap.lines.find((l) => l.category === "income" && l.position === 0)?.amount).toBe(280000);
     expect(snap.loans.map((l) => l.name)).toEqual(["Prêt auto", "Carte revolving", "Prêt travaux", "Prêt étudiant", "Dette perso A", "Dette perso B"]);
@@ -44,7 +48,6 @@ describe("template import", () => {
       month: "2027-01",
       income: null,
       expenses: null,
-      movingSavings: 0,
       emergencySavings: 0,
       freeSavings: 0,
       loanBalances: before.loans.map((l) => ({ loanId: l.id, balance: l.principal })),
@@ -57,6 +60,18 @@ describe("template import", () => {
     expect(after.loans.map((l) => l.id)).toEqual(before.loans.map((l) => l.id));
     expect(after.archivedLoans).toEqual([]);
     expect(after.actuals).toHaveLength(1);
+    expect(after.goals).toEqual(before.goals);
+  });
+
+  it("updates the primary goal's amounts and keeps its name and the other goals", async () => {
+    const [primary] = (await repo.load()).goals;
+    await repo.updateGoal(primary!.id, { name: "Appartement", target: 1000, deadlineMonth: "2030-01", alreadySaved: 0 });
+    const car = await repo.createGoal({ name: "Voiture", target: 500000, deadlineMonth: "2029-01", alreadySaved: 0 }, 2);
+    await importOnce();
+    expect((await repo.load()).goals).toEqual([
+      expect.objectContaining({ id: primary!.id, name: "Appartement", target: 400000, deadlineMonth: "2027-06", alreadySaved: 50000 }),
+      car,
+    ]);
   });
 
   it("writes nothing when a step fails part-way (all-or-nothing)", async () => {
@@ -77,6 +92,7 @@ describe("template import", () => {
     const { error } = await anonClient().rpc("apply_import", {
       p_settings: {},
       p_lines: [],
+      p_primary_goal: {},
       p_loan_removals: [],
       p_loan_updates: [],
       p_loan_creates: [],

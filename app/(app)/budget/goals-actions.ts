@@ -1,6 +1,7 @@
 /**
  * Savings goals actions (SPEC D23), run in the browser: validate, write through the repository,
- * keep the priorities 1..n contiguous, then reload the data.
+ * keep the priorities 1..n contiguous, then reload the data. Every goal follows the same rules;
+ * the primary one only needs a successor when it is deleted.
  */
 import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
 import { MAX_GOALS, type SavingsGoal } from "@/lib/domain/types";
@@ -18,12 +19,13 @@ function failure(error: unknown, context: string): GoalActionResult {
 
 /** Priority order as the engine uses it. */
 export function byPriority(goals: readonly SavingsGoal[]): SavingsGoal[] {
-  return [...goals].sort((a, b) => a.priority - b.priority || Number(b.primary) - Number(a.primary));
+  return [...goals].sort((a, b) => a.priority - b.priority);
 }
 
 export async function addGoal(form: GoalForm, goals: readonly SavingsGoal[], currentMonth: YearMonth): Promise<GoalActionResult> {
   if (goals.length >= MAX_GOALS) return { ok: false, errors: { form: `${MAX_GOALS} objectifs maximum` } };
-  const valid = validateGoal(form, { currentMonth });
+  // The first goal becomes the primary one, which may have no target yet.
+  const valid = validateGoal(form, { currentMonth, primary: goals.length === 0 });
   if (!valid.ok) return valid;
   try {
     const repo = getRepository();
@@ -38,16 +40,8 @@ export async function addGoal(form: GoalForm, goals: readonly SavingsGoal[], cur
   }
 }
 
-/** The primary goal is only renamed here: its amounts are edited with the budget (① group). */
 export async function updateGoal(goal: SavingsGoal, form: GoalForm, currentMonth: YearMonth): Promise<GoalActionResult> {
-  let valid = validateGoal(form, { currentMonth, primary: goal.primary });
-  if (goal.primary) {
-    // Only the name comes from this form; the amounts stay those of the budget.
-    const nameError = valid.ok ? undefined : valid.errors.name;
-    if (nameError) return { ok: false, errors: { name: nameError } };
-    const { target, deadlineMonth, alreadySaved } = goal;
-    valid = { ok: true, value: { name: form.name.trim(), target, deadlineMonth, alreadySaved } };
-  }
+  const valid = validateGoal(form, { currentMonth, primary: goal.primary, savedDeadline: goal.deadlineMonth });
   if (!valid.ok) return valid;
   try {
     await getRepository().updateGoal(goal.id, valid.value);
@@ -58,14 +52,23 @@ export async function updateGoal(goal: SavingsGoal, form: GoalForm, currentMonth
   }
 }
 
-export async function deleteGoal(goal: SavingsGoal, goals: readonly SavingsGoal[]): Promise<GoalActionResult> {
-  if (goal.primary) return { ok: false, errors: { form: "L’objectif principal ne peut pas être supprimé." } };
+/**
+ * Deletes a goal; the database closes the priority gap. The primary goal needs `newPrimary`, the
+ * goal that replaces it, unless it is the last one (owner decision, SPEC D23).
+ */
+export async function deleteGoal(goal: SavingsGoal, goals: readonly SavingsGoal[], newPrimary?: SavingsGoal): Promise<GoalActionResult> {
+  const others = goals.filter((g) => g.id !== goal.id);
+  const successor = goal.primary && others.length > 0 ? others.find((g) => g.id === newPrimary?.id) : undefined;
+  if (goal.primary && others.length > 0 && !successor) {
+    return { ok: false, errors: { form: "Choisissez l’objectif qui devient l’objectif principal." } };
+  }
   try {
-    const repo = getRepository();
-    await repo.deleteGoal(goal.id);
-    await repo.orderGoals(byPriority(goals).filter((g) => g.id !== goal.id).map((g) => g.id));
+    await getRepository().deleteGoal(goal.id, successor?.id);
     notifyDataChanged();
-    return { ok: true, message: `« ${goal.name} » a été supprimé.` };
+    const message = successor
+      ? `« ${goal.name} » a été supprimé ; « ${successor.name} » devient l’objectif principal.`
+      : `« ${goal.name} » a été supprimé.`;
+    return { ok: true, message };
   } catch (error) {
     return failure(error, "goals.delete");
   }

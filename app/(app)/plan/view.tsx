@@ -12,7 +12,7 @@ import type { ComputedPlan } from "@/lib/domain/plan";
 import { HORIZON_MONTHS, monthsBetween } from "@/lib/engine";
 import { formatEuros, formatMonthLong, formatMonthShort } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { type PlanPhase, goalsName, phaseLabel, planPhases, primaryGoalName } from "../_dashboard/logic";
+import { type PlanPhase, goalsName, goalsPhrase, phaseLabel, planPhases, primaryGoalName } from "../_dashboard/logic";
 import { exceptionsByPlanIndex } from "./exceptions";
 import { ROW_COUNTS, findMilestones, parseRowCount } from "./milestones";
 import { PlanTable } from "./plan-table";
@@ -42,7 +42,7 @@ export function PlanView() {
     <>
       <PageHeader
         title={TITLE}
-        description="Chaque mois, le disponible remplit ① le déménagement, ② le fonds d’urgence, puis ③ se partage entre remboursement anticipé et épargne libre. Pour changer le résultat, modifiez le budget ou les crédits."
+        description={`Chaque mois, le disponible remplit ① ${goalsPhrase(plan.result.kpis)}, ② le fonds d’urgence, puis ③ se partage entre remboursement anticipé et épargne libre. Pour changer le résultat, modifiez le budget, les objectifs ou les crédits.`}
         actions={<RangeControl rowCount={rowCount} />}
       />
 

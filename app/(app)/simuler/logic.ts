@@ -20,7 +20,7 @@ import {
   simulatePlan,
 } from "@/lib/engine";
 import { amountInputValue, formatEuros, formatEurosWhole, formatMonthLong, formatMonthShort, percentInputValue } from "@/lib/format";
-import { formatSignedEuros } from "../_dashboard/logic";
+import { formatSignedEuros, goalsName } from "../_dashboard/logic";
 
 export type ExtraSource = ExtraRepaymentInput["source"];
 
@@ -271,7 +271,7 @@ export function compareScenarios(current: PlanKpis, simulated: PlanKpis): Compar
     formatEuros(simulated.interestSaved),
     moneyDifference(current.interestSaved, simulated.interestSaved),
   );
-  push("moving", "Objectif déménagement", movingText(current), movingText(simulated), movingDifference(current, simulated));
+  push("moving", current.goals.length > 1 ? "Objectifs d’épargne" : `Objectif « ${goalsName(current)} »`, movingText(current), movingText(simulated), movingDifference(current, simulated));
   push(
     "emergency",
     "Fonds d’urgence complet en",

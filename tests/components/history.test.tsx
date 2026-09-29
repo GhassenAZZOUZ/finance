@@ -51,7 +51,6 @@ function actual(month: string, overrides: Partial<MonthlyActual> = {}): MonthlyA
     month,
     income: null,
     expenses: null,
-    movingSavings: 0,
     emergencySavings: 0,
     freeSavings: 0,
     loanBalances: [],
@@ -122,10 +121,10 @@ describe("History", () => {
     render(<History entries={[MARCH]} />);
     const march = within(card(/mars 2027/));
     const meter = (name: string) => plain(march.getByRole("progressbar", { name }).parentElement?.textContent);
-    expect(meter("% objectif déménagement")).toBe("% objectif déménagement25 %");
+    expect(meter("% objectifs d’épargne")).toBe("% objectifs d’épargne25 %");
     expect(meter("% dettes remboursées")).toBe("% dettes remboursées40 %");
     // The value reaches screen readers too, not only the visible text.
-    const bar = march.getByRole("progressbar", { name: "% objectif déménagement" });
+    const bar = march.getByRole("progressbar", { name: "% objectifs d’épargne" });
     expect([bar.getAttribute("aria-valuenow"), bar.getAttribute("aria-valuemax"), bar.getAttribute("aria-valuetext")]).toEqual(["25", "100", "25%"]);
   });
 

@@ -45,6 +45,8 @@ const MESSAGES: Record<string, string> = {
   "22003": "Montant trop grand pour être enregistré.",
   // no_data_found: a row the save functions had to update is gone.
   P0002: "Élément introuvable : il a peut-être déjà été supprimé. Rechargez la page.",
+  // Raised at commit when savings goals would be left without a primary one (tech-debt 6).
+  P0003: "Il faut un objectif principal : choisissez celui qui remplace l’actuel.",
   // invalid_parameter_value: raised by the save functions on a malformed payload.
   "22023": "Formulaire invalide. Rechargez la page.",
 };

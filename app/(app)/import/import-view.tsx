@@ -176,11 +176,13 @@ function ErrorBox({ children }: { children: ReactNode }) {
 
 function Preview({ data, fileName, children }: { data: TemplateData; fileName: string; children: ReactNode }) {
   const s = data.settings;
+  const g = data.primaryGoal;
+  // The template's moving fund becomes the primary savings goal (SPEC D23).
   const params: [string, string][] = [
     ["Début du plan", formatMonthLong(s.startMonth)],
-    ["Objectif déménagement", formatEuros(s.movingGoal)],
-    ["Date limite déménagement", formatMonthLong(s.movingDeadlineMonth)],
-    ["Déjà épargné (déménagement)", formatEuros(s.movingAlreadySaved)],
+    ["Objectif principal : montant visé", formatEuros(g.target)],
+    ["Objectif principal : date limite", formatMonthLong(g.deadlineMonth)],
+    ["Objectif principal : déjà épargné", formatEuros(g.alreadySaved)],
     ["Fonds d’urgence cible", formatEuros(s.emergencyTarget)],
     ["Épargne de précaution disponible", formatEuros(s.emergencyExisting)],
     ["Taux seuil", formatPercent(s.riskFreeRate)],

@@ -112,7 +112,7 @@ export function goalsOf(budget: BudgetParams): readonly GoalInput[] {
     budget.goals ?? [
       {
         id: PRIMARY_GOAL_ID,
-        name: "Déménagement",
+        name: budget.movingName ?? "Déménagement",
         target: budget.movingGoal,
         deadlineMonth: budget.movingDeadlineMonth,
         alreadySaved: budget.movingAlreadySaved,

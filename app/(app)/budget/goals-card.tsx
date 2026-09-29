@@ -5,6 +5,7 @@ import { type FormEvent, type ReactNode, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { engineGoalId } from "@/lib/domain/plan";
 import { MAX_GOALS, type SavingsGoal } from "@/lib/domain/types";
 import type { Errors, GoalForm } from "@/lib/domain/validation";
 import type { GoalKpis, YearMonth } from "@/lib/engine";
@@ -25,8 +26,8 @@ function readForm(event: FormEvent<HTMLFormElement>): GoalForm {
 
 /**
  * Savings goals (SPEC D23, issue #10): filled in priority order before the emergency fund, each
- * until its deadline. Saved immediately (outside the budget <form>). The primary goal is the moving
- * fund: renamed here, its amounts edited in « ① » below, never deleted.
+ * until its deadline. Saved immediately (outside the budget <form>). All goals are edited here; the
+ * primary one (the first goal added) is deleted by choosing the goal that replaces it.
  */
 export function GoalsCard({
   goals,
@@ -42,6 +43,8 @@ export function GoalsCard({
 }) {
   const ordered = byPriority(goals);
   const [editing, setEditing] = useState<string | null>(null);
+  /** Primary goal whose deletion waits for the choice of its successor. */
+  const [replacing, setReplacing] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ key: string; errors: Errors } | null>(null);
@@ -59,7 +62,7 @@ export function GoalsCard({
   }
 
   const errorsFor = (key: string) => (errors?.key === key ? errors.errors : {});
-  const kpiFor = (id: string) => kpis?.find((k) => k.id === id);
+  const kpiFor = (goal: SavingsGoal) => kpis?.find((k) => k.id === engineGoalId(goal));
 
   return (
     <section role="group" aria-labelledby="section-goals" className="flex flex-col gap-4 rounded-2xl border bg-card px-4 py-5 md:px-6">
@@ -69,7 +72,7 @@ export function GoalsCard({
         </h2>
         <p className="text-[13px] leading-snug text-muted-foreground">
           Remplis dans cet ordre, avant le fonds d’urgence ; chacun reçoit de l’épargne jusqu’à sa date limite (incluse).{" "}
-          {MAX_GOALS} objectifs au plus.
+          {MAX_GOALS} objectifs au plus. Le premier ajouté est l’objectif principal.
         </p>
       </div>
 
@@ -78,7 +81,7 @@ export function GoalsCard({
       ) : (
         <ol className="flex flex-col">
           {ordered.map((goal, i) => {
-            const kpi = kpiFor(goal.id);
+            const kpi = kpiFor(goal);
             const key = `goal-${goal.id}`;
             return (
               <li key={goal.id} className="flex flex-col gap-2 border-b border-divider py-3 last:border-b-0">
@@ -116,13 +119,30 @@ export function GoalsCard({
                     >
                       <Pencil aria-hidden className="size-4" />
                     </IconButton>
-                    {goal.primary ? null : (
-                      <IconButton label={`Supprimer « ${goal.name} »`} disabled={busy} onClick={() => void run(key, () => deleteGoal(goal, goals))}>
-                        <Trash2 aria-hidden className="size-4" />
-                      </IconButton>
-                    )}
+                    <IconButton
+                      label={`Supprimer « ${goal.name} »`}
+                      disabled={busy}
+                      pressed={goal.primary && goals.length > 1 ? replacing === goal.id : undefined}
+                      onClick={() =>
+                        goal.primary && goals.length > 1
+                          ? setReplacing(replacing === goal.id ? null : goal.id)
+                          : void run(key, () => deleteGoal(goal, goals))
+                      }
+                    >
+                      <Trash2 aria-hidden className="size-4" />
+                    </IconButton>
                   </div>
                 </div>
+                {replacing === goal.id ? (
+                  <ReplacePrimary
+                    idPrefix={key}
+                    goal={goal}
+                    candidates={ordered.filter((g) => g.id !== goal.id)}
+                    busy={busy}
+                    onCancel={() => setReplacing(null)}
+                    onConfirm={(successor) => void run(key, () => deleteGoal(goal, goals, successor), () => setReplacing(null))}
+                  />
+                ) : null}
                 {editing === goal.id ? (
                   <GoalFields
                     idPrefix={key}
@@ -133,7 +153,6 @@ export function GoalsCard({
                       deadlineMonth: goal.deadlineMonth,
                       alreadySaved: amountInputValue(goal.alreadySaved),
                     }}
-                    nameOnly={goal.primary}
                     submitLabel="Enregistrer"
                     busy={busy}
                     errors={errorsFor(key)}
@@ -194,6 +213,65 @@ function GoalStatus({ kpi }: { kpi: GoalKpis }) {
   );
 }
 
+/** Deleting the primary goal: pick the goal that becomes primary (SPEC D23), then confirm. */
+function ReplacePrimary({
+  idPrefix,
+  goal,
+  candidates,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  idPrefix: string;
+  goal: SavingsGoal;
+  candidates: SavingsGoal[];
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: (successor: SavingsGoal) => void;
+}) {
+  const [choice, setChoice] = useState(candidates[0]?.id ?? "");
+  const selectId = `${idPrefix}-successor`;
+  return (
+    <div role="group" aria-label={`Supprimer l’objectif principal « ${goal.name} »`} className="flex flex-col gap-3 rounded-xl border border-divider p-3.5">
+      <p className="text-sm">
+        « {goal.name} » est l’objectif principal. Choisissez celui qui le remplace, puis confirmez la suppression.
+      </p>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={selectId}>Nouvel objectif principal</Label>
+        <select
+          id={selectId}
+          value={choice}
+          onChange={(e) => setChoice(e.target.value)}
+          className="h-10.5 rounded-md border border-input bg-background px-3 text-sm"
+        >
+          {candidates.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="destructive"
+          disabled={busy}
+          className="min-h-11 md:min-h-9"
+          onClick={() => {
+            const successor = candidates.find((g) => g.id === choice);
+            if (successor) onConfirm(successor);
+          }}
+        >
+          Supprimer « {goal.name} »
+        </Button>
+        <Button type="button" variant="outline" disabled={busy} className="min-h-11 md:min-h-9" onClick={onCancel}>
+          Annuler
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function IconButton({
   label,
   disabled,
@@ -228,7 +306,6 @@ function GoalFields({
   idPrefix,
   title,
   initial,
-  nameOnly = false,
   submitLabel,
   busy,
   errors,
@@ -239,7 +316,6 @@ function GoalFields({
   idPrefix: string;
   title: string;
   initial: GoalForm;
-  nameOnly?: boolean;
   submitLabel: string;
   busy: boolean;
   errors: Errors;
@@ -296,15 +372,9 @@ function GoalFields({
       </h3>
       <div className="grid gap-3 sm:grid-cols-2">
         {field("name", "Nom de l’objectif", { placeholder: "Voiture, vacances, apport…" })}
-        {nameOnly ? (
-          <p className="text-[13px] text-muted-foreground sm:self-end">Montant, date limite et déjà épargné : dans « ① » ci-dessous.</p>
-        ) : (
-          <>
-            {field("target", "Montant visé (€)", { inputMode: "decimal" })}
-            {field("deadlineMonth", "Date limite (AAAA-MM)", { placeholder: "AAAA-MM" })}
-            {field("alreadySaved", "Déjà épargné (€)", { inputMode: "decimal" })}
-          </>
-        )}
+        {field("target", "Montant visé (€)", { inputMode: "decimal" })}
+        {field("deadlineMonth", "Date limite (AAAA-MM)", { placeholder: "AAAA-MM" })}
+        {field("alreadySaved", "Déjà épargné (€)", { inputMode: "decimal" })}
       </div>
       <div className="flex flex-wrap gap-2">
         <Button type="submit" disabled={busy} className="min-h-11 md:min-h-9">

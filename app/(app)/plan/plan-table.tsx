@@ -34,7 +34,7 @@ const COLUMNS: Column[] = [
 
 const GROUP_HEAD: { group: PlanGroup; label: string; className: string }[] = [
   { group: "available", label: "Budget du mois", className: "text-muted-foreground" },
-  { group: "moving", label: "① Déménag.", className: "text-bucket-moving-ink" },
+  { group: "moving", label: "① Objectifs", className: "text-bucket-moving-ink" },
   { group: "emergency", label: "② Urgence", className: "text-bucket-emergency-ink" },
   { group: "remainder", label: "③ Reste du mois", className: "text-bucket-debts-ink" },
   { group: "debts", label: "Dettes", className: "text-bucket-debts-ink" },
@@ -68,8 +68,8 @@ export function PlanTable({
   todayIndex,
   earlyRepaymentPct,
   movingGoalMet,
-  goalsName = "Déménagement",
-  primaryName = "Déménagement",
+  goalsName = "Objectifs",
+  primaryName = "Objectif principal",
   caption,
 }: {
   months: PlanMonth[];
@@ -80,7 +80,7 @@ export function PlanTable({
   /** Plan month of today (the KPIs' reference month): highlighted row. */
   todayIndex: number;
   earlyRepaymentPct: number;
-  /** Whether the moving goal is met at the deadline (deadline chip wording). */
+  /** Whether the primary goal is met at its deadline (deadline chip wording). */
   movingGoalMet?: boolean;
   /** Savings-goals bucket name and the primary goal's name (SPEC D23). */
   goalsName?: string;
@@ -109,7 +109,7 @@ export function PlanTable({
             </th>
             {GROUP_HEAD.map((g) => ({
               ...g,
-              label: g.group === "moving" && goalsName !== "Déménagement" ? `① ${goalsName}` : g.label,
+              label: g.group === "moving" ? `① ${goalsName}` : g.label,
             })).map((g) => (
               <th
                 key={g.group}
