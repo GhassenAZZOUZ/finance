@@ -60,6 +60,8 @@ export interface FinanceRepository {
   setReminder(enabled: boolean): Promise<void>;
   /** Records (or clears, with null) the actual date an income line was paid for a month (SPEC D29). */
   setIncomePayment(month: string, budgetLineId: string, paidOn: string | null): Promise<void>;
+  /** Deletes the signed-in user's account and every row of theirs, for good (SPEC D26). */
+  deleteAccount(): Promise<void>;
 }
 
 export class RepositoryError extends Error {

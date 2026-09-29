@@ -475,6 +475,10 @@ export class SupabaseFinanceRepository implements FinanceRepository {
     );
   }
 
+  async deleteAccount(): Promise<void> {
+    checkMaybe(await this.db.rpc("delete_my_account"));
+  }
+
   async orderGoals(ids: string[]): Promise<void> {
     const rows = check(await this.db.from("savings_goals").select(GOAL_COLUMNS).returns<GoalRow[]>());
     const byId = new Map(rows.map((r) => [r.id, r]));
