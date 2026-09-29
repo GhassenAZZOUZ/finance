@@ -185,6 +185,14 @@ describe("planImport", () => {
     expect(plan.loanRemovals).toEqual([]);
   });
 
+  it("keeps the payday of a reused income slot (SPEC D29)", () => {
+    const snapshot = makeSnapshot({
+      lines: [{ id: "i0", category: "income", label: "Salaire", amount: 0, position: 0, startMonth: null, endMonth: null, paydayDay: 27, paydayPreviousMonth: true }],
+    });
+    const plan = planImport(snapshot, data());
+    expect(plan.lines.find((l) => l.id === "i0")).toMatchObject({ paydayDay: 27, paydayPreviousMonth: true });
+  });
+
   it("keeps the savings interest rates and resets the yearly indexation (SPEC D27, D28)", () => {
     const snapshot = makeSnapshot({
       settings: makeSettings({ emergencyRate: 0.024, freeSavingsRate: 0.03, expenseInflationRate: 0.02, incomeGrowthRate: 0.01 }),

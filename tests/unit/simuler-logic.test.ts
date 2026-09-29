@@ -58,7 +58,7 @@ const SNAPSHOT: FinanceSnapshot = {
   loans: [loan("auto", "Prêt auto", 500_000, 0.06, 20_000), loan("perso", "Prêt perso", 300_000, 0.04, 15_000)],
   archivedLoans: [],
   goals: [primaryGoal({ target: 300_000, deadlineMonth: "2027-12" })],
-  reminderEnabled: true,
+  reminderEnabled: true, incomePayments: [],
   actuals: [],
 };
 const CURRENT = "2027-01";

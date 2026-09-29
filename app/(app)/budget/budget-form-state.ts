@@ -53,6 +53,9 @@ export interface LineState {
   endMonth: string;
   /** false = « non indexé » (SPEC D27); omitted = indexed. */
   indexed?: boolean;
+  /** Income lines (SPEC D29): usual payday as typed; omitted = 1 of the same month, untouched. */
+  paydayDay?: string;
+  paydayPreviousMonth?: boolean;
 }
 
 export interface BudgetFormState {
@@ -107,6 +110,9 @@ export function initialFormState(settings: BudgetSettings | null, lines: readonl
       startMonth: l.startMonth ?? "",
       endMonth: l.endMonth ?? "",
       ...(l.indexed === false ? { indexed: false } : {}),
+      ...(l.category === "income" && (l.paydayDay !== undefined || l.paydayPreviousMonth !== undefined)
+        ? { paydayDay: String(l.paydayDay ?? 1), paydayPreviousMonth: l.paydayPreviousMonth ?? false }
+        : {}),
     })),
   };
 }
@@ -129,6 +135,9 @@ export function toPayload(state: BudgetFormState): BudgetPayload {
         startMonth: l.startMonth,
         endMonth: l.endMonth,
         ...(l.indexed === false ? { indexed: false } : {}),
+        ...(l.category === "income" && l.paydayDay !== undefined
+          ? { paydayDay: l.paydayDay, paydayPreviousMonth: l.paydayPreviousMonth ?? false }
+          : {}),
       })),
     },
     keys: lines.map((l) => l.key),
@@ -180,6 +189,7 @@ export function parsePayload(raw: unknown, maxLines = 200): BudgetPayload | null
           startMonth: month(line.startMonth),
           endMonth: month(line.endMonth),
           ...(line.indexed === false ? { indexed: false } : {}),
+          ...(line.paydayDay !== undefined ? { paydayDay: text(line.paydayDay).slice(0, 5), paydayPreviousMonth: line.paydayPreviousMonth === true } : {}),
         };
       }),
     },

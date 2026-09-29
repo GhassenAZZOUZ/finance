@@ -4,7 +4,7 @@
  * same loan name) so importing the same file twice changes nothing. `FinanceRepository.applyImport`
  * writes the plan all-or-nothing.
  */
-import type { BudgetLineDraft, BudgetSettings, FinanceSnapshot, LoanDraft, SavingsGoalDraft } from "@/lib/domain/types";
+import type { BudgetLine, BudgetLineDraft, BudgetSettings, FinanceSnapshot, LoanDraft, SavingsGoalDraft } from "@/lib/domain/types";
 import type { TemplateData } from "./template";
 
 export interface ImportPlan {
@@ -28,13 +28,19 @@ export const TEMPLATE_GOAL_NAME = "Déménagement";
 const loanKey = (name: string | null) => (name ?? "").trim().toLocaleLowerCase("fr");
 
 export function planImport(snapshot: FinanceSnapshot, data: TemplateData): ImportPlan {
-  const byCategory = new Map<string, string[]>();
+  const byCategory = new Map<string, BudgetLine[]>();
   for (const line of [...snapshot.lines].sort((a, b) => a.position - b.position)) {
-    byCategory.set(line.category, [...(byCategory.get(line.category) ?? []), line.id]);
+    byCategory.set(line.category, [...(byCategory.get(line.category) ?? []), line]);
   }
   const lines = data.lines.map((line) => {
-    const id = byCategory.get(line.category)?.shift();
-    return id ? { ...line, id } : line;
+    const slot = byCategory.get(line.category)?.shift();
+    if (!slot) return line;
+    // The template has no payday (SPEC D29): a reused income slot keeps its own.
+    const payday =
+      slot.paydayDay !== undefined || slot.paydayPreviousMonth !== undefined
+        ? { paydayDay: slot.paydayDay ?? 1, paydayPreviousMonth: slot.paydayPreviousMonth ?? false }
+        : {};
+    return { ...line, id: slot.id, ...payday };
   });
 
   // Same name (case-insensitive) = same loan; unnamed loans pair up in entry order.

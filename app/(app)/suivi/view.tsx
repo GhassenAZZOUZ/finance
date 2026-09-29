@@ -8,11 +8,12 @@ import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { planRebase } from "@/lib/domain/rebase";
 import type { ActualForm } from "@/lib/domain/validation";
-import { type ActualStatus, compareMonths } from "@/lib/engine";
-import { currentYearMonth, formatMonthLong } from "@/lib/format";
+import { type ActualStatus, addMonths, compareMonths } from "@/lib/engine";
+import { currentDate, currentYearMonth, formatMonthLong } from "@/lib/format";
 import { ActualVsPlannedCard } from "./actual-vs-planned";
 import { CheckInForm } from "./check-in-form";
 import { History, HistoryList } from "./history";
+import { IncomePaymentsCard } from "./income-payments-card";
 import {
   type PlannedValues,
   buildHistory,
@@ -106,6 +107,13 @@ export function SuiviView() {
         )}
 
         <div className="flex flex-col gap-4">
+          {/* Payment dates of the incomes (SPEC D29): next month first, then the open months. */}
+          <IncomePaymentsCard
+            months={[addMonths(currentMonth, 1), ...months]}
+            lines={snapshot.lines}
+            payments={snapshot.incomePayments}
+            today={currentDate()}
+          />
           {notStarted && !hasActuals ? null : (
             <section aria-labelledby="suivi-history-title" className="flex flex-col gap-3.5 rounded-2xl border bg-card p-4 md:p-6">
               <h2 id="suivi-history-title" className="text-[17px] font-semibold">

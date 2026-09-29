@@ -18,6 +18,12 @@ export interface BudgetLine {
   endMonth: YearMonth | null;
   /** « Non indexé » when false (SPEC D27); omitted = indexed. */
   indexed?: boolean;
+  /**
+   * Income lines (SPEC D29): usual payday, `paydayDay` (1–31, a day the month lacks = its last day)
+   * of the previous month or of the month itself. Omitted = 1 of the same month.
+   */
+  paydayDay?: number;
+  paydayPreviousMonth?: boolean;
 }
 
 /** A line as edited in the form: no id yet for new lines. */
@@ -31,6 +37,12 @@ export interface BudgetLineDraft {
   endMonth: YearMonth | null;
   /** « Non indexé » when false (SPEC D27); omitted = indexed. */
   indexed?: boolean;
+  /**
+   * Income lines (SPEC D29): usual payday, `paydayDay` (1–31, a day the month lacks = its last day)
+   * of the previous month or of the month itself. Omitted = 1 of the same month.
+   */
+  paydayDay?: number;
+  paydayPreviousMonth?: boolean;
 }
 
 /** Plan parameters. The savings goals, the primary one included, are `SavingsGoal`s (SPEC D23). */
@@ -136,6 +148,15 @@ export interface MonthlyActual {
 
 export type MonthlyActualDraft = Omit<MonthlyActual, "id">;
 
+/** Actual date an income line was paid for a month, when it differs from its usual payday (SPEC D29). */
+export interface IncomePayment {
+  /** The month whose budget the income funds. */
+  month: YearMonth;
+  budgetLineId: string;
+  /** YYYY-MM-DD, from the 1st of the month before to the last day of `month`, never after today. */
+  paidOn: string;
+}
+
 /** Everything the pages need for one user. */
 export interface FinanceSnapshot {
   settings: BudgetSettings | null;
@@ -151,4 +172,6 @@ export interface FinanceSnapshot {
   actuals: MonthlyActual[];
   /** Monthly check-in reminder by e-mail (SPEC D25); on by default. */
   reminderEnabled: boolean;
+  /** Per-month exceptions to the income lines' paydays (SPEC D29), by month. */
+  incomePayments: IncomePayment[];
 }

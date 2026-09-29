@@ -15,8 +15,9 @@ export const BACKUP_FORMAT = "finance-plan-backup";
  *    check-ins lose `movingSavings`, whose value is the primary goal's entry in `goalBalances`.
  * 6: `settings` gain `expenseInflationRate` and `incomeGrowthRate`, budget lines `indexed` (#36).
  * 7: `settings` gain `emergencyRate` and `freeSavingsRate`, goals `rate` (savings interest, #35).
+ * 8: income lines gain `paydayDay` and `paydayPreviousMonth`; `incomePayments` (paydays, #60).
  */
-export const BACKUP_VERSION = 7;
+export const BACKUP_VERSION = 8;
 
 /** Euros with exactly 2 decimals and a dot ("1234.50", "-0.05"), computed from integer cents. */
 export type DecimalEuros = string;
@@ -83,7 +84,12 @@ export interface Backup {
       endMonth: YearMonth | null;
       /** false = « non indexé » (SPEC D27). */
       indexed: boolean;
+      /** Usual payday (SPEC D29); 1 and false for expense lines. */
+      paydayDay: number;
+      paydayPreviousMonth: boolean;
     }[];
+    /** Actual payment dates that differ from the usual payday (SPEC D29), by month. */
+    incomePayments: { month: YearMonth; budgetLineId: string; paidOn: string }[];
     exceptions: { id: string; month: YearMonth; kind: string; label: string; amount: DecimalEuros }[];
     /** Active loans first (entry order), then archived ones. */
     loans: BackupLoan[];
@@ -181,7 +187,10 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
         startMonth: l.startMonth,
         endMonth: l.endMonth,
         indexed: l.indexed !== false,
+        paydayDay: l.paydayDay ?? 1,
+        paydayPreviousMonth: l.paydayPreviousMonth ?? false,
       })),
+      incomePayments: snapshot.incomePayments.map((p) => ({ month: p.month, budgetLineId: p.budgetLineId, paidOn: p.paidOn })),
       exceptions: snapshot.exceptions.map((e) => ({
         id: e.id,
         month: e.month,

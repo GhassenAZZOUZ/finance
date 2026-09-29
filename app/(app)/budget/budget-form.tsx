@@ -63,9 +63,9 @@ const FORM_ID = "budget-form";
 
 const INITIAL_ACTION_STATE: BudgetActionState = { status: "idle", errors: {}, lineKeys: [] };
 
-type LineFieldErrors = { label?: string; amount?: string; startMonth?: string; endMonth?: string };
+type LineFieldErrors = { label?: string; amount?: string; startMonth?: string; endMonth?: string; paydayDay?: string };
 type LineErrors = Map<string, LineFieldErrors>;
-type LinePatch = Partial<Pick<LineState, "label" | "amount" | "startMonth" | "endMonth" | "indexed">>;
+type LinePatch = Partial<Pick<LineState, "label" | "amount" | "startMonth" | "endMonth" | "indexed" | "paydayDay" | "paydayPreviousMonth">>;
 
 export function BudgetForm({
   settings,
@@ -115,7 +115,8 @@ export function BudgetForm({
     const amount = errors[`lines.${i}.amount`];
     const startMonth = errors[`lines.${i}.startMonth`];
     const endMonth = errors[`lines.${i}.endMonth`];
-    if (label || amount || startMonth || endMonth) lineErrors.set(key, { label, amount, startMonth, endMonth });
+    const paydayDay = errors[`lines.${i}.paydayDay`];
+    if (label || amount || startMonth || endMonth || paydayDay) lineErrors.set(key, { label, amount, startMonth, endMonth, paydayDay });
   });
   const errorCount = Object.keys(errors).length;
 
@@ -417,7 +418,7 @@ function LineRow({
   const shown = line.label.trim() || name;
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
-  const periodErrors = Boolean(errors?.startMonth || errors?.endMonth);
+  const periodErrors = Boolean(errors?.startMonth || errors?.endMonth || errors?.paydayDay);
   const fixedAmount = line.indexed === false;
   // A period error keeps the fields visible so the message sits next to its input.
   const expanded = open || periodErrors;
@@ -561,6 +562,47 @@ function LineRow({
           />
           Montant fixe : non indexé chaque 1ᵉʳ janvier (ex. abonnement à prix garanti)
         </label>
+        {line.category === "income" ? (
+          <fieldset className="mt-2 flex flex-col gap-1.5">
+            <legend className="mb-1 text-sm font-medium">Versé habituellement le</legend>
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor={`${id}-payday`} className="sr-only">
+                Jour de versement ({shown})
+              </Label>
+              <Input
+                id={`${id}-payday`}
+                inputMode="numeric"
+                autoComplete="off"
+                value={line.paydayDay ?? "1"}
+                onChange={(e) => onChange({ paydayDay: e.target.value })}
+                className="h-10 w-16 text-right tabular-nums"
+                aria-invalid={errors?.paydayDay ? true : undefined}
+                aria-describedby={errors?.paydayDay ? `${id}-payday-error` : undefined}
+              />
+              <Label htmlFor={`${id}-payday-month`} className="sr-only">
+                Mois du versement ({shown})
+              </Label>
+              <select
+                id={`${id}-payday-month`}
+                value={line.paydayPreviousMonth ? "previous" : "same"}
+                onChange={(e) => onChange({ paydayDay: line.paydayDay ?? "1", paydayPreviousMonth: e.target.value === "previous" })}
+                className="h-10 rounded-md border bg-background px-2 text-sm"
+              >
+                <option value="same">du mois même</option>
+                <option value="previous">du mois précédent</option>
+              </select>
+            </div>
+            {errors?.paydayDay ? (
+              <p id={`${id}-payday-error`} className="text-sm text-bad">
+                {errors.paydayDay}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Ex. le 27 du mois précédent : le Suivi d’octobre s’ouvre le 27 septembre. Un jour absent du mois (31) = son dernier jour.
+              </p>
+            )}
+          </fieldset>
+        ) : null}
       </div>
     </li>
   );
