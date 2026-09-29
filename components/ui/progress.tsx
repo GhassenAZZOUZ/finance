@@ -16,6 +16,8 @@ function Progress({
         "relative flex h-1 w-full items-center overflow-x-hidden rounded-full bg-muted",
         className
       )}
+      // Radix needs the value for aria-valuenow / aria-valuetext.
+      value={value}
       {...props}
     >
       <ProgressPrimitive.Indicator
