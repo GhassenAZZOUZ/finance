@@ -185,6 +185,16 @@ describe("planImport", () => {
     expect(plan.loanRemovals).toEqual([]);
   });
 
+  it("keeps the savings interest rates and resets the yearly indexation (SPEC D27, D28)", () => {
+    const snapshot = makeSnapshot({
+      settings: makeSettings({ emergencyRate: 0.024, freeSavingsRate: 0.03, expenseInflationRate: 0.02, incomeGrowthRate: 0.01 }),
+    });
+    const plan = planImport(snapshot, data());
+    expect(plan.settings).toMatchObject({ emergencyRate: 0.024, freeSavingsRate: 0.03 });
+    expect(plan.settings.expenseInflationRate ?? 0).toBe(0);
+    expect(plan.settings.incomeGrowthRate ?? 0).toBe(0);
+  });
+
   it("is idempotent: loans matched by name, others removed, free savings and contract end kept", () => {
     const snapshot = makeSnapshot({
       settings: makeSettings({ freeSavingsExisting: 12345 }),

@@ -52,7 +52,7 @@ describe("savings goals", () => {
     const car = await repo.createGoal({ name: " Voiture ", target: 800000, deadlineMonth: "2028-06", alreadySaved: 50000 }, 2);
     const trip = await repo.createGoal({ name: "Vacances", target: 150000, deadlineMonth: "2027-08", alreadySaved: 0 }, 3);
     expect(car.primary).toBe(false);
-    await repo.updateGoal(car.id, { name: "Voiture", target: 900000, deadlineMonth: "2028-12", alreadySaved: 60000 });
+    await repo.updateGoal(car.id, { name: "Voiture", target: 900000, deadlineMonth: "2028-12", alreadySaved: 60000, rate: 0.024 });
     // The primary goal's amounts are edited like any goal's.
     await repo.updateGoal(moving!.id, { name: "Appartement", target: 450000, deadlineMonth: "2027-09", alreadySaved: 70000 });
     expect((await repo.load()).goals.map((g) => [g.name, g.priority, g.target])).toEqual([
@@ -60,6 +60,9 @@ describe("savings goals", () => {
       ["Voiture", 2, 900000],
       ["Vacances", 3, 150000],
     ]);
+
+    // The yearly interest rate (SPEC D28) survives the round-trip and the reordering.
+    expect((await repo.load()).goals.find((g) => g.id === car.id)?.rate).toBe(0.024);
 
     // Holidays first, then the flat, then the car: the unique (user, priority) is deferred.
     await repo.orderGoals([trip.id, moving!.id, car.id]);
@@ -71,6 +74,7 @@ describe("savings goals", () => {
     // Saving the budget again leaves the goals alone.
     await repo.saveSettings(settings);
     expect((await repo.load()).goals).toHaveLength(3);
+    expect((await repo.load()).goals.find((g) => g.id === car.id)?.rate).toBe(0.024);
   });
 
   it("deletes a goal and closes the priority gap", async () => {

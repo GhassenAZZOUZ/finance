@@ -62,7 +62,13 @@ export function planImport(snapshot: FinanceSnapshot, data: TemplateData): Impor
   }
 
   return {
-    settings: { ...data.settings, freeSavingsExisting: snapshot.settings?.freeSavingsExisting ?? 0 },
+    // Not in the template: kept (free savings D16, savings rates D28).
+    settings: {
+      ...data.settings,
+      freeSavingsExisting: snapshot.settings?.freeSavingsExisting ?? 0,
+      emergencyRate: snapshot.settings?.emergencyRate ?? 0,
+      freeSavingsRate: snapshot.settings?.freeSavingsRate ?? 0,
+    },
     primaryGoal: { name: snapshot.goals.find((g) => g.primary)?.name ?? TEMPLATE_GOAL_NAME, ...data.primaryGoal },
     lines,
     loanUpdates,

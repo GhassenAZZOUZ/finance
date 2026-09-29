@@ -9,11 +9,11 @@ import { engineGoalId } from "@/lib/domain/plan";
 import { MAX_GOALS, type SavingsGoal } from "@/lib/domain/types";
 import type { Errors, GoalForm } from "@/lib/domain/validation";
 import type { GoalKpis, YearMonth } from "@/lib/engine";
-import { amountInputValue, formatEuros, formatMonthLong } from "@/lib/format";
+import { amountInputValue, formatEuros, formatMonthLong, percentInputValue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { type GoalActionResult, addGoal, byPriority, deleteGoal, moveGoal, updateGoal } from "./goals-actions";
 
-const EMPTY: GoalForm = { name: "", target: "", deadlineMonth: "", alreadySaved: "0" };
+const EMPTY: GoalForm = { name: "", target: "", deadlineMonth: "", alreadySaved: "0", rate: "" };
 
 function readForm(event: FormEvent<HTMLFormElement>): GoalForm {
   const data = new FormData(event.currentTarget);
@@ -21,7 +21,13 @@ function readForm(event: FormEvent<HTMLFormElement>): GoalForm {
     const v = data.get(key);
     return typeof v === "string" ? v : "";
   };
-  return { name: text("name"), target: text("target"), deadlineMonth: text("deadlineMonth"), alreadySaved: text("alreadySaved") };
+  return {
+    name: text("name"),
+    target: text("target"),
+    deadlineMonth: text("deadlineMonth"),
+    alreadySaved: text("alreadySaved"),
+    rate: text("rate"),
+  };
 }
 
 /**
@@ -97,6 +103,7 @@ export function GoalsCard({
                     </h3>
                     <p className="text-[13px] text-muted-foreground tabular-nums">
                       {formatEuros(goal.target)} d’ici {formatMonthLong(goal.deadlineMonth)} · déjà {formatEuros(goal.alreadySaved)}
+                      {goal.rate ? ` · ${percentInputValue(goal.rate)} % par an` : ""}
                     </p>
                     {kpi ? <GoalStatus kpi={kpi} /> : null}
                   </div>
@@ -152,6 +159,7 @@ export function GoalsCard({
                       target: amountInputValue(goal.target),
                       deadlineMonth: goal.deadlineMonth,
                       alreadySaved: amountInputValue(goal.alreadySaved),
+                      rate: goal.rate ? percentInputValue(goal.rate) : "",
                     }}
                     submitLabel="Enregistrer"
                     busy={busy}
@@ -375,6 +383,7 @@ function GoalFields({
         {field("target", "Montant visé (€)", { inputMode: "decimal" })}
         {field("deadlineMonth", "Date limite (AAAA-MM)", { placeholder: "AAAA-MM" })}
         {field("alreadySaved", "Déjà épargné (€)", { inputMode: "decimal" })}
+        {field("rate", "Taux d’intérêt par an (%)", { inputMode: "decimal", placeholder: "0 (ex. Livret A : 2,4)" })}
       </div>
       <div className="flex flex-wrap gap-2">
         <Button type="submit" disabled={busy} className="min-h-11 md:min-h-9">

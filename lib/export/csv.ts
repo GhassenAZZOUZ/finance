@@ -26,6 +26,7 @@ const COLUMNS: { label: string; value: (m: PlanMonth) => Cents }[] = [
   { label: "Anticipé non utilisé", value: (m) => m.unusedEarlyRepayment },
   { label: "Versé épargne libre", value: (m) => m.toFreeSavings },
   { label: "Cumul épargne libre", value: (m) => m.freeSavingsCumulative },
+  { label: "Intérêts épargne", value: (m) => m.savingsInterest },
   { label: "Intérêts du mois", value: (m) => m.totalInterest },
   { label: "Restant dû", value: (m) => m.remainingDebt },
 ];

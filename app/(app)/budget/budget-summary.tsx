@@ -16,6 +16,8 @@ export const PARAM_LABEL: Record<ParamField, string> = {
   earlyRepaymentPct: "Part du reste en remboursement anticipé",
   expenseInflationRate: "Inflation des charges, par an",
   incomeGrowthRate: "Évolution des revenus, par an",
+  emergencyRate: "Taux d’intérêt du fonds d’urgence, par an",
+  freeSavingsRate: "Taux d’intérêt de l’épargne libre, par an",
 };
 
 const NEGATIVE = "font-semibold text-bad";

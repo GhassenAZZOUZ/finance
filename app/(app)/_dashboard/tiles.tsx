@@ -80,12 +80,15 @@ export function SavingsTile({
   current,
   in12,
   goalsLabel,
+  interest,
   className,
 }: {
   current: PlanMonth;
   in12: PlanMonth | undefined;
   /** The only goal's name, or « Objectifs » when there are several (SPEC D23). */
   goalsLabel: string;
+  /** « Intérêts de l'épargne » (SPEC D28): credited over the first 12 months and over the plan. */
+  interest?: { at12: number; total: number };
   className?: string;
 }) {
   const total = (m: PlanMonth) => m.movingCumulative + m.emergencyCumulative + m.freeSavingsCumulative;
@@ -107,7 +110,17 @@ export function SavingsTile({
           ]}
         />
       }
-      detail={`${goalsLabel} ${formatEuros(current.movingCumulative)} · Urgence ${formatEuros(current.emergencyCumulative)} · Libre ${formatEuros(current.freeSavingsCumulative)}`}
+      detail={
+        <>
+          {goalsLabel} {formatEuros(current.movingCumulative)} · Urgence {formatEuros(current.emergencyCumulative)} · Libre{" "}
+          {formatEuros(current.freeSavingsCumulative)}
+          {interest ? (
+            <span className="mt-1 flex">
+              Intérêts de l’épargne : {formatEuros(interest.at12)} la 1ʳᵉ année · {formatEuros(interest.total)} sur le plan
+            </span>
+          ) : null}
+        </>
+      }
       footerLabel={in12 ? `Dans 12 mois (${formatMonthLong(in12.month)})` : undefined}
       footerValue={in12 ? formatEuros(total(in12)) : undefined}
     />

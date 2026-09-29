@@ -98,11 +98,13 @@ describe("PlanTable", () => {
     renderTable();
     const first = MONTHS[0]!;
     const cells = within(row(/nov\. 2027/)).getAllByRole("cell").map((c) => plain(c.textContent));
-    expect(cells).toHaveLength(9);
+    expect(cells).toHaveLength(10);
     expect(cells[0]).toBe(plain(formatEuros(first.income)));
     expect(cells[3]).toBe(plain(formatEuros(first.available)));
     expect(cells[4]).toContain(`cumul ${plain(formatEuros(first.movingCumulative))}`);
-    expect(cells[8]).toBe(plain(formatEuros(first.remainingDebt)));
+    // Savings interest (SPEC D28) is only credited in December: "—" in November.
+    expect(cells[8]).toBe(plain(`—${formatEuros(0)}`));
+    expect(cells[9]).toBe(plain(formatEuros(first.remainingDebt)));
   });
 
   it("shows an empty allocation as — (0 € for screen readers)", () => {

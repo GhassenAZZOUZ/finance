@@ -48,6 +48,7 @@ from our code.
 | D3 | Dates | `startMonth` and `movingDeadlineMonth` are `YYYY-MM` months. Month granularity everywhere |
 | D4 | Personal debts | No special rule. A 0 % personal debt behaves exactly as in the spreadsheet: normal payments only, never eligible for early repayment. "Dette personnelle" is just a loan type label |
 | D5 | Remaining months | **Dropped** (the input and its 3 derived columns). Replaced by simulated payoff months and per-loan interest (§5) |
+| D28 | Savings interest (issue #35, owner-validated 2026-09-29) | An optional **yearly rate per savings bucket**: each goal (D23), the emergency fund and free savings (fractions 0–1, 0 by default = no interest, golden data unchanged; no global default rate; gross rates, taxes out of scope). Interest **accrues monthly**, `round2(balance × rate / 12)` on the bucket's balance at the start of the month (§4.0 point 8), in negative months too, and is **credited once a year after December's allocation** (and in month 300), so it counts toward targets and earns interest from January; the first year is credited pro rata of the months accrued. Quinzaines (Livret A) are not modelled. A goal keeps its interest even above its target. The emergency fund's interest fills it **up to its target; the rest goes to free savings**. Planned savings of check-ins include the credited interest (frozen check-ins keep their values). KPIs « Intérêts de l'épargne » over the first 12 months and over the plan; « Intérêts épargne » column in the Plan table and the CSV. The template import (D20) keeps the rates. Engine: §6 ④ |
 | D27 | Yearly indexation (issue #36, owner-validated 2026-09-29) | Two optional plan parameters, `expenseInflationRate` and `incomeGrowthRate` (fractions from −1 to 1, 0 by default = constant budget, golden data unchanged); **one** expense rate for fixed and variable lines. The step happens **every January**: in month m a line counts `round2(amount × (1 + rate)^y)` with `y = year(m) − year(startMonth)` (so the first rise is the first January after the start), always computed from the entered amount (§4.0 point 7). Income lines use the income rate, fixed and variable lines the expense rate; a line marked **« non indexé »** keeps its amount. **Not indexed**: loan payments, one-off exceptions (D14), goal targets. Dated lines (D15) are indexed **from the plan start** (amounts are entered in euros of the start year). The KPIs describe the reference month (D15) at its indexed amounts, and check-in income / expense gaps compare with that month's indexed budget. Re-basing (D16) moves the start, so the index restarts from the new start year. The template import (D20) sets both rates to 0; « Et si… ? » can change them (D17) |
 | D25 | Monthly reminder (issue #6) | An e-mail on the **last day of the month** (Europe/Paris; the scheduled GitHub Action calls the Edge Function `monthly-reminder` daily at 16:00 UTC ≈ 18:00 Paris in summer, 17:00 in winter) to every user who has the reminder **on (default)**, has a plan started by that month, and has **no check-in for that month yet**. Content: the month and a link to Suivi, **no amount**; an unsubscribe link (`/rappel/?jeton=…`, no login) turns it off for that token's owner only; « Mes données » turns it on or off. **At most one e-mail per user and month**: a `reminder_log` row is claimed before sending and released if the send fails, so a retry resends only the failures; a failure makes the run red (GitHub e-mails the owner). SMTP credentials are Supabase secrets; the service key never leaves Supabase |
 | D24 | Bank overdraft (issue #28, owner-validated 2026-09-28) | A debt of kind `overdraft` next to the loans, counted in the 6-debt limit (D7): name, **authorised limit** > 0, **balance used** 0 ≤ balance ≤ limit (form rule), **agios rate** 0–100 %, optional **fixed monthly repayment** (default 0). No mensualité, IRA, contract end or read month. Each month: agios = round2(balance × rate / 12) **added to the balance**; the fixed repayment (capped at balance + agios, no D13 residual rule) is part of the loan payments; eligible for early repayment when its rate > threshold, **even at 0 €**. A **negative month draws on the overdrafts** (entry order) up to their limit; the rest of the shortfall is dropped as before (§6) and the alert still shows. A cleared overdraft stays available: never archived (also on re-basing, D16), never a payoff milestone, and 0 € counts as debt-free. Fees and unauthorised overdraft are out of scope. The migration converted loans whose type contains « découvert » (limit = balance, fixed repayment = old payment). No spreadsheet equivalent: cross-checked with `scripts/reference_overdraft.py`. Loans are unchanged (golden data green) |
@@ -135,6 +136,7 @@ Column F (Durée restante) is **not used** (D5).
   4. KPI `movingMonthlyNeeded` — *deviation*
   6. early-repayment penalty `penalty = round2(repaid × penaltyRate)` (D22; 0 without a penalty)
   7. indexed budget line `round2(amount × (1 + rate)^y)` (D27; the entered amount when the rate is 0)
+  8. monthly savings interest `round2(balance × rate / 12)` per bucket (D28; 0 without a rate)
   5. balances after payment / after early repayment (already rounded in the spreadsheet; they are
      exact once the inputs are cents)
 - Rates (`apr`, `riskFreeRate`, `earlyRepaymentPct`, `expenseInflationRate`, `incomeGrowthRate`,
@@ -296,8 +298,16 @@ remainder      (K)    = max(0, available − toMoving − toEmergency)
 toEarlyRepayment (L)  = round2(remainder × earlyRepaymentPct)
 unusedEarlyRepayment (M) = max(0, toEarlyRepayment − totalEarlyRepayment(m) − totalPenalty(m))   (penalties: D22)
 toFreeSavings  (N)    = remainder − toEarlyRepayment + unusedEarlyRepayment
-freeSavingsCum (O)    = freeSavingsCum(m−1) + toFreeSavings − extraFromFreeSavings(m)
+freeSavingsCum (O)    = freeSavingsCum(m−1) + toFreeSavings − extraFromFreeSavings(m) + freeSavingsInterest(m)
                         freeSavingsCum(0) = freeSavingsExisting (D16, default 0); extraFromFreeSavings: D17, else 0
+
+④ Savings interest (D28), 0 without rates
+accrued_b      += round2(cum_b(m−1) × rate_b / 12)      each month, per bucket b (goals, emergency, free)
+crediting(m)    = yearMonth(m) is a December, or m = 300; then accrued_b is credited and reset to 0:
+goalInterest_g  = accrued_g                                  (added to goalCum_g, even above target)
+emergencyInterest = min(accrued_emergency, max(0, emergencyTarget − emergencyCum(m−1) − toEmergency))
+freeSavingsInterest = accrued_free + accrued_emergency − emergencyInterest
+(goalCum_g and emergencyCum above also add their interest of the month)
 
 Debts / flags
 remainingDebt  (P)    = totalEndDebt(m)
@@ -435,13 +445,14 @@ independent reference engine disagrees with Excel on any cell.
 ```
 { format: "finance-plan-backup", version: 6, exportedAt: ISO timestamp,
   data: { settings | null   { startMonth, emergencyTarget, emergencyExisting, freeSavingsExisting,
-                              riskFreeRate, earlyRepaymentPct, expenseInflationRate, incomeGrowthRate },
+                              riskFreeRate, earlyRepaymentPct, expenseInflationRate, incomeGrowthRate,
+                              emergencyRate, freeSavingsRate },
           budgetLines[] { id, category, label, amount, position, startMonth, endMonth, indexed },
           exceptions[]  { id, month, kind, label, amount },
           loans[]       { id, name, type, principal, principalPaidThroughMonth, apr, monthlyPayment,
                           contractEndMonth, penaltyPct, penaltyCapMonths, kind, creditLimit, position, archivedAt }
                           active first, then archived,
-          goals[]       { id, name, target, deadlineMonth, alreadySaved, priority, primary }   priority order,
+          goals[]       { id, name, target, deadlineMonth, alreadySaved, priority, primary, rate }   priority order,
           checkIns[]    { id, month, income, expenses, movingSavings, emergencySavings, freeSavings,
                           loanBalances[] { loanId, balance }, goalBalances[] { goalId, balance },
                           frozen | null } } }
@@ -458,7 +469,8 @@ independent reference engine disagrees with Excel on any cell.
   version 5 stores the primary goal like the others: `settings` loses the moving fund and check-ins lose
   `movingSavings` (its value is the primary goal's entry in `goalBalances`);
   version 6 adds the settings' `expenseInflationRate` and `incomeGrowthRate` and the lines' `indexed`
-  (D27; older files: `0`, `0`, `true`).
+  (D27; older files: `0`, `0`, `true`); version 7 adds the settings' `emergencyRate` and `freeSavingsRate`
+  and the goals' `rate` (D28; older files: `0`).
 
 ### 10.2 Plan CSV, `finance-plan-YYYY-MM-DD.csv`
 
@@ -466,7 +478,7 @@ independent reference engine disagrees with Excel on any cell.
 - Columns: `Mois` (`YYYY-MM`), `N°`, then the monthly amounts (income, of which exceptions,
   expenses, of which exceptions, loan payments, available, moving paid / cumulative, emergency
   paid / cumulative, remainder, early repayment, unused early repayment, free savings paid /
-  cumulative, interest, remaining debt), one `Restant dû <crédit>` column per active loan, and
+  cumulative, savings interest (D28), interest, remaining debt), one `Restant dû <crédit>` column per active loan, and
   `Budget négatif` (`oui` / `non`).
 - Amounts have exactly 2 decimals, no thousands separator. French format: `;` and decimal comma;
   international: `,` and decimal dot.

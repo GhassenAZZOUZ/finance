@@ -60,6 +60,8 @@ describe("initialFormState", () => {
       earlyRepaymentPct: "50",
       expenseInflationRate: "0",
       incomeGrowthRate: "0",
+      emergencyRate: "0",
+      freeSavingsRate: "0",
     });
     expect(state.lines.map((l) => l.id)).toEqual(["i1", "i2", "f1", "v1"]);
     expect(state.lines[0]).toEqual({
@@ -84,6 +86,8 @@ describe("initialFormState", () => {
       earlyRepaymentPct: "",
       expenseInflationRate: "0",
       incomeGrowthRate: "0",
+      emergencyRate: "0",
+      freeSavingsRate: "0",
     });
     expect(parseSettings(state.params)).toBeNull();
     expect(invalidParams(state.params)).toEqual(["riskFreeRate", "earlyRepaymentPct"]);
@@ -128,7 +132,7 @@ describe("toPayload", () => {
     const parsed = parsePayload(JSON.stringify(toPayload(state)));
     expect(parsed?.form.freeSavingsExisting).toBe("250,00");
     const result = validateBudget(parsed!.form);
-    expect(result.ok && result.value.settings).toEqual({ ...settings, expenseInflationRate: 0, incomeGrowthRate: 0 });
+    expect(result.ok && result.value.settings).toEqual({ ...settings, expenseInflationRate: 0, incomeGrowthRate: 0, emergencyRate: 0, freeSavingsRate: 0 });
 
     // Empty = 0; a negative amount is reported on its own field.
     const empty = validateBudget({ ...parsed!.form, freeSavingsExisting: "" });

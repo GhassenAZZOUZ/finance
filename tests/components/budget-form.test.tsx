@@ -47,7 +47,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 /** What the form saves: the settings plus the yearly rates (SPEC D27), 0 when untouched. */
-const SAVED_SETTINGS = { ...SETTINGS, expenseInflationRate: 0, incomeGrowthRate: 0 };
+const SAVED_SETTINGS = { ...SETTINGS, expenseInflationRate: 0, incomeGrowthRate: 0, emergencyRate: 0, freeSavingsRate: 0 };
 
 describe("BudgetForm", () => {
   it("leaves the goals' amounts to the goals card and links to it (SPEC D23)", () => {
@@ -191,7 +191,7 @@ describe("BudgetForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
     await waitFor(() => expect(mocks.repo?.saveBudget).toHaveBeenCalledTimes(1));
-    expect(mocks.repo?.saveBudget).toHaveBeenCalledWith({ ...SETTINGS, expenseInflationRate: 0.02, incomeGrowthRate: 0.015 }, [
+    expect(mocks.repo?.saveBudget).toHaveBeenCalledWith({ ...SAVED_SETTINGS, expenseInflationRate: 0.02, incomeGrowthRate: 0.015 }, [
       { id: "l-income", category: "income", label: "Salaire", amount: 300_000, position: 0, startMonth: null, endMonth: null },
       { id: "l-rent", category: "fixed", label: "Loyer", amount: 90_000, position: 0, startMonth: null, endMonth: null },
       { id: "l-food", category: "variable", label: "Courses", amount: 40_000, position: 0, startMonth: null, endMonth: null, indexed: false },

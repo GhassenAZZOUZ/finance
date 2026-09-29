@@ -107,6 +107,8 @@ export function buildPlanInput(
       movingDeadlineMonth: primary?.deadlineMonth ?? settings.startMonth,
       movingAlreadySaved: primary?.alreadySaved ?? 0,
       movingName: primary?.name ?? NO_GOAL_NAME,
+      // Only when set, so a plan without savings interest gives the exact same input as before (D28).
+      ...(primary?.rate ? { movingRate: primary.rate } : {}),
       exceptions: exceptions.map((e) => ({ month: e.month, kind: e.kind, amount: e.amount })),
       // Only with extra goals, so a moving fund alone gives the exact same input as before (D23).
       ...(goals.some((g) => !g.primary) ? { goals: goalInputs(goals) } : {}),
@@ -149,7 +151,14 @@ export function engineGoalId(goal: Pick<SavingsGoal, "id" | "primary">): string 
 function goalInputs(goals: readonly SavingsGoal[]) {
   return [...goals]
     .sort((a, b) => a.priority - b.priority)
-    .map((g) => ({ id: engineGoalId(g), name: g.name, target: g.target, deadlineMonth: g.deadlineMonth, alreadySaved: g.alreadySaved }));
+    .map((g) => ({
+      id: engineGoalId(g),
+      name: g.name,
+      target: g.target,
+      deadlineMonth: g.deadlineMonth,
+      alreadySaved: g.alreadySaved,
+      ...(g.rate ? { rate: g.rate } : {}),
+    }));
 }
 
 export function toActualInput(actual: MonthlyActual): ActualInput {

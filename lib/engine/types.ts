@@ -36,6 +36,8 @@ export interface GoalInput {
   /** Last month that can still receive savings (inclusive). */
   deadlineMonth: YearMonth;
   alreadySaved: Cents;
+  /** Yearly interest rate of the goal's savings (SPEC D28), fraction; 0 or omitted = none. */
+  rate?: number;
 }
 
 /** Id of the primary goal (the spreadsheet's moving fund, SPEC D23). */
@@ -57,6 +59,14 @@ export interface BudgetParams {
   emergencyExisting: Cents;
   /** Free savings already available at the plan start (SPEC D16); 0 when omitted. */
   freeSavingsExisting?: Cents;
+  /**
+   * Yearly interest rates of the savings (SPEC D28), fractions; 0 or omitted = none. Interest accrues
+   * monthly and is credited on 31 December (and in the last plan month).
+   */
+  emergencyRate?: number;
+  freeSavingsRate?: number;
+  /** Rate of the moving fund when it is the only goal (no `goals`). */
+  movingRate?: number;
   /** Fraction, e.g. 0.024 for 2.4 %. A loan is eligible for early repayment if apr > riskFreeRate. */
   riskFreeRate: number;
   /** Fraction 0..1 of the monthly remainder sent to early repayment. */
@@ -85,6 +95,8 @@ export interface BudgetParams {
 /** One goal in one month (SPEC D23). */
 export interface GoalMonth {
   toGoal: Cents;
+  /** Interest credited to the goal this month (SPEC D28): December and the last month only. */
+  interest: Cents;
   cumulative: Cents;
 }
 
@@ -176,6 +188,15 @@ export interface PlanMonth {
   toEarlyRepayment: Cents;
   unusedEarlyRepayment: Cents;
   toFreeSavings: Cents;
+  /**
+   * Savings interest credited this month (SPEC D28), in December and the last plan month only:
+   * to the goals, to the emergency fund (up to its target) and to free savings (their own interest
+   * plus the emergency fund's above its target). Included in the cumulative columns.
+   */
+  emergencyInterest: Cents;
+  freeSavingsInterest: Cents;
+  /** Σ of the goals', the emergency fund's and free savings' interest. */
+  savingsInterest: Cents;
   freeSavingsCumulative: Cents;
   remainingDebt: Cents;
   negativeBudget: boolean;
@@ -269,6 +290,9 @@ export interface PlanKpis {
   interestSaved: Cents;
   penaltiesPaid: Cents;
   freeSavingsAt12: Cents;
+  /** Savings interest credited over the plan / over its first 12 months (SPEC D28). */
+  savingsInterest: Cents;
+  savingsInterestAt12: Cents;
   emergencyFundAt12: Cents;
   remainingDebtAt12: Cents;
   negativeBudgetMonths: number;

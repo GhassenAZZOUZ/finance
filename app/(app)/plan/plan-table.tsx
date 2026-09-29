@@ -29,6 +29,8 @@ const COLUMNS: Column[] = [
   { key: "toEmergency", label: "Versé", group: "emergency", cumulative: "emergencyCumulative", allocation: true },
   { key: "toEarlyRepayment", label: "Remb. anticipé", group: "remainder", allocation: true },
   { key: "toFreeSavings", label: "Épargne libre", group: "remainder", cumulative: "freeSavingsCumulative", allocation: true },
+  // Credited on 31 December (SPEC D28): "—" the other months.
+  { key: "savingsInterest", label: "Intérêts épargne", group: "remainder", allocation: true },
   { key: "remainingDebt", label: "Restant dû", group: "debts" },
 ];
 
