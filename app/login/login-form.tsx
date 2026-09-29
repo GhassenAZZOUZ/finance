@@ -34,9 +34,14 @@ async function sendLoginEmail(_prev: LoginState, formData: FormData): Promise<Lo
   return { status: "sent", email };
 }
 
+/** Query flag set after « Supprimer mon compte » (SPEC D26). */
+export const DELETED_FLAG = "compte-supprime";
+
 export function LoginForm() {
   const router = useRouter();
-  const linkError = useSearchParams().get("error") !== null;
+  const params = useSearchParams();
+  const linkError = params.get("error") !== null;
+  const accountDeleted = params.has(DELETED_FLAG);
   const [state, action, pending] = useActionState<LoginState, FormData>(sendLoginEmail, { status: "idle" });
   // Lets the user go back to the address form (e.g. typo in the address).
   const [editingAddress, setEditingAddress] = useState(false);
@@ -62,6 +67,11 @@ export function LoginForm() {
 
   return (
     <>
+      {accountDeleted ? (
+        <p role="status" className="rounded-md border border-good-border bg-good-bg px-3 py-2 text-sm text-good">
+          Votre compte et toutes vos données ont été supprimés.
+        </p>
+      ) : null}
       {linkError ? (
         <p role="alert" className="rounded-md border border-bad-border bg-bad-bg px-3 py-2 text-sm text-bad">
           Ce lien de connexion est invalide, a expiré, ou a été ouvert dans un autre navigateur que celui où vous
