@@ -187,7 +187,8 @@ jobs:
 
       # Edge Functions (issue #6: monthly reminder). Guarded by its own secret header, not a user JWT.
       - name: Deploy Edge Functions
-        run: supabase functions deploy monthly-reminder --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+        # --use-api: bundled by Supabase, no Docker image pull (the runner hit the registry rate limit).
+        run: supabase functions deploy monthly-reminder --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
 
   deploy:
     name: Deploy to GitHub Pages
@@ -211,6 +212,8 @@ jobs:
       NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      # Optional: without it the site reports errors to the console only.
+      NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
     steps:
       - name: Check repository variables
         run: |

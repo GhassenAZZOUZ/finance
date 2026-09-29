@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { reportError } from "@/lib/errors";
 
 type State = "working" | "done" | "invalid" | "error";
 
@@ -23,7 +24,10 @@ export function Unsubscribe() {
     started.current = true;
     void supabaseBrowser()
       .rpc("unsubscribe_reminder", { p_token: token })
-      .then(({ data, error }) => setState(error ? "error" : data === true ? "done" : "invalid"));
+      .then(({ data, error }) => {
+        if (error) reportError(error, "reminder.unsubscribe");
+        setState(error ? "error" : data === true ? "done" : "invalid");
+      });
   }, [token]);
 
   if (state === "working") return <p role="status">Désinscription en cours…</p>;
