@@ -48,6 +48,7 @@ from our code.
 | D3 | Dates | `startMonth` and `movingDeadlineMonth` are `YYYY-MM` months. Month granularity everywhere |
 | D4 | Personal debts | No special rule. A 0 % personal debt behaves exactly as in the spreadsheet: normal payments only, never eligible for early repayment. "Dette personnelle" is just a loan type label |
 | D5 | Remaining months | **Dropped** (the input and its 3 derived columns). Replaced by simulated payoff months and per-loan interest (§5) |
+| D27 | Yearly indexation (issue #36, owner-validated 2026-09-29) | Two optional plan parameters, `expenseInflationRate` and `incomeGrowthRate` (fractions from −1 to 1, 0 by default = constant budget, golden data unchanged); **one** expense rate for fixed and variable lines. The step happens **every January**: in month m a line counts `round2(amount × (1 + rate)^y)` with `y = year(m) − year(startMonth)` (so the first rise is the first January after the start), always computed from the entered amount (§4.0 point 7). Income lines use the income rate, fixed and variable lines the expense rate; a line marked **« non indexé »** keeps its amount. **Not indexed**: loan payments, one-off exceptions (D14), goal targets. Dated lines (D15) are indexed **from the plan start** (amounts are entered in euros of the start year). The KPIs describe the reference month (D15) at its indexed amounts, and check-in income / expense gaps compare with that month's indexed budget. Re-basing (D16) moves the start, so the index restarts from the new start year. The template import (D20) sets both rates to 0; « Et si… ? » can change them (D17) |
 | D25 | Monthly reminder (issue #6) | An e-mail on the **last day of the month** (Europe/Paris; the scheduled GitHub Action calls the Edge Function `monthly-reminder` daily at 16:00 UTC ≈ 18:00 Paris in summer, 17:00 in winter) to every user who has the reminder **on (default)**, has a plan started by that month, and has **no check-in for that month yet**. Content: the month and a link to Suivi, **no amount**; an unsubscribe link (`/rappel/?jeton=…`, no login) turns it off for that token's owner only; « Mes données » turns it on or off. **At most one e-mail per user and month**: a `reminder_log` row is claimed before sending and released if the send fails, so a retry resends only the failures; a failure makes the run red (GitHub e-mails the owner). SMTP credentials are Supabase secrets; the service key never leaves Supabase |
 | D24 | Bank overdraft (issue #28, owner-validated 2026-09-28) | A debt of kind `overdraft` next to the loans, counted in the 6-debt limit (D7): name, **authorised limit** > 0, **balance used** 0 ≤ balance ≤ limit (form rule), **agios rate** 0–100 %, optional **fixed monthly repayment** (default 0). No mensualité, IRA, contract end or read month. Each month: agios = round2(balance × rate / 12) **added to the balance**; the fixed repayment (capped at balance + agios, no D13 residual rule) is part of the loan payments; eligible for early repayment when its rate > threshold, **even at 0 €**. A **negative month draws on the overdrafts** (entry order) up to their limit; the rest of the shortfall is dropped as before (§6) and the alert still shows. A cleared overdraft stays available: never archived (also on re-basing, D16), never a payoff milestone, and 0 € counts as debt-free. Fees and unauthorised overdraft are out of scope. The migration converted loans whose type contains « découvert » (limit = balance, fixed repayment = old payment). No spreadsheet equivalent: cross-checked with `scripts/reference_overdraft.py`. Loans are unchanged (golden data green) |
 | D23 | Several savings goals (issue #10, owner-validated 2026-09-28) | Up to **6 goals**, each with a name, target > 0, deadline month, amount already saved and a unique priority (1 = filled first). The spreadsheet's moving fund is the **primary goal**: the first goal added, stored and edited like the others (goals card; tech-debt 6, 2026-09-30), its target may be 0; it is deleted only by choosing the goal that becomes primary (the last goal can be deleted: no goal = an empty fund). The engine still receives it as its moving fund (id `moving`), so existing users keep exactly the same results. Each month, goals are filled **in priority order, before the emergency fund**, each up to its target and only **until its deadline** (then it receives nothing more, keeps its balance and is flagged « hors délai » with the amount missing). The moving* KPIs describe the primary goal; each goal has the same KPIs. Check-ins ask **one balance per goal**, the primary one included; comparisons use the sum of all goals. A new deadline must not be in the past (a goal keeps the past deadline it already has). Engine: §6 ① |
@@ -97,7 +98,8 @@ Derived: `totalIncome`, `totalFixed`, `totalVariable` (sums, B7/B18/B25);
 `expenses = totalFixed + totalVariable`; hint
 `suggestedEmergencyTarget = 3 × (totalFixed + totalVariable + Σ monthlyPayment)` (B33), not used by the engine.
 
-The regular budget is constant over the horizon (no inflation, no income changes); one-off exceptions
+The regular budget is constant over the horizon unless a yearly indexation rate is set (D27: every
+January, each line `round2(amount × (1 + rate)^y)`); one-off exceptions
 (D14) add extra income or expenses to a single month: `extraIncome(m)`, `extraExpenses(m)` = sums of that
 month's exceptions.
 
@@ -132,9 +134,11 @@ Column F (Durée restante) is **not used** (D5).
   3. `toEarlyRepayment = round2(remainder × earlyRepaymentPct)` — *deviation*
   4. KPI `movingMonthlyNeeded` — *deviation*
   6. early-repayment penalty `penalty = round2(repaid × penaltyRate)` (D22; 0 without a penalty)
+  7. indexed budget line `round2(amount × (1 + rate)^y)` (D27; the entered amount when the rate is 0)
   5. balances after payment / after early repayment (already rounded in the spreadsheet; they are
      exact once the inputs are cents)
-- Rates (`apr`, `riskFreeRate`, `earlyRepaymentPct`, ratios) are not money and are not rounded.
+- Rates (`apr`, `riskFreeRate`, `earlyRepaymentPct`, `expenseInflationRate`, `incomeGrowthRate`,
+  ratios) are not money and are not rounded.
 - Effect vs the unpatched spreadsheet: each rounding moves a value by at most half a cent, but the
   effect can accumulate in cumulative columns over 300 months, so the app will not match the
   original spreadsheet to the cent. The golden data contains the patched values.
@@ -429,9 +433,10 @@ independent reference engine disagrees with Excel on any cell.
 ### 10.1 JSON backup, `finance-backup-YYYY-MM-DD.json`
 
 ```
-{ format: "finance-plan-backup", version: 4, exportedAt: ISO timestamp,
-  data: { settings | null,
-          budgetLines[] { id, category, label, amount, position, startMonth, endMonth },
+{ format: "finance-plan-backup", version: 6, exportedAt: ISO timestamp,
+  data: { settings | null   { startMonth, emergencyTarget, emergencyExisting, freeSavingsExisting,
+                              riskFreeRate, earlyRepaymentPct, expenseInflationRate, incomeGrowthRate },
+          budgetLines[] { id, category, label, amount, position, startMonth, endMonth, indexed },
           exceptions[]  { id, month, kind, label, amount },
           loans[]       { id, name, type, principal, principalPaidThroughMonth, apr, monthlyPayment,
                           contractEndMonth, penaltyPct, penaltyCapMonths, kind, creditLimit, position, archivedAt }
@@ -451,7 +456,9 @@ independent reference engine disagrees with Excel on any cell.
   version 3 adds `goals` and `goalBalances` (D23; older files: the moving fund only, no goal balances);
   version 4 adds the loans' `kind` and `creditLimit` (D24; older files: `"loan"`, `null`);
   version 5 stores the primary goal like the others: `settings` loses the moving fund and check-ins lose
-  `movingSavings` (its value is the primary goal's entry in `goalBalances`).
+  `movingSavings` (its value is the primary goal's entry in `goalBalances`);
+  version 6 adds the settings' `expenseInflationRate` and `incomeGrowthRate` and the lines' `indexed`
+  (D27; older files: `0`, `0`, `true`).
 
 ### 10.2 Plan CSV, `finance-plan-YYYY-MM-DD.csv`
 

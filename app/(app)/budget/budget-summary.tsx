@@ -14,6 +14,8 @@ export const PARAM_LABEL: Record<ParamField, string> = {
   freeSavingsExisting: "Épargne libre existante",
   riskFreeRate: "Taux seuil",
   earlyRepaymentPct: "Part du reste en remboursement anticipé",
+  expenseInflationRate: "Inflation des charges, par an",
+  incomeGrowthRate: "Évolution des revenus, par an",
 };
 
 const NEGATIVE = "font-semibold text-bad";

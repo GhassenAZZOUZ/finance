@@ -27,9 +27,12 @@ interface SettingsRow {
   free_savings_existing: number;
   risk_free_rate: number;
   early_repayment_pct: number;
+  expense_inflation_rate: number;
+  income_growth_rate: number;
 }
 // budget_settings.moving_* and monthly_actuals.moving_savings are no longer read nor written (tech-debt 6).
-const SETTINGS_COLUMNS = "start_month, emergency_target, emergency_existing, free_savings_existing, risk_free_rate, early_repayment_pct";
+const SETTINGS_COLUMNS =
+  "start_month, emergency_target, emergency_existing, free_savings_existing, risk_free_rate, early_repayment_pct, expense_inflation_rate, income_growth_rate";
 interface GoalRow {
   id: string;
   name: string;
@@ -57,6 +60,7 @@ interface LineRow {
   position: number;
   start_month: string | null;
   end_month: string | null;
+  indexed: boolean;
 }
 interface LoanRow {
   id: string;
@@ -180,6 +184,9 @@ function settingsColumns(s: BudgetSettings) {
     free_savings_existing: euros(s.freeSavingsExisting),
     risk_free_rate: s.riskFreeRate,
     early_repayment_pct: s.earlyRepaymentPct,
+    // Not in the template (SPEC D20): an import sets them to 0.
+    expense_inflation_rate: s.expenseInflationRate ?? 0,
+    income_growth_rate: s.incomeGrowthRate ?? 0,
   };
 }
 
@@ -191,6 +198,7 @@ function lineColumns(l: BudgetLineDraft) {
     position: l.position,
     start_month: l.startMonth,
     end_month: l.endMonth,
+    indexed: l.indexed !== false,
   };
 }
 
@@ -214,7 +222,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       this.db.from("budget_settings").select(SETTINGS_COLUMNS).maybeSingle<SettingsRow>(),
       this.db
         .from("budget_lines")
-        .select("id, category, label, amount, position, start_month, end_month")
+        .select("id, category, label, amount, position, start_month, end_month, indexed")
         .order("position")
         .returns<LineRow[]>(),
       this.db
@@ -249,6 +257,8 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         freeSavingsExisting: cents(s.free_savings_existing),
         riskFreeRate: Number(s.risk_free_rate),
         earlyRepaymentPct: Number(s.early_repayment_pct),
+        expenseInflationRate: Number(s.expense_inflation_rate),
+        incomeGrowthRate: Number(s.income_growth_rate),
       },
       lines: check(lines).map(
         (l): BudgetLine => ({
@@ -259,6 +269,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
           position: l.position,
           startMonth: l.start_month,
           endMonth: l.end_month,
+          ...(l.indexed ? {} : { indexed: false }),
         }),
       ),
       exceptions: check(exceptions).map(toException),

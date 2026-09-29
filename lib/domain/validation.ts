@@ -49,6 +49,20 @@ export function parsePercent(raw: string | null | undefined): Parsed<number> {
   return { ok: true, value: Number((value / 100).toFixed(6)) };
 }
 
+/**
+ * Optional yearly rate in % (SPEC D27): "" = 0; from −100 % to 100 %, 4 decimals at most.
+ * Returns a fraction (2 → 0.02).
+ */
+export function parseYearlyRate(raw: string | null | undefined): Parsed<number> {
+  const text = (raw ?? "").replace(/[\s  %]/g, "").replace(",", ".").replace("−", "-");
+  if (text === "") return { ok: true, value: 0 };
+  if (!/^-?\d+(\.\d+)?$/.test(text)) return { ok: false, error: "Taux invalide" };
+  const value = Number(text);
+  if (value < -100 || value > 100) return { ok: false, error: "Le taux doit être compris entre −100 % et 100 %" };
+  if ((text.split(".")[1] ?? "").length > 4) return { ok: false, error: "4 décimales maximum" };
+  return { ok: true, value: Number((value / 100).toFixed(6)) + 0 };
+}
+
 export function parseMonth(raw: string | null | undefined): Parsed<YearMonth> {
   const text = (raw ?? "").trim();
   if (text === "") return { ok: false, error: "Mois requis" };
@@ -79,8 +93,14 @@ export interface BudgetForm {
   freeSavingsExisting?: string;
   riskFreeRate: string;
   earlyRepaymentPct: string;
-  /** startMonth / endMonth: optional YYYY-MM period of the line (SPEC D15). */
-  lines: { id?: string; category: string; label: string; amount: string; startMonth?: string; endMonth?: string }[];
+  /** Optional yearly rates in % (SPEC D27); "" = 0. Missing = not part of this form. */
+  expenseInflationRate?: string;
+  incomeGrowthRate?: string;
+  /**
+   * startMonth / endMonth: optional YYYY-MM period of the line (SPEC D15); indexed: false for a
+   * « non indexé » line (D27).
+   */
+  lines: { id?: string; category: string; label: string; amount: string; startMonth?: string; endMonth?: string; indexed?: boolean }[];
 }
 
 export function validateBudget(form: BudgetForm): Validated<{ settings: BudgetSettings; lines: BudgetLineDraft[] }> {
@@ -92,6 +112,10 @@ export function validateBudget(form: BudgetForm): Validated<{ settings: BudgetSe
     freeSavingsExisting: (c.take("freeSavingsExisting", parseAmount(form.freeSavingsExisting, { required: false })) ?? 0) as Cents,
     riskFreeRate: c.take("riskFreeRate", parsePercent(form.riskFreeRate)),
     earlyRepaymentPct: c.take("earlyRepaymentPct", parsePercent(form.earlyRepaymentPct)),
+    ...(form.expenseInflationRate !== undefined
+      ? { expenseInflationRate: c.take("expenseInflationRate", parseYearlyRate(form.expenseInflationRate)) }
+      : {}),
+    ...(form.incomeGrowthRate !== undefined ? { incomeGrowthRate: c.take("incomeGrowthRate", parseYearlyRate(form.incomeGrowthRate)) } : {}),
   };
   const positions: Record<BudgetCategory, number> = { income: 0, fixed: 0, variable: 0 };
   const lines: BudgetLineDraft[] = [];
@@ -120,6 +144,7 @@ export function validateBudget(form: BudgetForm): Validated<{ settings: BudgetSe
       position: positions[category]++,
       startMonth,
       endMonth,
+      ...(line.indexed === false ? { indexed: false } : {}),
     });
   });
   return c.result({ settings, lines });

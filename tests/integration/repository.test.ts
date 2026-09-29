@@ -13,6 +13,8 @@ const settings: BudgetSettings = {
   emergencyExisting: 80000, freeSavingsExisting: 0,
   riskFreeRate: 0.024,
   earlyRepaymentPct: 0.6,
+  expenseInflationRate: 0.021,
+  incomeGrowthRate: -0.015,
 };
 
 beforeAll(async () => {
@@ -35,7 +37,7 @@ describe("SupabaseFinanceRepository", () => {
     await repo.saveBudget(settings, [
       { id: salary.id, category: "income", label: "Salaire", amount: 280000, position: 0, startMonth: null, endMonth: null },
       { category: "fixed", label: "Loyer", amount: 85000, position: 0, startMonth: "2027-02", endMonth: "2027-06" },
-      { category: "variable", label: "Courses", amount: 35012, position: 0, startMonth: null, endMonth: null },
+      { category: "variable", label: "Courses", amount: 35012, position: 0, startMonth: null, endMonth: null, indexed: false },
     ]);
     const snap = await repo.load();
     expect(snap.settings).toEqual(settings);
@@ -47,6 +49,9 @@ describe("SupabaseFinanceRepository", () => {
     ]);
     expect(snap.lines.find((l) => l.label === "Salaire")?.id).toBe(salary.id);
     expect(snap.lines.find((l) => l.label === "Loyer")).toMatchObject({ startMonth: "2027-02", endMonth: "2027-06" });
+    // « Non indexé » (SPEC D27): only the flagged line carries `indexed: false`.
+    expect(snap.lines.find((l) => l.label === "Courses")?.indexed).toBe(false);
+    expect(snap.lines.find((l) => l.label === "Loyer")?.indexed).toBeUndefined();
   });
 
   it("adds, lists (by month) and deletes one-off exceptions", async () => {

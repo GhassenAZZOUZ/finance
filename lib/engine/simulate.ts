@@ -28,6 +28,31 @@ export function isLineActive(line: Pick<DatedBudgetLineInput, "startMonth" | "en
   );
 }
 
+/**
+ * Number of Januaries from the plan start (excluded) to `month` (included): the power the
+ * indexation rates are raised to that month (SPEC D27). 0 before the first January.
+ */
+export function indexationYears(startMonth: YearMonth, month: YearMonth): number {
+  return Math.max(0, Number(month.slice(0, 4)) - Number(startMonth.slice(0, 4)));
+}
+
+/**
+ * A line's amount after `years` yearly rises: ROUND(amount × (1 + rate)^years, 2), always from the
+ * entered amount, never compounded on a rounded value (SPEC §4.0, D27).
+ */
+export function indexedAmount(amount: Cents, rate: number, years: number): Cents {
+  return rate === 0 || years === 0 ? amount : roundHalfAwayFromZero(amount * (1 + rate) ** years);
+}
+
+/** Yearly rate of a line's category: income grows with income, fixed and variable costs with inflation. */
+export function lineRate(
+  line: Pick<DatedBudgetLineInput, "category" | "indexed">,
+  budget: Pick<BudgetParams, "expenseInflationRate" | "incomeGrowthRate">,
+): number {
+  if (line.indexed === false) return 0;
+  return (line.category === "income" ? budget.incomeGrowthRate : budget.expenseInflationRate) ?? 0;
+}
+
 /** A balance at or below this is considered repaid (spreadsheet: `<= 0.01`). */
 const PAID_OFF_THRESHOLD: Cents = 1;
 const HIGH_RATE_APR = 0.1;
@@ -137,16 +162,25 @@ export function simulatePlan(input: PlanInput): PlanResult {
     .sort((a, b) => (priorities[a] as number) - (priorities[b] as number));
 
   const baseIncome = budget.income;
-  const baseExpenses = budget.fixedCosts + budget.variableExpenses;
-  // Regular budget of a month: constant, or the dated lines active that month (SPEC D15).
+  // Regular budget of a month: constant, or the dated lines active that month (SPEC D15), each
+  // indexed to that month's year (D27). Without lines, the three sums are indexed instead.
+  const expenseRate = budget.expenseInflationRate ?? 0;
+  const incomeRate = budget.incomeGrowthRate ?? 0;
   const regularBudget = (month: YearMonth): { income: Cents; expenses: Cents } => {
-    if (!budget.lines) return { income: baseIncome, expenses: baseExpenses };
+    const years = indexationYears(budget.startMonth, month);
+    if (!budget.lines) {
+      return {
+        income: indexedAmount(baseIncome, incomeRate, years),
+        expenses: indexedAmount(budget.fixedCosts, expenseRate, years) + indexedAmount(budget.variableExpenses, expenseRate, years),
+      };
+    }
     let income = 0;
     let expenses = 0;
     for (const line of budget.lines) {
       if (!isLineActive(line, month)) continue;
-      if (line.category === "income") income += line.amount;
-      else expenses += line.amount;
+      const amount = indexedAmount(line.amount, lineRate(line, budget), years);
+      if (line.category === "income") income += amount;
+      else expenses += amount;
     }
     return { income, expenses };
   };

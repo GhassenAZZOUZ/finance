@@ -16,6 +16,8 @@ export interface BudgetLine {
   /** Optional period (SPEC D15): first / last month the line applies, inclusive. */
   startMonth: YearMonth | null;
   endMonth: YearMonth | null;
+  /** « Non indexé » when false (SPEC D27); omitted = indexed. */
+  indexed?: boolean;
 }
 
 /** A line as edited in the form: no id yet for new lines. */
@@ -27,6 +29,8 @@ export interface BudgetLineDraft {
   position: number;
   startMonth: YearMonth | null;
   endMonth: YearMonth | null;
+  /** « Non indexé » when false (SPEC D27); omitted = indexed. */
+  indexed?: boolean;
 }
 
 /** Plan parameters. The savings goals, the primary one included, are `SavingsGoal`s (SPEC D23). */
@@ -38,6 +42,9 @@ export interface BudgetSettings {
   freeSavingsExisting: Cents;
   riskFreeRate: number;
   earlyRepaymentPct: number;
+  /** Yearly indexation every January (SPEC D27), fractions from −1 to 1; omitted = 0. */
+  expenseInflationRate?: number;
+  incomeGrowthRate?: number;
 }
 
 export interface Loan {
