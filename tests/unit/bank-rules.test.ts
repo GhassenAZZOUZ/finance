@@ -8,7 +8,12 @@ const rule = (keyword: string, budgetLineId: string | null): BankRule => ({ id: 
 describe("keywords", () => {
   it("normalises labels and keeps their first two words", () => {
     expect(normalizeLabel("Carrefour Market 1234 — Paris 15e")).toBe("CARREFOUR MARKET PARIS E");
-    expect(keywordOf("CB CARREFOUR 12/09")).toBe("CB CARREFOUR");
+    expect(keywordOf("CB CARREFOUR 12/09")).toBe("CARREFOUR");
+    // Revolut's generic prefixes are skipped: one keyword per counterparty (invented names).
+    expect(keywordOf("Paiement envoyé par EXEMPLE EMPLOI SAS")).toBe("EXEMPLE EMPLOI");
+    expect(keywordOf("Virement de : Jean Exemple")).toBe("JEAN EXEMPLE");
+    expect(keywordOf("To Jean Exemple")).toBe("JEAN EXEMPLE");
+    expect(keywordOf("Virement")).toBe("VIREMENT");
     expect(keywordOf("Supermarché Exemple")).toBe("SUPERMARCHE EXEMPLE");
     expect(keywordOf("1234 5678")).toBe("");
   });
@@ -28,7 +33,7 @@ describe("AC-01 — rules propose assignments", () => {
       learnRules([tx("CARREFOUR 1", -10), tx("Virement Livret A", -500), tx("CARREFOUR 2", -20)], ["food", null, "snacks"]),
     ).toEqual([
       { keyword: "CARREFOUR", budgetLineId: "snacks" },
-      { keyword: "VIREMENT LIVRET", budgetLineId: null },
+      { keyword: "LIVRET", budgetLineId: null },
     ]);
   });
 });

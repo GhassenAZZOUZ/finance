@@ -163,3 +163,44 @@ describe("performance", () => {
     expect(performance.now() - started).toBeLessThan(1000);
   });
 });
+
+describe("Revolut export in French (« fr-fr » statement, invented values)", () => {
+  const FR = [
+    "Type,Produit,Date de début,Date de fin,Description,Montant,Frais,Devise,État,Solde",
+    "Ajout de fonds,Valeur actuelle,2026-09-01 10:00:00,2026-09-01 10:00:02,Paiement envoyé par EXEMPLE EMPLOI,2000.00,0.00,EUR,TERMINÉ,2000.00",
+    // Current account → pocket: two legs, two products, same start time.
+    "Virement,Valeur actuelle,2026-09-01 11:00:00,2026-09-01 11:00:00,Sur la Pocket EUR Loyer depuis EUR,-700.00,0.00,EUR,TERMINÉ,1300.00",
+    "Virement,Épargne,2026-09-01 11:00:00,2026-09-01 11:00:00,Sur la Pocket EUR Loyer depuis EUR,700.00,0.00,EUR,TERMINÉ,700.00",
+    // Inside one pocket: in and out at the same instant.
+    "Virement,Épargne,2026-09-02 09:00:00,2026-09-02 09:00:00,Sur la Pocket EUR Courses depuis EUR,40.00,0.00,EUR,TERMINÉ,740.00",
+    "Virement,Épargne,2026-09-02 09:00:00,2026-09-02 09:00:00,Retrait depuis une Pocket,-40.00,0.00,EUR,TERMINÉ,700.00",
+    // A card payment started in August, completed in September, with a fee.
+    "Paiement par carte,Épargne,2026-08-30 20:00:00,2026-09-01 15:00:00,Librairie Exemple,-10.00,0.10,EUR,TERMINÉ,689.90",
+    // A card payment and its refund at the same instant: not an internal transfer.
+    "Paiement par carte,Épargne,2026-09-03 12:00:00,2026-09-03 12:00:01,Boutique Exemple,-25.00,0.00,EUR,TERMINÉ,664.90",
+    "Remboursement sur carte,Épargne,2026-09-03 12:00:00,2026-09-03 12:00:02,Boutique Exemple,25.00,0.00,EUR,TERMINÉ,689.90",
+    "Paiement par carte,Épargne,2026-09-04 12:00:00,,Café Exemple,-3.00,0.00,EUR,EN ATTENTE,",
+  ].join("\n");
+  const rows = parseCsv(FR, detectSeparator(FR));
+
+  it("is recognised as Revolut", () => {
+    expect(isRevolut(rows[0]!)).toBe(true);
+  });
+
+  it("keeps the completed rows, dated by completion, amount − fee, and ignores internal transfers", () => {
+    const { transactions, ignored } = readRevolut(rows);
+    expect(transactions.map((t) => [t.date, t.label, t.amount])).toEqual([
+      ["2026-09-01", "Paiement envoyé par EXEMPLE EMPLOI", 200_000],
+      ["2026-09-01", "Librairie Exemple", -1_010],
+      ["2026-09-03", "Boutique Exemple", -2_500],
+      ["2026-09-03", "Boutique Exemple", 2_500],
+    ]);
+    expect(ignored.map((r) => [r.line, r.reason])).toEqual([
+      [3, "virement entre vos comptes Revolut"],
+      [4, "virement entre vos comptes Revolut"],
+      [5, "virement entre vos comptes Revolut"],
+      [6, "virement entre vos comptes Revolut"],
+      [10, "opération en attente"],
+    ]);
+  });
+});

@@ -138,8 +138,8 @@ describe("rules and per-line totals (#63, SPEC D31)", () => {
     ]);
     await waitFor(() => expect(mocks.repo!.saveBankRules).toHaveBeenCalledOnce());
     const [rules] = mocks.repo!.saveBankRules.mock.calls[0]!;
-    expect(rules).toContainEqual({ keyword: "VIREMENT SALAIRE", budgetLineId: "salary" });
-    expect(rules).toContainEqual({ keyword: "VERS LIVRET", budgetLineId: null });
+    expect(rules).toContainEqual({ keyword: "SALAIRE", budgetLineId: "salary" });
+    expect(rules).toContainEqual({ keyword: "LIVRET", budgetLineId: null });
     expect(mocks.notify).toHaveBeenCalled();
   });
 
