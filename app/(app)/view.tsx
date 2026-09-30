@@ -27,6 +27,7 @@ import { NegativeBudgetNotice, MovingAlert } from "./_dashboard/notices";
 import { MarginTile, DebtTile, SavingsTile } from "./_dashboard/tiles";
 import { Roadmap } from "./_dashboard/roadmap";
 import { Goals } from "./_dashboard/goals";
+import { verdictOf } from "@/lib/domain/verdict";
 import { CheckInStripCard } from "./_dashboard/check-in-strip";
 import { RepaymentOrder } from "./_dashboard/repayment-order";
 
@@ -112,7 +113,11 @@ function Dashboard({ plan, pending }: { plan: ComputedPlan; pending: YearMonth[]
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <CheckInStripCard slots={checkInStrip(budget.startMonth, currentYearMonth(), plan.comparisons)} startMonth={budget.startMonth} />
+        <CheckInStripCard
+          slots={checkInStrip(budget.startMonth, currentYearMonth(), plan.comparisons)}
+          startMonth={budget.startMonth}
+          verdicts={Object.fromEntries(plan.actuals.map((a) => [a.month, verdictOf(a)]))}
+        />
         <RepaymentOrder plan={plan} />
       </div>
     </>
