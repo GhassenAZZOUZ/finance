@@ -59,6 +59,7 @@ describe("GoalsCard", () => {
         target: 450_000,
         deadlineMonth: "2027-06",
         alreadySaved: 50_000,
+        rate: 0,
       }),
     );
   });
@@ -106,7 +107,7 @@ describe("GoalsCard", () => {
     await userEvent.type(within(form).getByLabelText("Date limite (AAAA-MM)"), "2027-08");
     await userEvent.click(within(form).getByRole("button", { name: "Ajouter l’objectif" }));
     await waitFor(() =>
-      expect(mocks.repo!.createGoal).toHaveBeenCalledWith({ name: "Vacances", target: 150_000, deadlineMonth: "2027-08", alreadySaved: 0 }, 3),
+      expect(mocks.repo!.createGoal).toHaveBeenCalledWith({ name: "Vacances", target: 150_000, deadlineMonth: "2027-08", alreadySaved: 0, rate: 0 }, 3),
     );
     expect((await screen.findByRole("status")).textContent).toContain("« Vacances » a été ajouté.");
 

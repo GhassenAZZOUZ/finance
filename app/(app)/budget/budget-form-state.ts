@@ -35,6 +35,8 @@ export const PARAM_FIELDS = [
   "earlyRepaymentPct",
   "expenseInflationRate",
   "incomeGrowthRate",
+  "emergencyRate",
+  "freeSavingsRate",
 ] as const;
 export type ParamField = (typeof PARAM_FIELDS)[number];
 export type ParamValues = Record<ParamField, string>;
@@ -76,6 +78,8 @@ export function initialFormState(settings: BudgetSettings | null, lines: readonl
         earlyRepaymentPct: percentInputValue(settings.earlyRepaymentPct),
         expenseInflationRate: percentInputValue(settings.expenseInflationRate ?? 0),
         incomeGrowthRate: percentInputValue(settings.incomeGrowthRate ?? 0),
+        emergencyRate: percentInputValue(settings.emergencyRate ?? 0),
+        freeSavingsRate: percentInputValue(settings.freeSavingsRate ?? 0),
       }
     : {
         startMonth: currentMonth,
@@ -86,6 +90,8 @@ export function initialFormState(settings: BudgetSettings | null, lines: readonl
         earlyRepaymentPct: "",
         expenseInflationRate: "0",
         incomeGrowthRate: "0",
+        emergencyRate: "0",
+        freeSavingsRate: "0",
       };
   const sorted = [...lines].sort(
     (a, b) => BUDGET_CATEGORIES.indexOf(a.category) - BUDGET_CATEGORIES.indexOf(b.category) || a.position - b.position,
@@ -161,6 +167,8 @@ export function parsePayload(raw: unknown, maxLines = 200): BudgetPayload | null
       earlyRepaymentPct: text(form.earlyRepaymentPct),
       expenseInflationRate: text(form.expenseInflationRate),
       incomeGrowthRate: text(form.incomeGrowthRate),
+      emergencyRate: text(form.emergencyRate),
+      freeSavingsRate: text(form.freeSavingsRate),
       lines: rawLines.map((l) => {
         const line = isRecord(l) ? l : {};
         const id = text(line.id);

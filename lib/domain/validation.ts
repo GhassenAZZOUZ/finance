@@ -63,6 +63,11 @@ export function parseYearlyRate(raw: string | null | undefined): Parsed<number> 
   return { ok: true, value: Number((value / 100).toFixed(6)) + 0 };
 }
 
+/** Optional yearly interest rate in % (SPEC D28): "" = 0, else like parsePercent (0 to 100 %). */
+export function parseSavingsRate(raw: string | null | undefined): Parsed<number> {
+  return (raw ?? "").trim() === "" ? { ok: true, value: 0 } : parsePercent(raw);
+}
+
 export function parseMonth(raw: string | null | undefined): Parsed<YearMonth> {
   const text = (raw ?? "").trim();
   if (text === "") return { ok: false, error: "Mois requis" };
@@ -96,6 +101,9 @@ export interface BudgetForm {
   /** Optional yearly rates in % (SPEC D27); "" = 0. Missing = not part of this form. */
   expenseInflationRate?: string;
   incomeGrowthRate?: string;
+  /** Optional yearly savings interest rates in % (SPEC D28); "" = 0. Missing = not part of this form. */
+  emergencyRate?: string;
+  freeSavingsRate?: string;
   /**
    * startMonth / endMonth: optional YYYY-MM period of the line (SPEC D15); indexed: false for a
    * « non indexé » line (D27).
@@ -116,6 +124,8 @@ export function validateBudget(form: BudgetForm): Validated<{ settings: BudgetSe
       ? { expenseInflationRate: c.take("expenseInflationRate", parseYearlyRate(form.expenseInflationRate)) }
       : {}),
     ...(form.incomeGrowthRate !== undefined ? { incomeGrowthRate: c.take("incomeGrowthRate", parseYearlyRate(form.incomeGrowthRate)) } : {}),
+    ...(form.emergencyRate !== undefined ? { emergencyRate: c.take("emergencyRate", parseSavingsRate(form.emergencyRate)) } : {}),
+    ...(form.freeSavingsRate !== undefined ? { freeSavingsRate: c.take("freeSavingsRate", parseSavingsRate(form.freeSavingsRate)) } : {}),
   };
   const positions: Record<BudgetCategory, number> = { income: 0, fixed: 0, variable: 0 };
   const lines: BudgetLineDraft[] = [];
@@ -325,6 +335,8 @@ export interface GoalForm {
   target: string;
   deadlineMonth: string;
   alreadySaved: string;
+  /** Optional yearly interest rate in % (SPEC D28); "" = 0. Missing = not part of this form. */
+  rate?: string;
 }
 
 /**
@@ -351,5 +363,6 @@ export function validateGoal(
     c.fail("deadlineMonth", "La date limite est déjà passée");
   }
   const alreadySaved = c.take("alreadySaved", parseAmount(form.alreadySaved)) as Cents;
-  return c.result({ name, target, deadlineMonth, alreadySaved });
+  const rate = form.rate === undefined ? undefined : c.take("rate", parseSavingsRate(form.rate));
+  return c.result({ name, target, deadlineMonth, alreadySaved, ...(rate === undefined ? {} : { rate }) });
 }

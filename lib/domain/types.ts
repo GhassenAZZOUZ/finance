@@ -45,6 +45,9 @@ export interface BudgetSettings {
   /** Yearly indexation every January (SPEC D27), fractions from −1 to 1; omitted = 0. */
   expenseInflationRate?: number;
   incomeGrowthRate?: number;
+  /** Yearly interest rates of the emergency fund and free savings (SPEC D28), fractions; omitted = 0. */
+  emergencyRate?: number;
+  freeSavingsRate?: number;
 }
 
 export interface Loan {
@@ -89,9 +92,11 @@ export interface SavingsGoal {
   /** 1 = filled first; unique and contiguous across all goals. */
   priority: number;
   primary: boolean;
+  /** Yearly interest rate of the goal's savings (SPEC D28), fraction; omitted = 0. */
+  rate?: number;
 }
 
-export type SavingsGoalDraft = Pick<SavingsGoal, "name" | "target" | "deadlineMonth" | "alreadySaved">;
+export type SavingsGoalDraft = Pick<SavingsGoal, "name" | "target" | "deadlineMonth" | "alreadySaved" | "rate">;
 
 /** Extra income or extra expenses for a single month (SPEC D14). */
 export interface BudgetException {

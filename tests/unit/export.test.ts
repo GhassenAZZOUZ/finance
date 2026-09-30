@@ -58,7 +58,7 @@ describe("buildBackup", () => {
     expect(data.settings).toMatchObject({ startMonth: "2026-01", emergencyExisting: "1000.00", riskFreeRate: 0.03 });
     expect(data.settings).not.toHaveProperty("movingGoal");
     expect(data.goals).toEqual([
-      { id: "goal-primary", name: "Déménagement", target: "3000.00", deadlineMonth: "2026-12", alreadySaved: "0.00", priority: 1, primary: true },
+      { id: "goal-primary", name: "Déménagement", target: "3000.00", deadlineMonth: "2026-12", alreadySaved: "0.00", priority: 1, primary: true, rate: 0 },
     ]);
     expect(data.budgetLines.map((l) => [l.label, l.amount, l.startMonth])).toEqual([
       ["Salaire", "2500.00", null],

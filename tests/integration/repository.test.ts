@@ -15,6 +15,8 @@ const settings: BudgetSettings = {
   earlyRepaymentPct: 0.6,
   expenseInflationRate: 0.021,
   incomeGrowthRate: -0.015,
+  emergencyRate: 0.024,
+  freeSavingsRate: 0.03,
 };
 
 beforeAll(async () => {

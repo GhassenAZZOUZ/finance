@@ -295,6 +295,11 @@ export function BudgetForm({
                 }
               />
               <ParamInput {...paramProps("emergencyExisting")} kind="amount" />
+              <ParamInput
+                {...paramProps("emergencyRate")}
+                kind="percent"
+                hint="Intérêts versés chaque 31 décembre ; au-delà de l’objectif, ils vont à l’épargne libre."
+              />
             </ParamGroup>
 
             <ParamGroup title="③ Reste du mois" dot="bg-bucket-debts">
@@ -337,6 +342,7 @@ export function BudgetForm({
                 kind="amount"
                 hint="Épargne disponible hors objectifs d’épargne et fonds d’urgence au début du plan (0 si aucune)."
               />
+              <ParamInput {...paramProps("freeSavingsRate")} kind="percent" hint="Intérêts versés chaque 31 décembre (0 = aucun)." />
             </div>
           </section>
         </form>

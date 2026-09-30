@@ -14,8 +14,9 @@ export const BACKUP_FORMAT = "finance-plan-backup";
  * 5: the primary goal is a goal like the others (real id); `settings` loses the moving fund and
  *    check-ins lose `movingSavings`, whose value is the primary goal's entry in `goalBalances`.
  * 6: `settings` gain `expenseInflationRate` and `incomeGrowthRate`, budget lines `indexed` (#36).
+ * 7: `settings` gain `emergencyRate` and `freeSavingsRate`, goals `rate` (savings interest, #35).
  */
-export const BACKUP_VERSION = 6;
+export const BACKUP_VERSION = 7;
 
 /** Euros with exactly 2 decimals and a dot ("1234.50", "-0.05"), computed from integer cents. */
 export type DecimalEuros = string;
@@ -68,6 +69,9 @@ export interface Backup {
       /** Yearly indexation, fractions (SPEC D27). */
       expenseInflationRate: number;
       incomeGrowthRate: number;
+      /** Yearly savings interest, fractions (SPEC D28). */
+      emergencyRate: number;
+      freeSavingsRate: number;
     } | null;
     budgetLines: {
       id: string;
@@ -92,6 +96,8 @@ export interface Backup {
       alreadySaved: DecimalEuros;
       priority: number;
       primary: boolean;
+      /** Yearly interest rate, fraction (SPEC D28). */
+      rate: number;
     }[];
     /** Oldest first. */
     checkIns: {
@@ -162,6 +168,8 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
             earlyRepaymentPct: s.earlyRepaymentPct,
             expenseInflationRate: s.expenseInflationRate ?? 0,
             incomeGrowthRate: s.incomeGrowthRate ?? 0,
+            emergencyRate: s.emergencyRate ?? 0,
+            freeSavingsRate: s.freeSavingsRate ?? 0,
           }
         : null,
       budgetLines: snapshot.lines.map((l) => ({
@@ -190,6 +198,7 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
         alreadySaved: centsToDecimal(g.alreadySaved),
         priority: g.priority,
         primary: g.primary,
+        rate: g.rate ?? 0,
       })),
       checkIns: snapshot.actuals.map((a) => ({
         id: a.id,

@@ -38,8 +38,8 @@ describe("goals allocation", () => {
     // Goal 1 needs 1 000 €, goal 2 needs 2 000 €, 1 500 € available: 1 000 + 500, nothing left.
     const { months } = simulatePlan({ budget: budget(150_000, [goal("a", 100_000), goal("b", 200_000)]), loans: [] });
     expect(m(months, 1).goals).toEqual([
-      { toGoal: 100_000, cumulative: 100_000 },
-      { toGoal: 50_000, cumulative: 50_000 },
+      { toGoal: 100_000, interest: 0, cumulative: 100_000 },
+      { toGoal: 50_000, interest: 0, cumulative: 50_000 },
     ]);
     expect(m(months, 1)).toMatchObject({ toMoving: 150_000, movingCumulative: 150_000, toEmergency: 0 });
     // Month 2: goal 1 full, goal 2 gets its last 1 500 €, the emergency fund nothing.
@@ -60,7 +60,7 @@ describe("goals allocation", () => {
       budget: budget(50_000, [goal("a", 300_000, "2027-02"), goal("b", 200_000)]),
       loans: [],
     });
-    expect(m(months, 2).goals[0]).toEqual({ toGoal: 50_000, cumulative: 100_000 });
+    expect(m(months, 2).goals[0]).toEqual({ toGoal: 50_000, interest: 0, cumulative: 100_000 });
     expect(m(months, 3).goals.map((g) => g.toGoal)).toEqual([0, 50_000]);
     expect(kpis.goals[0]).toMatchObject({ id: "a", amountAtDeadline: 100_000, met: false, reachedMonth: null, monthlyNeeded: 150_000 });
     expect(kpis.goals[1]).toMatchObject({ id: "b", met: true, reachedMonth: "2027-06" });

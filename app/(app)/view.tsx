@@ -83,6 +83,7 @@ function Dashboard({ plan, pending }: { plan: ComputedPlan; pending: YearMonth[]
           current={ref}
           in12={months[refIndex - 1 + 12]}
           goalsLabel={goalsName(kpis)}
+          interest={kpis.savingsInterest > 0 ? { at12: kpis.savingsInterestAt12, total: kpis.savingsInterest } : undefined}
           className="col-span-2 xl:col-span-1"
         />
       </section>

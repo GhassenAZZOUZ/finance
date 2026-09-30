@@ -29,10 +29,12 @@ interface SettingsRow {
   early_repayment_pct: number;
   expense_inflation_rate: number;
   income_growth_rate: number;
+  emergency_rate: number;
+  free_savings_rate: number;
 }
 // budget_settings.moving_* and monthly_actuals.moving_savings are no longer read nor written (tech-debt 6).
 const SETTINGS_COLUMNS =
-  "start_month, emergency_target, emergency_existing, free_savings_existing, risk_free_rate, early_repayment_pct, expense_inflation_rate, income_growth_rate";
+  "start_month, emergency_target, emergency_existing, free_savings_existing, risk_free_rate, early_repayment_pct, expense_inflation_rate, income_growth_rate, emergency_rate, free_savings_rate";
 interface GoalRow {
   id: string;
   name: string;
@@ -41,8 +43,9 @@ interface GoalRow {
   already_saved: number;
   priority: number;
   is_primary: boolean;
+  rate: number;
 }
-const GOAL_COLUMNS = "id, name, target, deadline_month, already_saved, priority, is_primary";
+const GOAL_COLUMNS = "id, name, target, deadline_month, already_saved, priority, is_primary, rate";
 const toGoal = (g: GoalRow): SavingsGoal => ({
   id: g.id,
   name: g.name,
@@ -51,6 +54,7 @@ const toGoal = (g: GoalRow): SavingsGoal => ({
   alreadySaved: cents(g.already_saved),
   priority: g.priority,
   primary: g.is_primary,
+  ...(Number(g.rate) ? { rate: Number(g.rate) } : {}),
 });
 interface LineRow {
   id: string;
@@ -187,6 +191,8 @@ function settingsColumns(s: BudgetSettings) {
     // Not in the template (SPEC D20): an import sets them to 0.
     expense_inflation_rate: s.expenseInflationRate ?? 0,
     income_growth_rate: s.incomeGrowthRate ?? 0,
+    emergency_rate: s.emergencyRate ?? 0,
+    free_savings_rate: s.freeSavingsRate ?? 0,
   };
 }
 
@@ -211,6 +217,7 @@ function goalColumns(d: SavingsGoalDraft) {
     target: euros(d.target),
     deadline_month: d.deadlineMonth,
     already_saved: euros(d.alreadySaved),
+    rate: d.rate ?? 0,
   };
 }
 
@@ -259,6 +266,8 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         earlyRepaymentPct: Number(s.early_repayment_pct),
         expenseInflationRate: Number(s.expense_inflation_rate),
         incomeGrowthRate: Number(s.income_growth_rate),
+        emergencyRate: Number(s.emergency_rate),
+        freeSavingsRate: Number(s.free_savings_rate),
       },
       lines: check(lines).map(
         (l): BudgetLine => ({

@@ -141,6 +141,7 @@ export function goalsOf(budget: BudgetParams): readonly GoalInput[] {
         target: budget.movingGoal,
         deadlineMonth: budget.movingDeadlineMonth,
         alreadySaved: budget.movingAlreadySaved,
+        ...(budget.movingRate ? { rate: budget.movingRate } : {}),
       },
     ]
   );
@@ -209,6 +210,10 @@ export function simulatePlan(input: PlanInput): PlanResult {
   let goalsPrev = goals.map((g) => g.alreadySaved);
   let emergencyPrev = budget.emergencyExisting;
   let freePrev = budget.freeSavingsExisting ?? 0;
+  // Savings interest accrued since the last crediting (SPEC D28).
+  let goalsAccrued = goals.map(() => 0);
+  let emergencyAccrued = 0;
+  let freeAccrued = 0;
 
   const months: PlanMonth[] = [];
   for (let index = 1; index <= HORIZON_MONTHS; index++) {
@@ -217,6 +222,11 @@ export function simulatePlan(input: PlanInput): PlanResult {
     const extraIncome = extra?.income ?? 0;
     const extraExpenses = extra?.expenses ?? 0;
     const regular = regularBudget(month);
+    // Savings interest of the month on the balances at its start, credited in December (D28).
+    goalsAccrued = goalsAccrued.map((a, i) => a + monthlyInterest(goalsPrev[i] as Cents, goals[i]?.rate ?? 0));
+    emergencyAccrued += monthlyInterest(emergencyPrev, budget.emergencyRate ?? 0);
+    freeAccrued += monthlyInterest(freePrev, budget.freeSavingsRate ?? 0);
+    const crediting = month.endsWith("-12") || index === HORIZON_MONTHS;
     const income = regular.income + extraIncome;
     const expenses = regular.expenses + extraExpenses;
 
@@ -257,12 +267,18 @@ export function simulatePlan(input: PlanInput): PlanResult {
       const toGoal =
         compareMonths(month, g.deadlineMonth) <= 0 ? Math.max(0, Math.min(left, g.target - prev)) : 0;
       left -= toGoal;
-      return { toGoal, cumulative: prev + toGoal };
+      // Credited after the allocation: it counts toward the target from January (D28).
+      const interest = crediting ? (goalsAccrued[i] as Cents) : 0;
+      return { toGoal, interest, cumulative: prev + toGoal + interest };
     });
     const toMoving = sumCents(goalMonths.map((g) => g.toGoal));
+    const goalsInterest = sumCents(goalMonths.map((g) => g.interest));
     const movingCumulative = sumCents(goalMonths.map((g) => g.cumulative));
     const toEmergency = Math.max(0, Math.min(available - toMoving, budget.emergencyTarget - emergencyPrev));
-    const emergencyCumulative = emergencyPrev + toEmergency;
+    // The emergency fund's interest fills it up to its target; the rest goes to free savings (D28).
+    const emergencyInterest = crediting ? Math.min(emergencyAccrued, Math.max(0, budget.emergencyTarget - emergencyPrev - toEmergency)) : 0;
+    const freeSavingsInterest = crediting ? freeAccrued + emergencyAccrued - emergencyInterest : 0;
+    const emergencyCumulative = emergencyPrev + toEmergency + emergencyInterest;
     const remainder = Math.max(0, available - toMoving - toEmergency);
     const toEarlyRepayment = roundHalfAwayFromZero(remainder * budget.earlyRepaymentPct);
 
@@ -315,7 +331,7 @@ export function simulatePlan(input: PlanInput): PlanResult {
     const totalPenalty = sumCents(loanMonths.map((l) => l.penalty));
     const unusedEarlyRepayment = Math.max(0, toEarlyRepayment - totalEarlyRepayment - totalPenalty);
     const toFreeSavings = remainder - toEarlyRepayment + unusedEarlyRepayment;
-    const freeSavingsCumulative = freePrev + toFreeSavings - extraFromFreeSavings;
+    const freeSavingsCumulative = freePrev + toFreeSavings - extraFromFreeSavings + freeSavingsInterest;
     const remainingDebt = sumCents(loanMonths.map((l) => l.endBalance));
 
     months.push({
@@ -336,6 +352,9 @@ export function simulatePlan(input: PlanInput): PlanResult {
       toEarlyRepayment,
       unusedEarlyRepayment,
       toFreeSavings,
+      emergencyInterest,
+      freeSavingsInterest,
+      savingsInterest: goalsInterest + emergencyInterest + freeSavingsInterest,
       freeSavingsCumulative,
       remainingDebt,
       negativeBudget: available < 0,
@@ -357,6 +376,11 @@ export function simulatePlan(input: PlanInput): PlanResult {
     goalsPrev = goalMonths.map((g) => g.cumulative);
     emergencyPrev = emergencyCumulative;
     freePrev = freeSavingsCumulative;
+    if (crediting) {
+      goalsAccrued = goals.map(() => 0);
+      emergencyAccrued = 0;
+      freeAccrued = 0;
+    }
   }
 
   return {
@@ -464,6 +488,8 @@ function computeKpis(input: PlanInput, months: readonly PlanMonth[]): PlanKpis {
     interestSaved: interestWithoutPlan - interestWithPlan - penaltiesPaid,
     penaltiesPaid,
     freeSavingsAt12: month12.freeSavingsCumulative,
+    savingsInterest: sumCents(months.map((m) => m.savingsInterest)),
+    savingsInterestAt12: sumCents(months.slice(0, 12).map((m) => m.savingsInterest)),
     emergencyFundAt12: month12.emergencyCumulative,
     remainingDebtAt12: month12.remainingDebt,
     negativeBudgetMonths: months.filter((m) => m.negativeBudget).length,
