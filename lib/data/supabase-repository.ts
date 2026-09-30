@@ -1,5 +1,6 @@
 import type { CsvMapping } from "@/lib/import/bank-csv";
-import type { BankLineTotal, BankRule } from "@/lib/import/bank-rules";
+import type { BankRule } from "@/lib/import/bank-rules";
+import type { ActualLine } from "@/lib/domain/actual-lines";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { centsToEuros, eurosToCents } from "@/lib/engine";
 import type {
@@ -117,7 +118,20 @@ interface ActualRow {
   plan_start_month: string | null;
   monthly_actual_loan_balances: { loan_id: string; balance: number }[];
   monthly_actual_goal_balances: { goal_id: string; balance: number }[];
+  monthly_actual_lines: LineRowOfActual[];
 }
+interface LineRowOfActual {
+  kind: ActualLine["kind"];
+  direction: ActualLine["direction"];
+  category: ActualLine["category"];
+  budget_line_id: string | null;
+  exception_id: string | null;
+  label: string;
+  planned: number;
+  actual: number;
+  position: number;
+}
+const ACTUAL_LINE_COLUMNS = "kind, direction, category, budget_line_id, exception_id, label, planned, actual, position";
 
 const cents = (euros: number) => eurosToCents(Number(euros));
 
@@ -231,7 +245,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   async load(): Promise<FinanceSnapshot> {
-    const [settings, lines, loans, actuals, exceptions, goals, profile, incomePayments, bankRules, bankLineTotals] = await Promise.all([
+    const [settings, lines, loans, actuals, exceptions, goals, profile, incomePayments, bankRules] = await Promise.all([
       this.db.from("budget_settings").select(SETTINGS_COLUMNS).maybeSingle<SettingsRow>(),
       this.db
         .from("budget_lines")
@@ -247,7 +261,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       this.db
         .from("monthly_actuals")
         .select(
-          "id, month, income, expenses, emergency_savings, free_savings, planned_debt, planned_savings, planned_income, planned_expenses, plan_start_month, monthly_actual_loan_balances(loan_id, balance), monthly_actual_goal_balances(goal_id, balance)",
+          `id, month, income, expenses, emergency_savings, free_savings, planned_debt, planned_savings, planned_income, planned_expenses, plan_start_month, monthly_actual_loan_balances(loan_id, balance), monthly_actual_goal_balances(goal_id, balance), monthly_actual_lines(${ACTUAL_LINE_COLUMNS})`,
         )
         .order("month")
         .returns<ActualRow[]>(),
@@ -268,11 +282,6 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         .order("month")
         .returns<{ month: string; budget_line_id: string; paid_on: string }[]>(),
       this.db.from("bank_csv_rules").select("id, keyword, budget_line_id").order("keyword").returns<{ id: string; keyword: string; budget_line_id: string | null }[]>(),
-      this.db
-        .from("bank_line_totals")
-        .select("month, budget_line_id, actual")
-        .order("month")
-        .returns<{ month: string; budget_line_id: string; actual: number }[]>(),
     ]);
     const s = checkMaybe(settings);
     const allLoans = check(loans).map(toLoan);
@@ -311,9 +320,6 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       reminderEnabled: checkMaybe(profile)?.reminder_enabled ?? true,
       bankCsvMapping: checkMaybe(profile)?.bank_csv_mapping ?? null,
       bankRules: check(bankRules).map((b): BankRule => ({ id: b.id, keyword: b.keyword, budgetLineId: b.budget_line_id })),
-      bankLineTotals: check(bankLineTotals).map(
-        (t): BankLineTotal => ({ month: t.month, budgetLineId: t.budget_line_id, actual: cents(t.actual) }),
-      ),
       incomePayments: check(incomePayments).map((p) => ({ month: p.month, budgetLineId: p.budget_line_id, paidOn: p.paid_on })),
       goals: check(goals).map(toGoal),
       actuals: check(actuals).map(
@@ -326,6 +332,18 @@ export class SupabaseFinanceRepository implements FinanceRepository {
           freeSavings: cents(a.free_savings),
           loanBalances: a.monthly_actual_loan_balances.map((b) => ({ loanId: b.loan_id, balance: cents(b.balance) })),
           goalBalances: a.monthly_actual_goal_balances.map((b) => ({ goalId: b.goal_id, balance: cents(b.balance) })),
+          lines: [...a.monthly_actual_lines]
+            .sort((x, y) => x.position - y.position)
+            .map((l) => ({
+              kind: l.kind,
+              direction: l.direction,
+              category: l.category,
+              budgetLineId: l.budget_line_id,
+              exceptionId: l.exception_id,
+              label: l.label,
+              planned: cents(l.planned),
+              actual: cents(l.actual),
+            })),
           frozen:
             a.planned_debt === null || a.planned_savings === null || a.plan_start_month === null
               ? null
@@ -453,6 +471,17 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         },
         p_loan_balances: draft.loanBalances.map((b) => ({ loan_id: b.loanId, balance: euros(b.balance) })),
         p_goal_balances: draft.goalBalances.map((b) => ({ goal_id: b.goalId, balance: euros(b.balance) })),
+        p_lines: draft.lines.map((l, position) => ({
+          kind: l.kind,
+          direction: l.direction,
+          category: l.category,
+          budget_line_id: l.budgetLineId,
+          exception_id: l.exceptionId,
+          label: l.label,
+          planned: euros(l.planned),
+          actual: euros(l.actual),
+          position,
+        })),
       }),
     );
   }
@@ -487,18 +516,8 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   }
 
   /** One transaction (Postgres function `save_bank_import`): the month's totals replaced, the rules upserted. */
-  async saveBankImport(
-    month: string,
-    totals: { budgetLineId: string; actual: number }[],
-    rules: Omit<BankRule, "id">[],
-  ): Promise<void> {
-    checkMaybe(
-      await this.db.rpc("save_bank_import", {
-        p_month: month,
-        p_totals: totals.map((t) => ({ budget_line_id: t.budgetLineId, actual: centsToEuros(t.actual) })),
-        p_rules: rules.map((r) => ({ keyword: r.keyword, budget_line_id: r.budgetLineId })),
-      }),
-    );
+  async saveBankRules(rules: Omit<BankRule, "id">[]): Promise<void> {
+    checkMaybe(await this.db.rpc("save_bank_rules", { p_rules: rules.map((r) => ({ keyword: r.keyword, budget_line_id: r.budgetLineId })) }));
   }
 
   async deleteBankRule(id: string): Promise<void> {

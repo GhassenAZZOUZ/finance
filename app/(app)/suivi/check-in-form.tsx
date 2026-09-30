@@ -1,11 +1,12 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Check, CheckCircle2, Info, TriangleAlert } from "lucide-react";
-import { useActionState, useState } from "react";
+import { type ReactNode, useActionState, useState } from "react";
 import { StatusBadge } from "@/components/app/status-badge";
 import { GAP_TONE, STATUS_TONE } from "@/components/app/tones";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { type CheckInRow, type RowSection } from "@/lib/domain/actual-lines";
 import { type ActualForm, parseAmount } from "@/lib/domain/validation";
 import type { ActualStatus, Cents, YearMonth } from "@/lib/engine";
 import type { BudgetLine } from "@/lib/domain/types";
@@ -16,7 +17,7 @@ import { STATUS_LABEL } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { type SaveActualState, saveActualAction } from "./actions";
 import { BankImport } from "./bank-import";
-import { type PlannedValues, isDebtGapGood, isSavingsGapGood, provisionalCheck } from "./logic";
+import { type PlannedValues, applyLineTotals, isDebtGapGood, isSavingsGapGood, provisionalCheck } from "./logic";
 
 export interface CheckInFormProps {
   /** Newest first. */
@@ -41,6 +42,8 @@ export interface CheckInFormProps {
   bankCsvMapping?: CsvMapping | null;
   bankRules?: BankRule[];
   planned: Record<YearMonth, PlannedValues | null>;
+  /** Rows of each month (#72): budget lines, exceptions and « hors budget », same keys as `ActualForm.lines`. */
+  rows?: Record<YearMonth, CheckInRow[]>;
   /** Active loans, same order as `ActualForm.loanBalances` and `PlannedValues.loanBalances`. */
   loans: { id: string; label: string }[];
   /** Savings goals, the primary one included (SPEC D23); same order as `ActualForm.goalBalances` and `PlannedValues.goalBalances`. */
@@ -57,8 +60,17 @@ const SAVINGS_FIELDS: { name: SavingsField; label: string }[] = [
   { name: "freeSavings", label: "Épargne libre" },
 ];
 
-/** How a field's gap is judged: savings must not fall short, debts must not exceed; budget = information. */
-type GapRule = "savings" | "debt" | "info";
+/**
+ * How a field's gap is judged: savings and income must not fall short, debts and expenses must not
+ * exceed (±10 €, like §8.2); "info" is not judged.
+ */
+type GapRule = "savings" | "debt" | "income" | "expense" | "info";
+
+const ROW_SECTIONS: { section: RowSection; title: string }[] = [
+  { section: "income", title: "Revenus" },
+  { section: "fixed", title: "Charges fixes" },
+  { section: "variable", title: "Dépenses variables" },
+];
 
 const ROW_GRID = "sm:grid sm:grid-cols-[minmax(0,1fr)_7.5rem_10.5rem_8.5rem] sm:items-center sm:gap-3.5";
 
@@ -78,6 +90,7 @@ export function CheckInForm({
   bankCsvMapping = null,
   bankRules = [],
   planned,
+  rows = {},
   loans,
   goals = [],
 }: CheckInFormProps) {
@@ -87,7 +100,6 @@ export function CheckInForm({
   const [dismissed, setDismissed] = useState<SaveActualState | null>(null);
   const feedback = state === dismissed ? null : state;
   const errors = feedback?.status === "error" ? feedback.errors : {};
-  const [budgetOpen, setBudgetOpen] = useState(() => Boolean(form.income || form.expenses));
 
   const month = form.month;
   const plan = planned[month] ?? null;
@@ -95,6 +107,14 @@ export function CheckInForm({
   const running = currentMonth ?? months[0];
   const early = month === earlyMonth;
   const check = provisionalCheck(form, plan);
+  const monthRows = rows[month] ?? [];
+  const lineValue = (key: string) => form.lines?.find((l) => l.key === key)?.actual ?? "";
+  const rowTotal = (direction: "income" | "expense", pick: (row: CheckInRow) => number) =>
+    monthRows.filter((r) => r.direction === direction).reduce((sum, r) => sum + pick(r), 0);
+  const typed = (row: CheckInRow) => {
+    const parsed = parseAmount(lineValue(row.key));
+    return parsed.ok && parsed.value !== null ? parsed.value : 0;
+  };
 
   // Months to enter first (oldest first), then the ones already entered (newest first).
   const ordered = [...months.filter((m) => !existing.includes(m)).reverse(), ...months.filter((m) => existing.includes(m))];
@@ -111,19 +131,28 @@ export function CheckInForm({
     }));
   const setField = (name: keyof Omit<ActualForm, "loanBalances" | "goalBalances" | "month">, value: string) =>
     setForm((f) => ({ ...f, [name]: value }));
+  const setLine = (key: string, value: string) =>
+    setForm((f) => ({ ...f, lines: (f.lines ?? []).map((l) => (l.key === key ? { ...l, actual: value } : l)) }));
+  /** « Tout comme prévu »: the budget into the rows still empty. */
+  const fillPlanned = (section: CheckInRow[]) =>
+    setForm((f) => ({
+      ...f,
+      lines: (f.lines ?? []).map((l) => {
+        const row = section.find((r) => r.key === l.key);
+        return row && l.actual.trim() === "" ? { ...l, actual: amountInputValue(row.planned) } : l;
+      }),
+    }));
   const setLoan = (loanId: string, value: string) =>
     setForm((f) => ({ ...f, loanBalances: f.loanBalances.map((b) => (b.loanId === loanId ? { ...b, balance: value } : b)) }));
 
   const knownFields = new Set([
     "month",
-    "income",
-    "expenses",
+    ...monthRows.map((r) => `line.${r.key}`),
     ...SAVINGS_FIELDS.map((f) => f.name),
     ...loans.map((l) => `loan.${l.id}`),
     ...goals.map((g) => `goal.${g.id}`),
   ]);
   const orphanErrors = Object.entries(errors).filter(([key]) => !knownFields.has(key));
-  const budgetOpenNow = budgetOpen || Boolean(errors.income || errors.expenses);
 
   return (
     <form action={action} noValidate className="flex flex-col gap-5.5">
@@ -174,6 +203,82 @@ export function CheckInForm({
       </div>
 
       <p className="text-sm text-muted-foreground">Les champs marqués d’un * sont obligatoires. Montants en euros, ex. 1 234,56.</p>
+
+      <fieldset className="flex flex-col gap-4">
+        <legend className="mb-1 text-[15px] font-semibold">Revenus et dépenses du mois</legend>
+        <p className="-mt-2 text-sm text-muted-foreground">
+          Ce que vous avez réellement reçu et dépensé, ligne par ligne, hors mensualités de crédit et hors épargne. « Comme prévu »
+          reprend le budget du mois.
+        </p>
+        {budgetLines.length > 0 ? (
+          <BankImport
+            key={month}
+            month={month}
+            lines={budgetLines}
+            savedMapping={bankCsvMapping}
+            rules={bankRules}
+            onApply={(totals) => setForm((f) => ({ ...f, lines: applyLineTotals(f.lines ?? [], monthRows, totals) }))}
+          />
+        ) : null}
+        {ROW_SECTIONS.map(({ section, title }) => {
+          const sectionRows = monthRows.filter((r) => r.section === section);
+          if (sectionRows.length === 0) return null;
+          return (
+            <div key={section} role="group" aria-labelledby={`suivi-rows-${section}`} className="flex flex-col">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 id={`suivi-rows-${section}`} className="text-sm font-semibold">
+                  {title}
+                </h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-h-9"
+                  aria-label={`Tout comme prévu : ${title}`}
+                  onClick={() => fillPlanned(sectionRows)}
+                >
+                  Tout comme prévu
+                </Button>
+              </div>
+              <ColumnHeads />
+              {sectionRows.map((row) => (
+                <AmountRow
+                  key={row.key}
+                  id={`suivi-line-${row.key}`}
+                  name={`line.${row.key}`}
+                  label={row.label}
+                  required
+                  value={lineValue(row.key)}
+                  onChange={(v) => setLine(row.key, v)}
+                  planned={row.planned}
+                  rule={row.direction}
+                  error={errors[`line.${row.key}`]}
+                  extra={
+                    <button
+                      type="button"
+                      className="min-h-6 text-[13px] font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                      aria-label={`Comme prévu : ${row.label}`}
+                      onClick={() => setLine(row.key, amountInputValue(row.planned))}
+                    >
+                      Comme prévu
+                    </button>
+                  }
+                />
+              ))}
+            </div>
+          );
+        })}
+        <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm tabular-nums">
+          <span>
+            Total revenus : <strong>{formatEuros(rowTotal("income", typed))}</strong>{" "}
+            <span className="text-muted-foreground">(prévu {formatEuros(rowTotal("income", (r) => r.planned))})</span>
+          </span>
+          <span>
+            Total dépenses : <strong>{formatEuros(rowTotal("expense", typed))}</strong>{" "}
+            <span className="text-muted-foreground">(prévu {formatEuros(rowTotal("expense", (r) => r.planned))})</span>
+          </span>
+        </p>
+      </fieldset>
 
       <fieldset className="flex flex-col">
         <legend className="mb-1 text-[15px] font-semibold">Épargne en fin de mois</legend>
@@ -250,50 +355,6 @@ export function CheckInForm({
         </fieldset>
       ) : null}
 
-      <details
-        open={budgetOpenNow}
-        onToggle={(e) => setBudgetOpen(e.currentTarget.open)}
-        className="rounded-xl border border-divider px-4"
-      >
-        <summary className="flex min-h-12 cursor-pointer items-center text-[15px] font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-          Revenus et dépenses réels du mois <span className="ml-1.5 font-normal text-muted-foreground">· facultatif</span>
-        </summary>
-        <div className="flex flex-col pb-3">
-          <AmountRow
-            id="suivi-income"
-            name="income"
-            label="Revenus réels"
-            value={form.income}
-            onChange={(v) => setField("income", v)}
-            planned={plan?.income ?? null}
-            rule="info"
-            error={errors.income}
-          />
-          <AmountRow
-            id="suivi-expenses"
-            name="expenses"
-            label="Dépenses réelles (hors crédits)"
-            value={form.expenses}
-            onChange={(v) => setField("expenses", v)}
-            planned={plan?.expenses ?? null}
-            rule="info"
-            error={errors.expenses}
-          />
-          {budgetLines.length > 0 ? (
-            <BankImport
-              key={month}
-              month={month}
-              lines={budgetLines}
-              savedMapping={bankCsvMapping}
-              rules={bankRules}
-              onApply={({ income, expenses }) =>
-                setForm((f) => ({ ...f, income: amountInputValue(income), expenses: amountInputValue(expenses) }))
-              }
-            />
-          ) : null}
-        </div>
-      </details>
-
       <div id="suivi-form-feedback" aria-live="polite" className="empty:hidden">
         {feedback?.status === "saved" ? (
           <div role="status" className="flex flex-col gap-2 rounded-xl border border-good-border bg-good-bg px-4 py-3 text-sm text-good">
@@ -367,10 +428,13 @@ function AmountRow({
   planned,
   rule,
   error,
+  extra,
 }: {
   id: string;
   name: string;
   label: string;
+  /** Under the label, e.g. « Comme prévu ». */
+  extra?: ReactNode;
   required?: boolean;
   value: string;
   onChange: (value: string) => void;
@@ -387,14 +451,17 @@ function AmountRow({
   return (
     <div className="flex flex-col gap-1.5 border-b border-divider py-2.5 last:border-b-0">
       <div className={ROW_GRID}>
-        <label htmlFor={id} className="text-[15px] font-medium">
-          {label}
-          {required ? (
-            <span className="text-muted-foreground" aria-hidden>
-              *
-            </span>
-          ) : null}
-        </label>
+        <div className="flex flex-col items-start">
+          <label htmlFor={id} className="text-[15px] font-medium">
+            {label}
+            {required ? (
+              <span className="text-muted-foreground" aria-hidden>
+                *
+              </span>
+            ) : null}
+          </label>
+          {extra}
+        </div>
         <p id={hintId} className={cn("text-sm text-muted-foreground tabular-nums sm:text-right", planned === null && "hidden")}>
           <span className="sm:sr-only">Prévu : </span>
           {planned !== null ? formatEuros(planned) : null}
@@ -434,7 +501,9 @@ function GapValue({ id, gap, rule }: { id: string; gap: Cents | null; rule: GapR
       </span>
     );
   }
-  const good = rule === "savings" ? isSavingsGapGood(gap) : rule === "debt" ? isDebtGapGood(gap) : null;
+  // Income falls short like savings; expenses exceed like debts (same ±10 € tolerance).
+  const good =
+    rule === "savings" || rule === "income" ? isSavingsGapGood(gap) : rule === "debt" || rule === "expense" ? isDebtGapGood(gap) : null;
   const Icon = gap === 0 || good ? Check : gap > 0 ? ArrowUp : ArrowDown;
   return (
     <span

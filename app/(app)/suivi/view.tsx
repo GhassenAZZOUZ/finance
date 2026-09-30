@@ -6,6 +6,7 @@ import { useFinance } from "@/components/app/finance-provider";
 import { Onboarding } from "@/components/app/onboarding";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { type CheckInRow, checkInRows } from "@/lib/domain/actual-lines";
 import { lastOpenMonth, openingOf } from "@/lib/domain/payday";
 import { planRebase } from "@/lib/domain/rebase";
 import type { ActualForm } from "@/lib/domain/validation";
@@ -63,10 +64,12 @@ export function SuiviView() {
   const actualsByMonth = new Map(snapshot.actuals.map((a) => [a.month, a]));
   const values: Record<string, ActualForm> = {};
   const planned: Record<string, PlannedValues | null> = {};
+  const rows: Record<string, CheckInRow[]> = {};
   // Savings goals (SPEC D23): one field each, in priority order.
   const goals = snapshot.goals;
   for (const month of months) {
-    values[month] = prefillForm(month, actualsByMonth.get(month), snapshot.loans, goals);
+    rows[month] = checkInRows(snapshot.lines, snapshot.exceptions, snapshot.settings, month);
+    values[month] = prefillForm(month, actualsByMonth.get(month), snapshot.loans, goals, rows[month]);
     planned[month] = plannedForMonth(plan.result, startMonth, month, goals);
   }
   // An early month's loans are not entered: the plan's balances after its payment (SPEC D29).
@@ -118,6 +121,7 @@ export function SuiviView() {
                 currentMonth={calendarMonth}
                 earlyMonth={earlyMonth}
                 budgetLines={snapshot.lines}
+                rows={rows}
                 bankCsvMapping={snapshot.bankCsvMapping ?? null}
                 bankRules={snapshot.bankRules ?? []}
                 planned={planned}
@@ -163,8 +167,8 @@ export function SuiviView() {
 
       <ActualVsPlannedCard comparisons={plan.comparisons} />
 
-      {snapshot.bankLineTotals?.length ? (
-        <LineActualsCard lines={snapshot.lines} settings={snapshot.settings} totals={snapshot.bankLineTotals} />
+      {snapshot.actuals.some((a) => a.lines.length > 0) ? (
+        <LineActualsCard actuals={snapshot.actuals} />
       ) : null}
 
       {history.length > 0 ? (

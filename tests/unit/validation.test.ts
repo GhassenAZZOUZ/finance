@@ -200,8 +200,6 @@ describe("validateActual (complete check-ins only)", () => {
   const ctx = { startMonth: "2027-01", currentMonth: "2027-04", activeLoanIds: ["a", "b"], goalIds: ["p"] };
   const form: ActualForm = {
     month: "2027-03",
-    income: "",
-    expenses: "1 700",
     goalBalances: [{ goalId: "p", balance: "900" }],
     emergencySavings: "800",
     freeSavings: "0",
@@ -211,11 +209,12 @@ describe("validateActual (complete check-ins only)", () => {
     ],
   };
 
-  it("accepts a complete month; income and expenses are optional", () => {
+  it("accepts a complete month; without rows (#72) there are no income or expense totals", () => {
     const result = validateActual(form, ctx);
     expect(result.ok && result.value).toMatchObject({
       income: null,
-      expenses: 170000,
+      expenses: null,
+      lines: [],
       goalBalances: [{ goalId: "p", balance: 90000 }],
       loanBalances: [{ balance: 790000 }, { balance: 0 }],
     });

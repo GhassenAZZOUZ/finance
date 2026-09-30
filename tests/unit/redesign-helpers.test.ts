@@ -54,8 +54,6 @@ describe("provisionalCheck", () => {
   };
   const form = (over: Partial<ActualForm> = {}): ActualForm => ({
     month: "2026-08",
-    income: "",
-    expenses: "",
     goalBalances: [{ goalId: "p", balance: "1 387,10" }],
     emergencySavings: "800",
     freeSavings: "0",

@@ -45,7 +45,7 @@ export interface FinanceRepository {
   updateLoan(id: string, draft: LoanDraft): Promise<void>;
   /** Deletes the loan, or archives it when check-ins reference it (SPEC D8). */
   removeLoan(id: string): Promise<"deleted" | "archived">;
-  /** Creates or replaces the check-in of `draft.month`. */
+  /** Creates or replaces the check-in of `draft.month`, its balances and its rows (#72), all-or-nothing. */
   saveActual(draft: MonthlyActualDraft): Promise<void>;
   deleteActual(month: string): Promise<void>;
   /** Adds a savings goal with this priority (SPEC D23); the first one becomes the primary goal. */
@@ -62,8 +62,8 @@ export interface FinanceRepository {
   setReminder(enabled: boolean): Promise<void>;
   /** Saves (or forgets, with null) the column mapping of the user's bank CSV (SPEC D30). */
   setBankCsvMapping(mapping: CsvMapping | null): Promise<void>;
-  /** Stores a bank import (SPEC D31): replaces the month's per-line totals, upserts the learnt rules. */
-  saveBankImport(month: string, totals: { budgetLineId: string; actual: number }[], rules: Omit<BankRule, "id">[]): Promise<void>;
+  /** Upserts the keyword rules learnt from a bank import (SPEC D31); its totals pre-fill the check-in rows (#72). */
+  saveBankRules(rules: Omit<BankRule, "id">[]): Promise<void>;
   deleteBankRule(id: string): Promise<void>;
   /** Records (or clears, with null) the actual date an income line was paid for a month (SPEC D29). */
   setIncomePayment(month: string, budgetLineId: string, paidOn: string | null): Promise<void>;

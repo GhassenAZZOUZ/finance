@@ -13,6 +13,7 @@ import {
   sumCents,
 } from "@/lib/engine";
 import { type ActualForm, parseAmount } from "@/lib/domain/validation";
+import type { CheckInRow } from "@/lib/domain/actual-lines";
 import { engineGoalId } from "@/lib/domain/plan";
 import type { Loan, MonthlyActual, SavingsGoal } from "@/lib/domain/types";
 import { amountInputValue, formatMonthLong, formatMonthShort } from "@/lib/format";
@@ -60,6 +61,34 @@ function joinFrench(items: readonly string[]): string {
   return `${items.slice(0, -1).join(", ")} et ${items.at(-1)}`;
 }
 
+/**
+ * The bank statement's totals per budget line into the form rows (#72): every budget line row gets
+ * its total (0 without any operation); exceptions and « hors budget » rows are left as typed.
+ */
+export function applyLineTotals(
+  lines: readonly { key: string; actual: string }[],
+  rows: readonly CheckInRow[],
+  totals: readonly { budgetLineId: string; actual: Cents }[],
+): { key: string; actual: string }[] {
+  return lines.map((l) => {
+    const row = rows.find((r) => r.key === l.key);
+    if (row?.kind !== "line") return l;
+    return { ...l, actual: amountInputValue(totals.find((t) => t.budgetLineId === row.budgetLineId)?.actual ?? 0) };
+  });
+}
+
+/** The amount saved for a row of the month, when the check-in has it (the budget line or exception may be new). */
+function savedActual(actual: MonthlyActual | undefined, row: CheckInRow): Cents | null {
+  const saved = actual?.lines.find((l) =>
+    row.kind === "line"
+      ? l.kind === "line" && l.budgetLineId === row.budgetLineId
+      : row.kind === "exception"
+        ? l.kind === "exception" && l.exceptionId === row.exceptionId
+        : l.kind === "other" && l.direction === row.direction,
+  );
+  return saved ? saved.actual : null;
+}
+
 /** Form values for `month`: the existing entry when there is one, otherwise empty fields. */
 export function prefillForm(
   month: YearMonth,
@@ -67,13 +96,14 @@ export function prefillForm(
   loans: readonly Pick<Loan, "id">[],
   /** Savings goals (SPEC D23), priority order, the primary one included. */
   goals: readonly { id: string }[] = [],
+  /** The month's rows (#72): budget lines, exceptions, « hors budget ». */
+  rows: readonly CheckInRow[] = [],
 ): ActualForm {
   const balances = new Map(actual?.loanBalances.map((b) => [b.loanId, b.balance]));
   const goalBalances = new Map(actual?.goalBalances.map((b) => [b.goalId, b.balance]));
   return {
     month,
-    income: amountInputValue(actual?.income),
-    expenses: amountInputValue(actual?.expenses),
+    lines: rows.map((row) => ({ key: row.key, actual: amountInputValue(savedActual(actual, row)) })),
     emergencySavings: amountInputValue(actual?.emergencySavings),
     freeSavings: amountInputValue(actual?.freeSavings),
     loanBalances: loans.map((l) => ({ loanId: l.id, balance: amountInputValue(balances.get(l.id)) })),

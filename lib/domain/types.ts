@@ -1,6 +1,7 @@
 import type { Cents, YearMonth } from "@/lib/engine";
 import type { CsvMapping } from "@/lib/import/bank-csv";
-import type { BankLineTotal, BankRule } from "@/lib/import/bank-rules";
+import type { BankRule } from "@/lib/import/bank-rules";
+import type { ActualLine } from "./actual-lines";
 
 export const BUDGET_CATEGORIES = ["income", "fixed", "variable"] as const;
 export type BudgetCategory = (typeof BUDGET_CATEGORIES)[number];
@@ -137,8 +138,14 @@ export interface FrozenPlan {
 export interface MonthlyActual {
   id: string;
   month: YearMonth;
+  /** The sums of `lines` (#72); older check-ins: the totals typed then, or null. */
   income: Cents | null;
   expenses: Cents | null;
+  /**
+   * Actual amount of each budget line of the month, its exceptions and « hors budget » (#72), with
+   * a copy of their label and budget; empty for check-ins saved before (« non détaillé »).
+   */
+  lines: ActualLine[];
   emergencySavings: Cents;
   freeSavings: Cents;
   loanBalances: { loanId: string; balance: Cents }[];
@@ -180,5 +187,4 @@ export interface FinanceSnapshot {
   bankCsvMapping?: CsvMapping | null;
   /** Keyword rules learnt from bank imports, and each imported month's total per line (SPEC D31). */
   bankRules?: BankRule[];
-  bankLineTotals?: BankLineTotal[];
 }

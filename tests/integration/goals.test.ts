@@ -101,6 +101,7 @@ describe("savings goals", () => {
         { goalId: car!.id, balance: 70000 },
         { goalId: extra.id, balance: 1234 },
       ],
+      lines: [],
       frozen: null,
     });
     const balances = async () => new Map((await repo.load()).actuals[0]!.goalBalances.map((b) => [b.goalId, b.balance]));

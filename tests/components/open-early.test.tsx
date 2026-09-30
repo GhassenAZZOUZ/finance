@@ -7,6 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CheckInForm } from "@/app/(app)/suivi/check-in-form";
 import { earlyLoanBalances, plannedForMonth, prefillForm } from "@/app/(app)/suivi/logic";
+import { checkInRows } from "@/lib/domain/actual-lines";
 import { computePlan } from "@/lib/domain/plan";
 import type { BudgetLine, FinanceSnapshot } from "@/lib/domain/types";
 import { formatEuros } from "@/lib/format";
@@ -33,13 +34,15 @@ const snapshotWith = (line: BudgetLine): FinanceSnapshot =>
 function renderJune(snapshot: FinanceSnapshot, early: boolean) {
   const plan = computePlan(snapshot, "2026-05")!;
   const months = ["2026-06", "2026-05"];
-  const values = Object.fromEntries(months.map((m) => [m, prefillForm(m, undefined, LOANS, snapshot.goals)]));
+  const rows = Object.fromEntries(months.map((m) => [m, checkInRows(snapshot.lines, snapshot.exceptions, snapshot.settings!, m)]));
+  const values = Object.fromEntries(months.map((m) => [m, prefillForm(m, undefined, LOANS, snapshot.goals, rows[m])]));
   if (early) values["2026-06"] = { ...values["2026-06"]!, loanBalances: earlyLoanBalances(plan.result, "2026-01", "2026-06", ["loan-1"]) };
   render(
     <CheckInForm
       months={months}
       initialMonth="2026-06"
       values={values}
+      rows={rows}
       existing={[]}
       currentMonth="2026-05"
       earlyMonth={early ? "2026-06" : null}
@@ -54,6 +57,8 @@ function renderJune(snapshot: FinanceSnapshot, early: boolean) {
 const field = (label: string) => screen.getByLabelText((text) => text === label || text === `${label}*`);
 
 async function fillSavings(user: ReturnType<typeof userEvent.setup>) {
+  // Income and expenses as planned (#72).
+  for (const button of screen.getAllByRole("button", { name: /^Tout comme prévu/ })) await user.click(button);
   await user.type(field("Épargne déménagement"), "100");
   await user.type(field("Fonds d’urgence"), "200");
   await user.type(field("Épargne libre"), "0");
