@@ -133,42 +133,118 @@ export function parseCsvDate(raw: string | undefined, format: CsvMapping["dateFo
 
 // ---------------------------------------------------------------------------------------- Revolut
 
-const REVOLUT_COLUMNS = ["Type", "Product", "Started Date", "Completed Date", "Description", "Amount", "Fee", "Currency", "State"];
+/** Revolut's columns, in the English and the French exports (« fr-fr » statements). */
+const REVOLUT_COLUMNS = {
+  type: ["Type"],
+  product: ["Product", "Produit"],
+  started: ["Started Date", "Date de début"],
+  completed: ["Completed Date", "Date de fin"],
+  description: ["Description"],
+  amount: ["Amount", "Montant"],
+  fee: ["Fee", "Frais"],
+  currency: ["Currency", "Devise"],
+  state: ["State", "État"],
+} as const;
 
-export function isRevolut(header: readonly string[]): boolean {
-  const cells = header.map((h) => h.trim());
-  return REVOLUT_COLUMNS.every((c) => cells.includes(c));
+/** Upper case without accents: « Terminé » → « TERMINE ». */
+const plainUpper = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toUpperCase();
+
+function revolutColumns(header: readonly string[]): Record<keyof typeof REVOLUT_COLUMNS, number> | null {
+  const cells = header.map(plainUpper);
+  const out = {} as Record<keyof typeof REVOLUT_COLUMNS, number>;
+  for (const [key, names] of Object.entries(REVOLUT_COLUMNS) as [keyof typeof REVOLUT_COLUMNS, readonly string[]][]) {
+    const i = cells.findIndex((c) => names.some((n) => plainUpper(n) === c));
+    if (i < 0) return null;
+    out[key] = i;
+  }
+  return out;
 }
 
+export function isRevolut(header: readonly string[]): boolean {
+  return revolutColumns(header) !== null;
+}
+
+/** Completed states (English and French export) and the reason shown for the others. */
+const REVOLUT_DONE = new Set(["COMPLETED", "TERMINE"]);
 const REVOLUT_STATE_REASON: Record<string, string> = {
   PENDING: "en attente",
+  "EN ATTENTE": "en attente",
   REVERTED: "annulée",
+  ANNULE: "annulée",
+  RETABLI: "annulée",
   DECLINED: "refusée",
+  REFUSE: "refusée",
   FAILED: "échouée",
+  ECHOUE: "échouée",
 };
 
-/** A Revolut export (SPEC D30): amount = Amount − Fee, date = Completed Date, completed EUR rows only. */
+export const INTERNAL_TRANSFER = "virement entre vos comptes Revolut";
+/** Transfer rows (never a card payment and its refund). */
+const TRANSFER_TYPES = new Set(["TRANSFER", "VIREMENT"]);
+
+/**
+ * A Revolut export, English or French (SPEC D30): amount = Amount − Fee, date = Completed Date,
+ * completed EUR rows only. A transfer between the user's own Revolut accounts (current account,
+ * pockets, savings) appears twice with the same start time and opposite amounts — out of one product
+ * into another, or two transfers inside one pocket: both legs are ignored, they are neither income
+ * nor spending.
+ */
 export function readRevolut(rows: readonly string[][]): ReadResult {
-  const header = rows[0]!.map((h) => h.trim());
-  const col = (name: string) => header.indexOf(name);
-  const [date, label, amount, fee, currency, state] = ["Completed Date", "Description", "Amount", "Fee", "Currency", "State"].map(col);
+  const col = revolutColumns(rows[0]!)!;
   const out: ReadResult = { transactions: [], ignored: [] };
-  rows.slice(1).forEach((row, i) => {
+  const body = rows.slice(1);
+  const amountOf = (row: readonly string[]) => parseCsvAmount(row[col.amount], ".");
+  // Internal transfers: rows of different products with the same start time and opposite amounts.
+  const internal = new Set<number>();
+  const byStart = new Map<string, number[]>();
+  body.forEach((row, i) => {
+    const key = (row[col.started] ?? "").trim();
+    if (key) byStart.set(key, [...(byStart.get(key) ?? []), i]);
+  });
+  for (const indexes of byStart.values()) {
+    for (const i of indexes) {
+      if (internal.has(i)) continue;
+      const a = body[i]!;
+      const value = amountOf(a);
+      if (value === null || value === 0) continue;
+      const isTransfer = (row: readonly string[]) => TRANSFER_TYPES.has(plainUpper(row[col.type] ?? ""));
+      // Either two products (current account ↔ pocket or savings), or two transfers inside one pocket.
+      const j = indexes.find((k) => {
+        const other = body[k]!;
+        if (k === i || internal.has(k) || amountOf(other) !== -value) return false;
+        return (other[col.product] ?? "").trim() !== (a[col.product] ?? "").trim() || (isTransfer(a) && isTransfer(other));
+      });
+      if (j !== undefined) {
+        internal.add(i);
+        internal.add(j);
+      }
+    }
+  }
+  body.forEach((row, i) => {
     const line = i + 2;
-    const text = (row[label!] ?? "").trim();
-    const st = (row[state!] ?? "").trim().toUpperCase();
-    if (st !== "COMPLETED") {
+    const text = (row[col.description] ?? "").trim();
+    const st = plainUpper(row[col.state] ?? "");
+    if (!REVOLUT_DONE.has(st)) {
       out.ignored.push({ line, label: text, reason: `opération ${REVOLUT_STATE_REASON[st] ?? st.toLowerCase()}` });
       return;
     }
-    const cur = (row[currency!] ?? "").trim().toUpperCase();
+    if (internal.has(i)) {
+      out.ignored.push({ line, label: text, reason: INTERNAL_TRANSFER });
+      return;
+    }
+    const cur = plainUpper(row[col.currency] ?? "");
     if (cur !== "EUR") {
       out.ignored.push({ line, label: text, reason: `devise ${cur || "inconnue"}` });
       return;
     }
-    const value = parseCsvAmount(row[amount!], ".");
-    const charge = parseCsvAmount(row[fee!], ".") ?? 0;
-    const day = parseCsvDate(row[date!], "ymd");
+    const value = amountOf(row);
+    const charge = parseCsvAmount(row[col.fee], ".") ?? 0;
+    const day = parseCsvDate(row[col.completed], "ymd");
     if (value === null || day === null) {
       out.ignored.push({ line, label: text, reason: "montant ou date illisible" });
       return;

@@ -24,9 +24,20 @@ export function normalizeLabel(label: string): string {
     .trim();
 }
 
-/** The keyword a confirmed assignment teaches: the label's first two words (card and transfer references dropped). */
+/**
+ * Generic words banks put before the name (« Paiement envoyé par X », « Virement de : X », « To X »,
+ * « CB X »): skipped, so each counterparty gets its own keyword instead of one for every transfer.
+ */
+const LEADING_WORDS = new Set(["PAIEMENT", "ENVOYE", "PAR", "VIREMENT", "DE", "DU", "TO", "FROM", "VERS", "CB", "CARTE", "PRLV", "SEPA", "RECU"]);
+
+/** The keyword a confirmed assignment teaches: the label's first two words after the generic ones. */
 export function keywordOf(label: string): string {
-  return normalizeLabel(label).split(" ").filter((w) => w.length > 1).slice(0, 2).join(" ").slice(0, 100);
+  const words = normalizeLabel(label)
+    .split(" ")
+    .filter((w) => w.length > 1);
+  const start = words.findIndex((w) => !LEADING_WORDS.has(w));
+  const meaningful = start < 0 ? words : words.slice(start);
+  return meaningful.slice(0, 2).join(" ").slice(0, 100);
 }
 
 /** The rule matching a label: its keyword is in the label; the longest keyword wins. */
