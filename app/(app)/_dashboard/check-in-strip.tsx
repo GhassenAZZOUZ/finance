@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { ArrowLink, checkInHref } from "@/components/app/nav";
 import { STATUS_TONE } from "@/components/app/tones";
+import { VerdictBadge } from "@/components/app/verdict-badge";
+import type { Verdict } from "@/lib/domain/verdict";
 import type { YearMonth } from "@/lib/engine";
 import { formatMonthLong } from "@/lib/format";
 import { STATUS_LABEL } from "@/lib/labels";
@@ -10,7 +12,16 @@ import { ToneText } from "./kpi";
 import { type CheckInSlot, formatSignedEuros } from "./logic";
 import { CARD } from "./styles";
 
-export function CheckInStripCard({ slots, startMonth }: { slots: CheckInSlot[]; startMonth: YearMonth }) {
+export function CheckInStripCard({
+  slots,
+  startMonth,
+  verdicts = {},
+}: {
+  slots: CheckInSlot[];
+  startMonth: YearMonth;
+  /** Each entered month's « Plan tenu » verdict (SPEC D34); null = « non détaillé ». */
+  verdicts?: Record<YearMonth, Verdict | null>;
+}) {
   return (
     <section aria-labelledby="suivi-title" className={cn(CARD, "flex flex-col gap-4")}>
       <div className="flex items-baseline justify-between gap-3">
@@ -24,7 +35,7 @@ export function CheckInStripCard({ slots, startMonth }: { slots: CheckInSlot[]; 
       ) : (
         <ol className="grid gap-2.5 sm:grid-cols-3">
           {slots.map((slot) => (
-            <CheckInTile key={slot.month} slot={slot} />
+            <CheckInTile key={slot.month} slot={slot} verdict={verdicts[slot.month] ?? null} />
           ))}
         </ol>
       )}
@@ -32,7 +43,7 @@ export function CheckInStripCard({ slots, startMonth }: { slots: CheckInSlot[]; 
   );
 }
 
-function CheckInTile({ slot }: { slot: CheckInSlot }) {
+function CheckInTile({ slot, verdict }: { slot: CheckInSlot; verdict: Verdict | null }) {
   const monthName = <span className="text-[13px] text-muted-foreground first-letter:uppercase">{formatMonthLong(slot.month)}</span>;
   const status = slot.comparison?.status ?? null;
   if (slot.state === "entered") {
@@ -40,13 +51,15 @@ function CheckInTile({ slot }: { slot: CheckInSlot }) {
     return (
       <li className={cn("flex flex-col gap-1.5 rounded-xl border p-3.5", status ? STATUS_TONE[status].tile : "bg-secondary")}>
         {monthName}
+        <VerdictBadge verdict={verdict} />
         {status ? (
-          <ToneText tone={status === "onTrack" ? "good" : status === "mixed" ? "warning" : "bad"} className="text-sm font-semibold">
-            {STATUS_LABEL[status]}
-          </ToneText>
-        ) : (
-          <span className="text-sm font-semibold">Saisi</span>
-        )}
+          <span className="text-xs">
+            Trajectoire :{" "}
+            <ToneText tone={status === "onTrack" ? "good" : status === "mixed" ? "warning" : "bad"} className="font-semibold">
+              {STATUS_LABEL[status].toLowerCase()}
+            </ToneText>
+          </span>
+        ) : null}
         {c.debtGap !== null && c.savingsGap !== null ? (
           <span className="text-xs text-muted-foreground tabular-nums">
             écarts : dette {formatSignedEuros(c.debtGap)} · épargne {formatSignedEuros(c.savingsGap)}

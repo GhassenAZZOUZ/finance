@@ -1,5 +1,8 @@
 import { CheckCircle2, XCircle } from "lucide-react";
 import { StatusBadge } from "@/components/app/status-badge";
+import { VerdictBadge, VerdictDetail } from "@/components/app/verdict-badge";
+import { verdictOf } from "@/lib/domain/verdict";
+import { STATUS_LABEL } from "@/lib/labels";
 import { GAP_TONE } from "@/components/app/tones";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -113,6 +116,7 @@ export function History({ entries }: { entries: HistoryEntry[] }) {
       <ul className="grid gap-3 md:grid-cols-2 xl:hidden">
         {entries.map((entry) => {
           const c = entry.comparison;
+          const verdict = entry.actual ? verdictOf(entry.actual) : null;
           return (
             <li key={c.month} className="rounded-2xl border bg-card p-4">
               <article aria-labelledby={`suivi-card-${c.month}`} className="flex flex-col gap-3">
@@ -121,10 +125,15 @@ export function History({ entries }: { entries: HistoryEntry[] }) {
                     <h3 id={`suivi-card-${c.month}`} className="font-semibold first-letter:uppercase">
                       {formatMonthLong(c.month)}
                     </h3>
-                    <StatusBadge status={c.status} />
+                    <VerdictBadge verdict={verdict} />
                   </div>
                   <PlanVersion entry={entry} className="block" />
                 </div>
+                {verdict ? <VerdictDetail verdict={verdict} /> : null}
+                <p className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Trajectoire :</span>
+                  <StatusBadge status={c.status} />
+                </p>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
                   <dt className="text-muted-foreground">Dettes réelles</dt>
                   <dd className="text-right tabular-nums">{formatEuros(c.actualDebt)}</dd>
@@ -169,7 +178,8 @@ export function History({ entries }: { entries: HistoryEntry[] }) {
                 Épargne
               </TableHead>
               <TableHead scope="col">Progression</TableHead>
-              <TableHead scope="col">Statut</TableHead>
+              <TableHead scope="col">Verdict du mois</TableHead>
+              <TableHead scope="col">Trajectoire</TableHead>
               <TableHead scope="col" className="whitespace-normal">
                 Budget <span className="font-normal text-muted-foreground">(info)</span>
               </TableHead>
@@ -181,6 +191,7 @@ export function History({ entries }: { entries: HistoryEntry[] }) {
           <TableBody>
             {entries.map((entry) => {
               const c = entry.comparison;
+              const verdict = entry.actual ? verdictOf(entry.actual) : null;
               return (
                 <TableRow key={c.month} className="align-top">
                   <TableHead scope="row" className="h-auto py-2 align-top font-medium">
@@ -211,6 +222,12 @@ export function History({ entries }: { entries: HistoryEntry[] }) {
                     <div className="flex w-32 flex-col gap-2">
                       <Meter label="% objectifs d’épargne" shortLabel="Objectifs" value={c.movingGoalPct} />
                       <Meter label="% dettes remboursées" shortLabel="Dettes remb." value={c.debtRepaidPct} />
+                    </div>
+                  </TableCell>
+                  <TableCell className="align-top whitespace-normal">
+                    <div className="flex w-56 flex-col gap-1.5">
+                      <VerdictBadge verdict={verdict} />
+                      {verdict ? <VerdictDetail verdict={verdict} /> : null}
                     </div>
                   </TableCell>
                   <TableCell className="align-top">
@@ -256,7 +273,7 @@ export function HistoryList({
           <li key={month} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-b border-divider py-3 last:border-b-0">
             <span className="font-semibold first-letter:uppercase">{formatMonthLong(month)}</span>
             {c ? (
-              <StatusBadge status={c.status} />
+              <VerdictBadge verdict={entry?.actual ? verdictOf(entry.actual) : null} pending="non détaillé" />
             ) : month === currentMonth ? (
               <span className="text-[13px] text-muted-foreground">en cours</span>
             ) : (
@@ -264,8 +281,9 @@ export function HistoryList({
             )}
             {c ? (
               <span className="col-span-2 text-[13px] text-muted-foreground tabular-nums">
-                Dettes {formatEuros(c.actualDebt)} ({c.debtGap === null ? "—" : signedEuros(c.debtGap)}) · Épargne{" "}
-                {formatEuros(c.actualSavings)} ({c.savingsGap === null ? "—" : signedEuros(c.savingsGap)})
+                {`Trajectoire : ${c.status ? STATUS_LABEL[c.status].toLowerCase() : "—"} · Dettes ${formatEuros(c.actualDebt)} (${
+                  c.debtGap === null ? "—" : signedEuros(c.debtGap)
+                }) · Épargne ${formatEuros(c.actualSavings)} (${c.savingsGap === null ? "—" : signedEuros(c.savingsGap)})`}
               </span>
             ) : null}
           </li>

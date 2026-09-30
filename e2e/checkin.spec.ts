@@ -29,8 +29,10 @@ test("saves a check-in and shows its status", async ({ page, user }) => {
 
   const history = page.getByRole("region", { name: "Historique" });
   const entry = history.getByRole("listitem").filter({ hasText: formatMonthLong(month) });
-  // Debt above the plan and savings below it: "En retard".
-  await expect(entry).toContainText("En retard");
+  // The month's verdict (#74): income as planned, groceries over budget, nothing saved.
+  await expect(entry).toContainText("Plan partiellement tenu");
+  // Its trajectory: debt above the plan and savings below it, "En retard".
+  await expect(entry).toContainText("en retard");
   // The rows are kept with the check-in: groceries over budget (#72).
   const lines = page.getByRole("region", { name: "Réel vs budget par ligne" });
   await expect(lines.getByRole("row", { name: /Courses/ })).toContainText("dépassement");

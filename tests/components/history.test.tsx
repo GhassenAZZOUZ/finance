@@ -174,11 +174,12 @@ describe("HistoryList", () => {
     const items = screen.getAllByRole("listitem").map((li) => plain(li.textContent));
     expect(items).toEqual([
       "avril 2027en cours",
-      `mars 2027MitigéDettes ${euros(450_000)} (+${euros(50_000)}) · Épargne ${euros(99_500)} (${euros(-500)})`,
-      `février 2027—Dettes ${euros(450_000)} (—) · Épargne ${euros(99_500)} (—)`,
+      // The month's verdict (#74; these check-ins are not detailed), then the trajectory.
+      `mars 2027non détailléTrajectoire : mitigé · Dettes ${euros(450_000)} (+${euros(50_000)}) · Épargne ${euros(99_500)} (${euros(-500)})`,
+      `février 2027non détailléTrajectoire : — · Dettes ${euros(450_000)} (—) · Épargne ${euros(99_500)} (—)`,
       "janvier 2027à saisir",
       // Before the open months (e.g. before a re-based plan's start): still listed.
-      `décembre 2026Dans les tempsDettes ${euros(450_000)} (${euros(-1_000)}) · Épargne ${euros(99_500)} (${euros(0)})`,
+      `décembre 2026non détailléTrajectoire : dans les temps · Dettes ${euros(450_000)} (${euros(-1_000)}) · Épargne ${euros(99_500)} (${euros(0)})`,
     ]);
   });
 });

@@ -3,6 +3,8 @@
 import { ArrowDown, ArrowUp, Check, CheckCircle2, Info, TriangleAlert } from "lucide-react";
 import { type ReactNode, useActionState, useState } from "react";
 import { StatusBadge } from "@/components/app/status-badge";
+import { VerdictBadge, VerdictDetail } from "@/components/app/verdict-badge";
+import { VERDICT_LABEL, type Verdict, type VerdictKind, verdictOf } from "@/lib/domain/verdict";
 import { GAP_TONE, STATUS_TONE } from "@/components/app/tones";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +32,8 @@ export interface CheckInFormProps {
   existing: YearMonth[];
   /** Status of the months already entered (month buttons). */
   statuses?: Record<YearMonth, ActualStatus | null>;
+  /** Verdict of the months already entered (SPEC D34), shown on their tiles; null = « non détaillé ». */
+  verdicts?: Record<YearMonth, VerdictKind | null>;
   /** Month still running ("en cours"); defaults to the newest month. */
   currentMonth?: YearMonth;
   /**
@@ -84,6 +88,7 @@ export function CheckInForm({
   values,
   existing,
   statuses = {},
+  verdicts = {},
   currentMonth,
   earlyMonth = null,
   budgetLines = [],
@@ -107,6 +112,7 @@ export function CheckInForm({
   const running = currentMonth ?? months[0];
   const early = month === earlyMonth;
   const check = provisionalCheck(form, plan);
+  const live = liveVerdict(form, rows[month] ?? [], plan, goals);
   const monthRows = rows[month] ?? [];
   const lineValue = (key: string) => form.lines?.find((l) => l.key === key)?.actual ?? "";
   const rowTotal = (direction: "income" | "expense", pick: (row: CheckInRow) => number) =>
@@ -182,7 +188,7 @@ export function CheckInForm({
                 <span className="font-semibold first-letter:uppercase">{formatMonthLong(m)}</span>
                 <span className={cn("text-[13px]", entered && status ? STATUS_TONE[status].text : "text-muted-foreground")}>
                   {entered
-                    ? `saisi${status ? ` · ${STATUS_LABEL[status].toLowerCase()}` : ""}`
+                    ? `saisi · ${verdicts[m] ? VERDICT_LABEL[verdicts[m]!].toLowerCase() : status ? `trajectoire ${STATUS_LABEL[status].toLowerCase()}` : "non détaillé"}`
                     : m === earlyMonth
                       ? "ouvert en avance"
                       : m === running
@@ -403,8 +409,16 @@ export function CheckInForm({
 
       {/* Stays visible above the mobile tab bar (and at the bottom of the screen on desktop) while scrolling. */}
       <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 flex flex-col gap-3 rounded-xl bg-secondary px-4.5 py-4 shadow-[0_-8px_24px_-12px_rgb(0_0_0/0.15)] sm:flex-row sm:items-center sm:justify-between md:bottom-4">
-        <div className="flex flex-col gap-1">
-          <span className="text-[13px] font-medium text-muted-foreground">Statut provisoire</span>
+        <div className="flex flex-col gap-2">
+          {live !== undefined ? (
+            <div className="flex flex-col gap-1">
+              <span className="text-[13px] font-medium text-muted-foreground">Verdict du mois</span>
+              <VerdictBadge verdict={live} pending="incomplet : remplissez chaque ligne et chaque épargne" />
+              {live ? <VerdictDetail verdict={live} /> : null}
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-1">
+          <span className="text-[13px] font-medium text-muted-foreground">Trajectoire provisoire</span>
           <span className="flex flex-wrap items-center gap-2 text-sm">
             {check.status ? <StatusBadge status={check.status} /> : <span className="font-semibold">—</span>}
             <span className="text-muted-foreground tabular-nums">
@@ -418,6 +432,7 @@ export function CheckInForm({
                 .join(" · ")}
             </span>
           </span>
+          </div>
         </div>
         <Button type="submit" disabled={pending} className="min-h-11 px-4.5 text-[15px]">
           {pending ? "Enregistrement…" : `Enregistrer ${formatMonthLong(month)}`}
@@ -437,6 +452,43 @@ function ColumnHeads() {
       <span className="text-right">Écart</span>
     </div>
   );
+}
+
+/**
+ * The verdict of the month as typed (SPEC D34): undefined when the month has no rows or no planned
+ * deposits (no verdict to show), null while a row or a deposit is still empty or invalid.
+ */
+function liveVerdict(
+  form: ActualForm,
+  monthRows: readonly CheckInRow[],
+  plan: PlannedValues | null,
+  goals: readonly { id: string; label: string }[],
+): Verdict | null | undefined {
+  if (monthRows.length === 0 || !plan?.deposits) return undefined;
+  const amount = (raw: string | undefined) => {
+    const parsed = parseAmount(raw ?? "");
+    return parsed.ok ? parsed.value : null;
+  };
+  const deposit = (raw: string | undefined) => {
+    const parsed = parseDeposit(raw ?? "");
+    return parsed.ok ? parsed.value : null;
+  };
+  const lines = monthRows.map((row) => ({ ...row, actual: amount(form.lines?.find((l) => l.key === row.key)?.actual) }));
+  const goalPots = (form.goalBalances ?? []).map((b, j) => ({
+    goalName: goals.find((g) => g.id === b.goalId)?.label ?? "Objectif",
+    planned: plan.deposits!.goals[j] ?? 0,
+    amount: deposit(b.balance),
+  }));
+  const pots = [
+    ...goalPots.map((g) => ({ pot: "goal" as const, goalId: null, ...g })),
+    { pot: "emergency" as const, goalId: null, goalName: null, planned: plan.deposits.emergency, amount: deposit(form.emergencySavings) },
+    { pot: "free" as const, goalId: null, goalName: null, planned: plan.deposits.free, amount: deposit(form.freeSavings) },
+  ];
+  if (lines.some((l) => l.actual === null) || pots.some((p) => p.amount === null)) return null;
+  return verdictOf({
+    lines: lines.map((l) => ({ ...l, actual: l.actual as Cents })),
+    deposits: pots.map((p) => ({ ...p, amount: p.amount as Cents })),
+  });
 }
 
 /** A deposit as typed in the form: « -200,00 » for a withdrawal. */
