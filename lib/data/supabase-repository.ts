@@ -1,4 +1,5 @@
 import type { CsvMapping } from "@/lib/import/bank-csv";
+import type { SavingsDeposit } from "@/lib/domain/deposits";
 import type { BankRule } from "@/lib/import/bank-rules";
 import type { ActualLine } from "@/lib/domain/actual-lines";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -119,6 +120,15 @@ interface ActualRow {
   monthly_actual_loan_balances: { loan_id: string; balance: number }[];
   monthly_actual_goal_balances: { goal_id: string; balance: number }[];
   monthly_actual_lines: LineRowOfActual[];
+  monthly_actual_deposits: DepositRow[];
+}
+interface DepositRow {
+  pot: SavingsDeposit["pot"];
+  goal_id: string | null;
+  goal_name: string | null;
+  planned: number;
+  amount: number;
+  position: number;
 }
 interface LineRowOfActual {
   kind: ActualLine["kind"];
@@ -261,7 +271,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       this.db
         .from("monthly_actuals")
         .select(
-          `id, month, income, expenses, emergency_savings, free_savings, planned_debt, planned_savings, planned_income, planned_expenses, plan_start_month, monthly_actual_loan_balances(loan_id, balance), monthly_actual_goal_balances(goal_id, balance), monthly_actual_lines(${ACTUAL_LINE_COLUMNS})`,
+          `id, month, income, expenses, emergency_savings, free_savings, planned_debt, planned_savings, planned_income, planned_expenses, plan_start_month, monthly_actual_loan_balances(loan_id, balance), monthly_actual_goal_balances(goal_id, balance), monthly_actual_lines(${ACTUAL_LINE_COLUMNS}), monthly_actual_deposits(pot, goal_id, goal_name, planned, amount, position)`,
         )
         .order("month")
         .returns<ActualRow[]>(),
@@ -332,6 +342,14 @@ export class SupabaseFinanceRepository implements FinanceRepository {
           freeSavings: cents(a.free_savings),
           loanBalances: a.monthly_actual_loan_balances.map((b) => ({ loanId: b.loan_id, balance: cents(b.balance) })),
           goalBalances: a.monthly_actual_goal_balances.map((b) => ({ goalId: b.goal_id, balance: cents(b.balance) })),
+          // SPEC D33: with deposits, the balances above are recomputed by withComputedBalances.
+          ...(a.monthly_actual_deposits.length > 0
+            ? {
+                deposits: [...a.monthly_actual_deposits]
+                  .sort((x, y) => x.position - y.position)
+                  .map((d) => ({ pot: d.pot, goalId: d.goal_id, goalName: d.goal_name, planned: cents(d.planned), amount: cents(d.amount) })),
+              }
+            : {}),
           lines: [...a.monthly_actual_lines]
             .sort((x, y) => x.position - y.position)
             .map((l) => ({
@@ -465,12 +483,13 @@ export class SupabaseFinanceRepository implements FinanceRepository {
           month: draft.month,
           income: eurosOrNull(draft.income),
           expenses: eurosOrNull(draft.expenses),
-          emergency_savings: euros(draft.emergencySavings),
-          free_savings: euros(draft.freeSavings),
+          // With deposits (SPEC D33) the balances are computed, not stored.
+          emergency_savings: draft.deposits?.length ? null : euros(draft.emergencySavings),
+          free_savings: draft.deposits?.length ? null : euros(draft.freeSavings),
           ...(draft.frozen ? frozenColumns(draft.frozen) : {}),
         },
         p_loan_balances: draft.loanBalances.map((b) => ({ loan_id: b.loanId, balance: euros(b.balance) })),
-        p_goal_balances: draft.goalBalances.map((b) => ({ goal_id: b.goalId, balance: euros(b.balance) })),
+        p_goal_balances: draft.deposits?.length ? [] : draft.goalBalances.map((b) => ({ goal_id: b.goalId, balance: euros(b.balance) })),
         p_lines: draft.lines.map((l, position) => ({
           kind: l.kind,
           direction: l.direction,
@@ -480,6 +499,14 @@ export class SupabaseFinanceRepository implements FinanceRepository {
           label: l.label,
           planned: euros(l.planned),
           actual: euros(l.actual),
+          position,
+        })),
+        p_deposits: (draft.deposits ?? []).map((d, position) => ({
+          pot: d.pot,
+          goal_id: d.goalId,
+          goal_name: d.goalName,
+          planned: centsToEuros(d.planned),
+          amount: centsToEuros(d.amount),
           position,
         })),
       }),

@@ -7,7 +7,7 @@ import { GAP_TONE, STATUS_TONE } from "@/components/app/tones";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type CheckInRow, type RowSection } from "@/lib/domain/actual-lines";
-import { type ActualForm, parseAmount } from "@/lib/domain/validation";
+import { type ActualForm, parseAmount, parseDeposit } from "@/lib/domain/validation";
 import type { ActualStatus, Cents, YearMonth } from "@/lib/engine";
 import type { BudgetLine } from "@/lib/domain/types";
 import type { CsvMapping } from "@/lib/import/bank-csv";
@@ -280,6 +280,26 @@ export function CheckInForm({
         </p>
       </fieldset>
 
+      {plan?.deposits ? (
+        <DepositsSection
+          form={form}
+          plan={plan}
+          goals={goals}
+          errors={errors}
+          onGoal={setGoal}
+          onField={(name, v) => setField(name, v)}
+          onAllPlanned={() =>
+            setForm((f) => ({
+              ...f,
+              goalBalances: (f.goalBalances ?? []).map((b, j) =>
+                b.balance.trim() === "" ? { ...b, balance: depositInputValue(plan.deposits!.goals[j] ?? 0) } : b,
+              ),
+              emergencySavings: f.emergencySavings.trim() === "" ? depositInputValue(plan.deposits!.emergency) : f.emergencySavings,
+              freeSavings: f.freeSavings.trim() === "" ? depositInputValue(plan.deposits!.free) : f.freeSavings,
+            }))
+          }
+        />
+      ) : (
       <fieldset className="flex flex-col">
         <legend className="mb-1 text-[15px] font-semibold">Épargne en fin de mois</legend>
         <ColumnHeads />
@@ -312,6 +332,7 @@ export function CheckInForm({
           />
         ))}
       </fieldset>
+      )}
 
       {loans.length > 0 ? (
         <fieldset className="flex flex-col">
@@ -418,6 +439,119 @@ function ColumnHeads() {
   );
 }
 
+/** A deposit as typed in the form: « -200,00 » for a withdrawal. */
+const depositInputValue = (cents: Cents) => (cents < 0 ? `-${amountInputValue(-cents)}` : amountInputValue(cents));
+
+/**
+ * « Épargne versée ce mois » (SPEC D33): what was put into (or taken out of) each pot, against the
+ * plan's deposit; the balances after the month are computed from the ones before.
+ */
+function DepositsSection({
+  form,
+  plan,
+  goals,
+  errors,
+  onGoal,
+  onField,
+  onAllPlanned,
+}: {
+  form: ActualForm;
+  plan: PlannedValues;
+  goals: { id: string; label: string }[];
+  errors: Record<string, string>;
+  onGoal: (goalId: string, value: string) => void;
+  onField: (name: "emergencySavings" | "freeSavings", value: string) => void;
+  onAllPlanned: () => void;
+}) {
+  const deposits = plan.deposits!;
+  const typed = (raw: string) => {
+    const parsed = parseDeposit(raw);
+    return parsed.ok ? parsed.value : 0;
+  };
+  const deposited =
+    (form.goalBalances ?? []).reduce((sum, b) => sum + typed(b.balance), 0) + typed(form.emergencySavings) + typed(form.freeSavings);
+  const asPlanned = (label: string, onClick: () => void) => (
+    <button
+      type="button"
+      className="min-h-6 text-[13px] font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+      aria-label={`Comme prévu : ${label}`}
+      onClick={onClick}
+    >
+      Comme prévu
+    </button>
+  );
+  return (
+    <fieldset className="flex flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <legend className="text-[15px] font-semibold">Épargne versée ce mois</legend>
+        <Button type="button" variant="outline" size="sm" className="min-h-9" aria-label="Tout comme prévu : épargne" onClick={onAllPlanned}>
+          Tout comme prévu
+        </Button>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Ce que vous avez mis sur chaque épargne ce mois-ci (un retrait se saisit en négatif, ex. −200). Les soldes sont calculés.
+      </p>
+      <ColumnHeads />
+      {goals.map((goal, j) => (
+        <AmountRow
+          key={goal.id}
+          id={`suivi-goal-${goal.id}`}
+          name={`goal.${goal.id}`}
+          label={goalFieldLabel(goal.label)}
+          required
+          signed
+          value={form.goalBalances?.find((b) => b.goalId === goal.id)?.balance ?? ""}
+          onChange={(v) => onGoal(goal.id, v)}
+          planned={deposits.goals[j] ?? 0}
+          rule="savings"
+          error={errors[`goal.${goal.id}`]}
+          extra={asPlanned(goalFieldLabel(goal.label), () => onGoal(goal.id, depositInputValue(deposits.goals[j] ?? 0)))}
+        />
+      ))}
+      {SAVINGS_FIELDS.map((field) => {
+        const plannedDeposit = field.name === "emergencySavings" ? deposits.emergency : deposits.free;
+        return (
+          <AmountRow
+            key={field.name}
+            id={`suivi-${field.name}`}
+            name={field.name}
+            label={field.label}
+            required
+            signed
+            value={form[field.name]}
+            onChange={(v) => onField(field.name, v)}
+            planned={plannedDeposit}
+            rule="savings"
+            error={errors[field.name]}
+            extra={asPlanned(field.label, () => onField(field.name, depositInputValue(plannedDeposit)))}
+          />
+        );
+      })}
+      <p className="mt-2 text-sm tabular-nums">
+        Épargne totale en fin de mois : <strong>{formatEuros((plan.savingsBefore ?? 0) + deposited)}</strong>{" "}
+        <span className="text-muted-foreground">
+          (prévu {formatEuros(plan.goalBalances.reduce((s, v) => s + v, 0) + plan.emergencySavings + plan.freeSavings)})
+        </span>
+      </p>
+      {plan.notEntered && plan.notEntered.length > 0 ? (
+        <p className="mt-1 flex items-start gap-2 text-[13px] text-muted-foreground">
+          <Info aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+          {notEnteredText(plan.notEntered)}
+        </p>
+      ) : null}
+    </fieldset>
+  );
+}
+
+/** « Février 2027 non saisi : versements prévus retenus. » */
+function notEnteredText(months: readonly YearMonth[]): string {
+  const names = months.map((m) => formatMonthLong(m));
+  const first = names[0]!.charAt(0).toUpperCase() + names[0]!.slice(1);
+  const list = [first, ...names.slice(1)];
+  const joined = list.length === 1 ? list[0] : `${list.slice(0, -1).join(", ")} et ${list.at(-1)}`;
+  return `${joined} non saisi${list.length > 1 ? "s" : ""} : versements prévus retenus.`;
+}
+
 function AmountRow({
   id,
   name,
@@ -429,10 +563,13 @@ function AmountRow({
   rule,
   error,
   extra,
+  signed: allowsWithdrawal = false,
 }: {
   id: string;
   name: string;
   label: string;
+  /** A deposit (SPEC D33): a negative amount is a withdrawal, shown as such. */
+  signed?: boolean;
   /** Under the label, e.g. « Comme prévu ». */
   extra?: ReactNode;
   required?: boolean;
@@ -445,8 +582,9 @@ function AmountRow({
   const hintId = `${id}-hint`;
   const gapId = `${id}-gap`;
   const errorId = `${id}-error`;
-  const parsed = parseAmount(value);
-  const gap = planned !== null && parsed.ok && parsed.value !== null ? parsed.value - planned : null;
+  const parsed = allowsWithdrawal ? parseDeposit(value) : parseAmount(value);
+  const amount = parsed.ok ? parsed.value : null;
+  const gap = planned !== null && amount !== null ? amount - planned : null;
   const describedBy = [planned !== null ? hintId : "", gap !== null ? gapId : "", error ? errorId : ""].join(" ").trim() || undefined;
   return (
     <div className="flex flex-col gap-1.5 border-b border-divider py-2.5 last:border-b-0">
@@ -461,6 +599,9 @@ function AmountRow({
             ) : null}
           </label>
           {extra}
+          {allowsWithdrawal && amount !== null && amount < 0 ? (
+            <span className="text-[13px] font-medium text-warning">Retrait de {formatEuros(-amount)}</span>
+          ) : null}
         </div>
         <p id={hintId} className={cn("text-sm text-muted-foreground tabular-nums sm:text-right", planned === null && "hidden")}>
           <span className="sm:sr-only">Prévu : </span>
@@ -474,7 +615,7 @@ function AmountRow({
             onChange={(e) => onChange(e.target.value)}
             inputMode="decimal"
             autoComplete="off"
-            placeholder="0,00"
+            placeholder={allowsWithdrawal ? "0,00 (−200 = retrait)" : "0,00"}
             required={required}
             aria-required={required || undefined}
             aria-invalid={error ? true : undefined}

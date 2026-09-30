@@ -21,8 +21,10 @@ export const BACKUP_FORMAT = "finance-plan-backup";
  * 10: `bankRules` and `bankLineTotals` (bank import rules and per-line totals, #63).
  * 11: check-ins gain `lines` (actual amount of each budget line, with a copy of its label and
  *     budget, #72); `bankLineTotals` is gone (the bank import pre-fills those rows).
+ * 12: check-ins gain `deposits` (savings deposits per pot, #73); with deposits their balances are
+ *     computed, so `emergencySavings`, `freeSavings` and `goalBalances` are 0 / empty.
  */
-export const BACKUP_VERSION = 11;
+export const BACKUP_VERSION = 12;
 
 /** Euros with exactly 2 decimals and a dot ("1234.50", "-0.05"), computed from integer cents. */
 export type DecimalEuros = string;
@@ -125,6 +127,8 @@ export interface Backup {
       loanBalances: { loanId: string; balance: DecimalEuros }[];
       /** Every goal, the primary one included. */
       goalBalances: { goalId: string; balance: DecimalEuros }[];
+      /** Savings deposits per pot (#73, SPEC D33); empty for check-ins with typed balances. */
+      deposits: { pot: string; goalId: string | null; goalName: string | null; planned: DecimalEuros; amount: DecimalEuros }[];
       /** Actual amount per budget line, exception and « hors budget » row (#72); empty = « non détaillé ». */
       lines: {
         kind: string;
@@ -240,6 +244,7 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
         freeSavings: centsToDecimal(a.freeSavings),
         loanBalances: a.loanBalances.map((b) => ({ loanId: b.loanId, balance: centsToDecimal(b.balance) })),
         goalBalances: a.goalBalances.map((b) => ({ goalId: b.goalId, balance: centsToDecimal(b.balance) })),
+        deposits: (a.deposits ?? []).map((d) => ({ ...d, planned: centsToDecimal(d.planned), amount: centsToDecimal(d.amount) })),
         lines: a.lines.map((l) => ({ ...l, planned: centsToDecimal(l.planned), actual: centsToDecimal(l.actual) })),
         frozen: frozen(a.frozen),
       })),

@@ -23,6 +23,7 @@ const USER_TABLES = [
   "income_payments",
   "bank_csv_rules",
   "monthly_actual_lines",
+  "monthly_actual_deposits",
 ] as const;
 
 type Row = { id: string } & Record<string, unknown>;
@@ -62,6 +63,7 @@ async function seed(user: TestUser): Promise<void> {
       actual: 2600,
     }),
   );
+  await must(db.from("monthly_actual_deposits").insert({ monthly_actual_id: actual.id, pot: "emergency", planned: 100, amount: 50 }));
   await must(adminClient().from("reminder_log").insert({ user_id: user.id, month: "2027-01" }));
 }
 

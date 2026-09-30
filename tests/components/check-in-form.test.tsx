@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyLineTotals, checkInMonths, prefillForm } from "@/app/(app)/suivi/logic";
 import { OTHER_EXPENSE_KEY, OTHER_INCOME_KEY, checkInRows } from "@/lib/domain/actual-lines";
+import { plannedDeposits } from "@/lib/domain/deposits";
 import { computePlan } from "@/lib/domain/plan";
 import { frozenFor } from "@/lib/domain/rebase";
 import type { BudgetLine } from "@/lib/domain/types";
@@ -165,6 +166,8 @@ describe("CheckInForm", () => {
     expect((field("Loyer") as HTMLInputElement).value).toBe("850,00");
   });
 
+  const PLANNED = plannedDeposits(computePlan(SNAPSHOT, CURRENT)!.result, SNAPSHOT.settings!, SNAPSHOT.goals, CURRENT);
+
   it("AC-03 / AC-05 (#72) — saves every row with a copy of its budget, and the totals derived from them", async () => {
     const user = renderForm();
     await fillAllRequired(user);
@@ -186,14 +189,19 @@ describe("CheckInForm", () => {
         { kind: "exception", direction: "expense", category: null, budgetLineId: null, exceptionId: "trip", label: "Vacances", planned: 90_000, actual: 88_000 },
         { kind: "other", direction: "expense", category: null, budgetLineId: null, exceptionId: null, label: "Autres dépenses (hors budget)", planned: 0, actual: 30_000 },
       ],
-      emergencySavings: 300_050,
+      // Savings are the month's deposits (SPEC D33, #73): the balances are computed, not stored.
+      deposits: [
+        { pot: "goal", goalId: "goal-primary", goalName: "Déménagement", planned: PLANNED.goals["goal-primary"], amount: 120_000 },
+        { pot: "emergency", goalId: null, goalName: null, planned: PLANNED.emergency, amount: 300_050 },
+        { pot: "free", goalId: null, goalName: null, planned: PLANNED.free, amount: 0 },
+      ],
+      emergencySavings: 0,
       freeSavings: 0,
+      goalBalances: [],
       loanBalances: [
         { loanId: "loan-1", balance: 410_025 },
         { loanId: "loan-2", balance: 999_900 },
       ],
-      // The primary goal (« Déménagement ») is a goal like the others (SPEC D23).
-      goalBalances: [{ goalId: "goal-primary", balance: 120_000 }],
       frozen: frozenFor(CURRENT, computePlan(SNAPSHOT, CURRENT)!, undefined),
     });
     // The frozen values are the plan's expectation for that month, tagged with the plan version.

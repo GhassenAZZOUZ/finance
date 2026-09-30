@@ -12,7 +12,8 @@ import {
   statusFor,
   sumCents,
 } from "@/lib/engine";
-import { type ActualForm, parseAmount } from "@/lib/domain/validation";
+import { type ActualForm, parseAmount, parseDeposit } from "@/lib/domain/validation";
+import type { PotBalances } from "@/lib/domain/deposits";
 import type { CheckInRow } from "@/lib/domain/actual-lines";
 import { engineGoalId } from "@/lib/domain/plan";
 import type { Loan, MonthlyActual, SavingsGoal } from "@/lib/domain/types";
@@ -111,6 +112,34 @@ export function prefillForm(
   };
 }
 
+/**
+ * The savings fields of a month in deposits mode (SPEC D33): the saved deposits, or for a check-in
+ * with typed balances (before #73) its balance change; empty for a month not entered yet.
+ */
+export function depositValues(
+  actual: MonthlyActual | undefined,
+  goals: readonly Pick<SavingsGoal, "id">[],
+  before: PotBalances,
+  after: PotBalances | undefined,
+): Pick<ActualForm, "goalBalances" | "emergencySavings" | "freeSavings"> {
+  const text = (cents: Cents | undefined) => (cents === undefined ? "" : cents < 0 ? `-${amountInputValue(-cents)}` : amountInputValue(cents));
+  if (!actual) return { goalBalances: goals.map((g) => ({ goalId: g.id, balance: "" })), emergencySavings: "", freeSavings: "" };
+  if (actual.deposits && actual.deposits.length > 0) {
+    const find = (pot: string, goalId: string | null) => actual.deposits!.find((d) => d.pot === pot && (pot !== "goal" || d.goalId === goalId))?.amount;
+    return {
+      goalBalances: goals.map((g) => ({ goalId: g.id, balance: text(find("goal", g.id)) })),
+      emergencySavings: text(find("emergency", null)),
+      freeSavings: text(find("free", null)),
+    };
+  }
+  const diff = (a: Cents | undefined, b: Cents | undefined) => (a === undefined || b === undefined ? undefined : a - b);
+  return {
+    goalBalances: goals.map((g) => ({ goalId: g.id, balance: text(diff(after?.goals[g.id], before.goals[g.id])) })),
+    emergencySavings: text(diff(after?.emergency, before.emergency)),
+    freeSavings: text(diff(after?.free, before.free)),
+  };
+}
+
 export interface PlannedValues {
   emergencySavings: Cents;
   freeSavings: Cents;
@@ -120,6 +149,13 @@ export interface PlannedValues {
   loanBalances: Cents[];
   /** Same order as the goals given to plannedForMonth. */
   goalBalances: Cents[];
+  /**
+   * Deposits mode (SPEC D33): the plan's deposit of each pot that month (goals in the form's order)
+   * and the computed balances at the end of the month before, with the months not entered before.
+   */
+  deposits?: { goals: Cents[]; emergency: Cents; free: Cents };
+  savingsBefore?: Cents;
+  notEntered?: YearMonth[];
 }
 
 /** The plan's expected balances at the end of `month`, or null outside the plan horizon. */
@@ -184,11 +220,20 @@ export function provisionalCheck(form: ActualForm, planned: PlannedValues | null
     const parsed = parseAmount(raw);
     return parsed.ok ? parsed.value : null;
   };
-  const savings = [...(form.goalBalances ?? []).map((b) => b.balance), form.emergencySavings, form.freeSavings].map(value);
+  const deposit = (raw: string) => {
+    const parsed = parseDeposit(raw);
+    return parsed.ok ? parsed.value : null;
+  };
+  // In deposits mode the savings fields are the month's deposits, added to the balances before (D33).
+  const depositsMode = planned?.deposits !== undefined;
+  const savings = [...(form.goalBalances ?? []).map((b) => b.balance), form.emergencySavings, form.freeSavings].map(
+    depositsMode ? deposit : value,
+  );
   const loans = form.loanBalances.map((b) => value(b.balance));
   const missing = [...savings, ...loans].filter((v) => v === null).length;
   const total = (values: (Cents | null)[]) => (values.every((v) => v !== null) ? sumCents(values as Cents[]) : null);
-  const actualSavings = total(savings);
+  const deposited = total(savings);
+  const actualSavings = deposited === null ? null : deposited + (depositsMode ? (planned?.savingsBefore ?? 0) : 0);
   const actualDebt = total(loans);
   const debtGap = planned && actualDebt !== null ? actualDebt - sumCents(planned.loanBalances) : null;
   const savingsGap =

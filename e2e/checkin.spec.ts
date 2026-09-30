@@ -19,8 +19,10 @@ test("saves a check-in and shows its status", async ({ page, user }) => {
     await page.getByRole("button", { name: `Tout comme prévu : ${group}` }).click();
   }
   await page.getByRole("textbox", { name: "Courses" }).fill("520");
-  await page.getByRole("textbox", { name: "Épargne déménagement" }).fill("1000");
-  await page.getByRole("textbox", { name: "Fonds d’urgence" }).fill("1000");
+  // Savings are this month's deposits (#73): nothing put aside, so savings fall below the plan.
+  await expect(page.getByText("Épargne versée ce mois")).toBeVisible();
+  await page.getByRole("textbox", { name: "Épargne déménagement" }).fill("0");
+  await page.getByRole("textbox", { name: "Fonds d’urgence" }).fill("0");
   await page.getByRole("textbox", { name: "Épargne libre" }).fill("0");
   await page.getByRole("textbox", { name: "Prêt test" }).fill("5000");
   await page.getByRole("button", { name: `Enregistrer ${formatMonthLong(month)}` }).click();

@@ -1,4 +1,5 @@
 import type { Cents, YearMonth } from "@/lib/engine";
+import type { SavingsDeposit } from "./deposits";
 import type { CsvMapping } from "@/lib/import/bank-csv";
 import type { BankRule } from "@/lib/import/bank-rules";
 import type { ActualLine } from "./actual-lines";
@@ -146,6 +147,15 @@ export interface MonthlyActual {
    * a copy of their label and budget; empty for check-ins saved before (« non détaillé »).
    */
   lines: ActualLine[];
+  /**
+   * What was put into / taken out of each savings pot that month (SPEC D33, #73). Empty or omitted
+   * for check-ins saved before: their typed balances below are then kept as they are.
+   */
+  deposits?: SavingsDeposit[];
+  /**
+   * End-of-month balances. Computed from the deposits (`withComputedBalances`) once loaded; the typed
+   * ones for check-ins saved before #73.
+   */
   emergencySavings: Cents;
   freeSavings: Cents;
   loanBalances: { loanId: string; balance: Cents }[];

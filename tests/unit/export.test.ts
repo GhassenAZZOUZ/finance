@@ -80,6 +80,7 @@ describe("buildBackup", () => {
         freeSavings: "0.05",
         loanBalances: [{ loanId: "loan-1", balance: "4500.00" }],
         goalBalances: [{ goalId: "goal-primary", balance: "100.00" }],
+        deposits: [],
         lines: [],
         frozen: { plannedDebt: "0.01", plannedSavings: "0.02", plannedIncome: "0.03", plannedExpenses: "0.04", planStartMonth: "2026-01" },
       },

@@ -4,7 +4,8 @@
  */
 import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
 import { checkInRows } from "@/lib/domain/actual-lines";
-import { computePlan, toActualInput } from "@/lib/domain/plan";
+import { plannedDeposits, withComputedBalances } from "@/lib/domain/deposits";
+import { toActualInput, withPlan } from "@/lib/domain/plan";
 import { frozenFor, planRebase } from "@/lib/domain/rebase";
 import { type ActualForm, type Errors, parseMonth, validateActual } from "@/lib/domain/validation";
 import { type ActualStatus, type YearMonth, compareActual } from "@/lib/engine";
@@ -44,7 +45,8 @@ export async function saveActualAction(_prev: SaveActualState, formData: FormDat
     // The next month opens once its first income is paid (SPEC D29); recomputed here, never trusted.
     const currentMonth = currentYearMonth();
     const openUntil = lastOpenMonth(currentMonth, currentDate(), snapshot.lines, snapshot.incomePayments);
-    const plan = computePlan(snapshot);
+    const { snapshot: computed, plan } = withPlan(snapshot);
+    const { settings, goals } = snapshot;
     // An early month's loans are not entered: the plan's balances after that month's payment.
     if (plan && form.month === openUntil && openUntil !== currentMonth) {
       form.loanBalances = earlyLoanBalances(plan.result, snapshot.settings.startMonth, form.month, activeLoanIds);
@@ -55,16 +57,40 @@ export async function saveActualAction(_prev: SaveActualState, formData: FormDat
       activeLoanIds,
       goalIds,
       rows,
+      // The savings fields are the month's deposits (SPEC D33), compared with the plan's.
+      ...(plan && month.ok
+        ? {
+            deposits: {
+              planned: plannedDeposits(plan.result, settings, goals, month.value),
+              goalNames: Object.fromEntries(goals.map((g) => [g.id, g.name])),
+            },
+          }
+        : {}),
     });
     if (!validated.ok) {
       return { status: "error", message: "Certains champs sont à corriger.", errors: validated.errors };
     }
 
+    // The balances with this month's deposits: no pot may go below 0 (a withdrawal larger than it).
+    const others = snapshot.actuals.filter((a) => a.month !== validated.value.month);
+    const saved = { id: "", ...validated.value };
+    const mine = plan
+      ? (withComputedBalances(plan.result, settings, goals, [...others, saved]).find((a) => a.month === saved.month) ?? saved)
+      : saved;
+    const negative: Record<string, string> = {};
+    const NEGATIVE = "Le solde deviendrait négatif";
+    if (mine.emergencySavings < 0) negative.emergencySavings = NEGATIVE;
+    if (mine.freeSavings < 0) negative.freeSavings = NEGATIVE;
+    for (const b of mine.goalBalances) if (b.balance < 0) negative[`goal.${b.goalId}`] = NEGATIVE;
+    if (Object.keys(negative).length > 0) {
+      return { status: "error", message: "Certains champs sont à corriger.", errors: negative };
+    }
+
     // Freeze what the plan expects for that month (SPEC D16), keeping values already frozen.
-    const existing = snapshot.actuals.find((a) => a.month === validated.value.month);
+    const existing = computed.actuals.find((a) => a.month === validated.value.month);
     const draft = { ...validated.value, frozen: plan ? frozenFor(validated.value.month, plan, existing) : null };
     await repo.saveActual(draft);
-    const comparison = plan ? compareActual(toActualInput({ id: "", ...draft }), plan.result, plan.input.budget) : null;
+    const comparison = plan ? compareActual(toActualInput({ ...mine, frozen: draft.frozen }), plan.result, plan.input.budget) : null;
     notifyDataChanged();
     return { status: "saved", month: validated.value.month, result: comparison?.status ?? null };
   } catch (error) {
@@ -98,8 +124,8 @@ export type RebaseResult = { ok: true; newStartMonth: YearMonth } | { ok: false;
 export async function rebasePlanAction(): Promise<RebaseResult> {
   try {
     const repo = getRepository();
-    const snapshot = await repo.load();
-    const plan = computePlan(snapshot);
+    // The re-base starts from the computed balances (SPEC D33).
+    const { snapshot, plan } = withPlan(await repo.load());
     const rebase = plan ? planRebase(snapshot, plan) : null;
     if (!rebase) return { ok: false, message: "Aucun mois de suivi après le début du plan : rien à recaler." };
     await repo.rebasePlan(rebase);
