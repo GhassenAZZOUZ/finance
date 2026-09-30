@@ -86,7 +86,7 @@ describe("buildBackup", () => {
 
   it("is valid JSON with empty arrays for a new user", () => {
     const parsed = JSON.parse(serializeBackup(buildBackup(makeSnapshot(), NOW)));
-    expect(parsed.data).toEqual({ settings: null, budgetLines: [], exceptions: [], loans: [], goals: [], checkIns: [] });
+    expect(parsed.data).toEqual({ settings: null, budgetLines: [], incomePayments: [], exceptions: [], loans: [], goals: [], checkIns: [] });
   });
 
   it("names the file after the local date", () => {

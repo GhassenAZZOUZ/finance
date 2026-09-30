@@ -15,6 +15,7 @@ const TABLES = [
   "monthly_actual_loan_balances",
   "savings_goals",
   "monthly_actual_goal_balances",
+  "income_payments",
 ] as const;
 type Table = (typeof TABLES)[number];
 
@@ -29,6 +30,7 @@ const KEY: Record<Table, string> = {
   monthly_actual_loan_balances: "id",
   savings_goals: "id",
   monthly_actual_goal_balances: "id",
+  income_payments: "budget_line_id",
 };
 
 /** A harmless column to try to overwrite. */
@@ -42,6 +44,7 @@ const PATCH: Record<Table, Record<string, unknown>> = {
   monthly_actual_loan_balances: { balance: 1 },
   savings_goals: { target: 1 },
   monthly_actual_goal_balances: { balance: 1 },
+  income_payments: { paid_on: "2027-01-02" },
 };
 
 let a: TestUser;
@@ -100,6 +103,9 @@ beforeAll(async () => {
       .select("id")
       .single(),
   );
+  const payment = await must<{ budget_line_id: string }>(
+    a.client.from("income_payments").insert({ month: "2027-02", budget_line_id: line.id, paid_on: "2027-01-28" }).select("budget_line_id").single(),
+  );
   aLoanId = loan.id;
   aActualId = actual.id;
   aGoalId = goal.id;
@@ -113,6 +119,7 @@ beforeAll(async () => {
     monthly_actual_loan_balances: balance.id,
     savings_goals: goal.id,
     monthly_actual_goal_balances: goalBalance.id,
+    income_payments: payment.budget_line_id,
   });
 });
 
@@ -182,6 +189,7 @@ describe("forged writes", () => {
       monthly_actual_loan_balances: { user_id: a.id, monthly_actual_id: aActualId, loan_id: aLoanId, balance: 1 },
       savings_goals: { user_id: a.id, name: "forged", target: 1, deadline_month: "2028-01", priority: 3 },
       monthly_actual_goal_balances: { user_id: a.id, monthly_actual_id: aActualId, goal_id: aGoalId, balance: 1 },
+      income_payments: { user_id: a.id, month: "2027-03", budget_line_id: aRow.budget_lines, paid_on: "2027-02-27" },
     };
     for (const table of TABLES) {
       const { error } = await b.client.from(table).insert(forged[table]);
@@ -216,6 +224,13 @@ describe("forged writes", () => {
       .from("monthly_actual_loan_balances")
       .insert({ monthly_actual_id: aActualId, loan_id: ownLoan.id, balance: 1 });
     expect(onForeignActual.error).not.toBeNull();
+  });
+
+  it("cannot attach a payment date to another user's income line (SPEC D29)", async () => {
+    const onForeignLine = await b.client
+      .from("income_payments")
+      .insert({ month: "2027-04", budget_line_id: aRow.budget_lines, paid_on: "2027-03-28" });
+    expect(onForeignLine.error).not.toBeNull();
   });
 
   it("cannot attach a goal balance to another user's goal", async () => {

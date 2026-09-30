@@ -56,6 +56,31 @@ describe("SupabaseFinanceRepository", () => {
     expect(snap.lines.find((l) => l.label === "Loyer")?.indexed).toBeUndefined();
   });
 
+  it("records, replaces and clears income payment dates; they follow their line (SPEC D29)", async () => {
+    const salary = (await repo.load()).lines.find((l) => l.category === "income")!;
+    await repo.setIncomePayment("2027-03", salary.id, "2027-02-26");
+    await repo.setIncomePayment("2027-03", salary.id, "2027-02-25");
+    await repo.setIncomePayment("2027-04", salary.id, "2027-03-27");
+    expect((await repo.load()).incomePayments).toEqual([
+      { month: "2027-03", budgetLineId: salary.id, paidOn: "2027-02-25" },
+      { month: "2027-04", budgetLineId: salary.id, paidOn: "2027-03-27" },
+    ]);
+    await repo.setIncomePayment("2027-03", salary.id, null);
+    expect((await repo.load()).incomePayments.map((p) => p.month)).toEqual(["2027-04"]);
+    // Out of [1st of the month before, end of the month]: refused by the database too.
+    await expect(repo.setIncomePayment("2027-05", salary.id, "2027-03-31")).rejects.toThrow();
+
+    // The usual payday round-trips; deleting the line deletes its dates.
+    const { lines } = await repo.load();
+    await repo.saveBudget(
+      settings,
+      lines.map((l) => (l.id === salary.id ? { ...l, paydayDay: 27, paydayPreviousMonth: true } : l)),
+    );
+    expect((await repo.load()).lines.find((l) => l.id === salary.id)).toMatchObject({ paydayDay: 27, paydayPreviousMonth: true });
+    await repo.saveBudget(settings, lines.filter((l) => l.id !== salary.id));
+    expect((await repo.load()).incomePayments).toEqual([]);
+  });
+
   it("adds, lists (by month) and deletes one-off exceptions", async () => {
     const late = await repo.addException({ month: "2027-08", kind: "expense", label: " Vacances ", amount: 90000 });
     const early = await repo.addException({ month: "2027-03", kind: "income", label: "Prime", amount: 100050 });

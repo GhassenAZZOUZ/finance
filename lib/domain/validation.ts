@@ -14,6 +14,8 @@ import {
   type MonthlyActualDraft,
   type SavingsGoalDraft,
 } from "./types";
+import { formatDate } from "@/lib/format";
+import { isIsoDate, paidOnBounds } from "./payday";
 
 /** Largest amount accepted by numeric(12,2). */
 const MAX_CENTS = 9_999_999_999_99;
@@ -68,6 +70,28 @@ export function parseSavingsRate(raw: string | null | undefined): Parsed<number>
   return (raw ?? "").trim() === "" ? { ok: true, value: 0 } : parsePercent(raw);
 }
 
+/** Usual payday of an income line (SPEC D29): a whole day from 1 to 31; "" = 1. */
+export function parsePaydayDay(raw: string | null | undefined): Parsed<number> {
+  const text = (raw ?? "").trim();
+  if (text === "") return { ok: true, value: 1 };
+  if (!/^\d{1,2}$/.test(text) || Number(text) < 1 || Number(text) > 31) return { ok: false, error: "Jour entre 1 et 31" };
+  return { ok: true, value: Number(text) };
+}
+
+/**
+ * Actual payment date of `month`'s income (SPEC D29): YYYY-MM-DD, from the 1st of the month before
+ * to the last day of `month`, and not after `today` (it records a payment that happened).
+ */
+export function parsePaidOn(raw: string | null | undefined, month: YearMonth, today: string): Parsed<string> {
+  const text = (raw ?? "").trim();
+  if (text === "") return { ok: false, error: "Date requise" };
+  if (!isIsoDate(text)) return { ok: false, error: "Date invalide" };
+  if (text > today) return { ok: false, error: "La date ne peut pas être dans le futur" };
+  const { first, last } = paidOnBounds(month);
+  if (text < first || text > last) return { ok: false, error: `La date doit être entre le ${formatDate(first)} et le ${formatDate(last)}` };
+  return { ok: true, value: text };
+}
+
 export function parseMonth(raw: string | null | undefined): Parsed<YearMonth> {
   const text = (raw ?? "").trim();
   if (text === "") return { ok: false, error: "Mois requis" };
@@ -108,7 +132,18 @@ export interface BudgetForm {
    * startMonth / endMonth: optional YYYY-MM period of the line (SPEC D15); indexed: false for a
    * « non indexé » line (D27).
    */
-  lines: { id?: string; category: string; label: string; amount: string; startMonth?: string; endMonth?: string; indexed?: boolean }[];
+  lines: {
+    id?: string;
+    category: string;
+    label: string;
+    amount: string;
+    startMonth?: string;
+    endMonth?: string;
+    indexed?: boolean;
+    /** Income lines only (SPEC D29): usual payday, "1"–"31", and whether it is in the month before. */
+    paydayDay?: string;
+    paydayPreviousMonth?: boolean;
+  }[];
 }
 
 export function validateBudget(form: BudgetForm): Validated<{ settings: BudgetSettings; lines: BudgetLineDraft[] }> {
@@ -155,6 +190,12 @@ export function validateBudget(form: BudgetForm): Validated<{ settings: BudgetSe
       startMonth,
       endMonth,
       ...(line.indexed === false ? { indexed: false } : {}),
+      ...(category === "income" && line.paydayDay !== undefined
+        ? {
+            paydayDay: c.take(`lines.${i}.paydayDay`, parsePaydayDay(line.paydayDay)),
+            paydayPreviousMonth: line.paydayPreviousMonth === true,
+          }
+        : {}),
     });
   });
   return c.result({ settings, lines });

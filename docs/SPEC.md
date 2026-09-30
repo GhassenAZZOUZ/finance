@@ -48,6 +48,7 @@ from our code.
 | D3 | Dates | `startMonth` and `movingDeadlineMonth` are `YYYY-MM` months. Month granularity everywhere |
 | D4 | Personal debts | No special rule. A 0 % personal debt behaves exactly as in the spreadsheet: normal payments only, never eligible for early repayment. "Dette personnelle" is just a loan type label |
 | D5 | Remaining months | **Dropped** (the input and its 3 derived columns). Replaced by simulated payoff months and per-loan interest (§5) |
+| D29 | Income paydays (issue #60, owner-validated 2026-09-29) | Each **income line** has a usual payday (Budget page, in the line's panel): a day 1–31 and « du mois précédent » or « du mois même » (a day the month lacks = its last day); default 1 of the same month = today's behaviour. The income of month M is the one that funds M's budget, even when paid in M−1. On Suivi, the « Revenus de <mois> » card (next month first, then the open months) shows each income line of that month (amount > 0, active, D15) with its expected date and a « Versé à une autre date » field: a **per-month exception** (table `income_payments`, one date per month and income line), from the 1st of M−1 to the last day of M and **not after today** (Europe/Paris). Effective payment date = the exception, else the usual payday. Deleting an income line deletes its dates; the template import keeps the payday of reused slots. Used by #61 to open Suivi early |
 | D28 | Savings interest (issue #35, owner-validated 2026-09-29) | An optional **yearly rate per savings bucket**: each goal (D23), the emergency fund and free savings (fractions 0–1, 0 by default = no interest, golden data unchanged; no global default rate; gross rates, taxes out of scope). Interest **accrues monthly**, `round2(balance × rate / 12)` on the bucket's balance at the start of the month (§4.0 point 8), in negative months too, and is **credited once a year after December's allocation** (and in month 300), so it counts toward targets and earns interest from January; the first year is credited pro rata of the months accrued. Quinzaines (Livret A) are not modelled. A goal keeps its interest even above its target. The emergency fund's interest fills it **up to its target; the rest goes to free savings**. Planned savings of check-ins include the credited interest (frozen check-ins keep their values). KPIs « Intérêts de l'épargne » over the first 12 months and over the plan; « Intérêts épargne » column in the Plan table and the CSV. The template import (D20) keeps the rates. Engine: §6 ④ |
 | D27 | Yearly indexation (issue #36, owner-validated 2026-09-29) | Two optional plan parameters, `expenseInflationRate` and `incomeGrowthRate` (fractions from −1 to 1, 0 by default = constant budget, golden data unchanged); **one** expense rate for fixed and variable lines. The step happens **every January**: in month m a line counts `round2(amount × (1 + rate)^y)` with `y = year(m) − year(startMonth)` (so the first rise is the first January after the start), always computed from the entered amount (§4.0 point 7). Income lines use the income rate, fixed and variable lines the expense rate; a line marked **« non indexé »** keeps its amount. **Not indexed**: loan payments, one-off exceptions (D14), goal targets. Dated lines (D15) are indexed **from the plan start** (amounts are entered in euros of the start year). The KPIs describe the reference month (D15) at its indexed amounts, and check-in income / expense gaps compare with that month's indexed budget. Re-basing (D16) moves the start, so the index restarts from the new start year. The template import (D20) sets both rates to 0; « Et si… ? » can change them (D17) |
 | D26 | Account deletion (issue #37, owner-validated 2026-09-29) | « Mes données » › « Supprimer mon compte »: the user types **« SUPPRIMER »** (no recent sign-in required) after being offered the JSON backup (D18); the page says it is irreversible and that the host's technical backups are erased at the end of their retention period. The `security definer` function `delete_my_account()` (authenticated only) deletes the caller's check-in loan balances (whose loan foreign key restricts, D8) then their `auth.users` row; every other table cascades from it, including the reminder log, so no reminder is sent afterwards. Then the local session is dropped, the tour flag cleared (the theme choice is kept) and the login page confirms. Signing in again with the same address starts from scratch. An integration test lists every public table, so a new table must be checked for its cascade |
@@ -444,11 +445,13 @@ independent reference engine disagrees with Excel on any cell.
 ### 10.1 JSON backup, `finance-backup-YYYY-MM-DD.json`
 
 ```
-{ format: "finance-plan-backup", version: 6, exportedAt: ISO timestamp,
+{ format: "finance-plan-backup", version: 8, exportedAt: ISO timestamp,
   data: { settings | null   { startMonth, emergencyTarget, emergencyExisting, freeSavingsExisting,
                               riskFreeRate, earlyRepaymentPct, expenseInflationRate, incomeGrowthRate,
                               emergencyRate, freeSavingsRate },
-          budgetLines[] { id, category, label, amount, position, startMonth, endMonth, indexed },
+          budgetLines[] { id, category, label, amount, position, startMonth, endMonth, indexed,
+                          paydayDay, paydayPreviousMonth },
+          incomePayments[] { month, budgetLineId, paidOn }   (D29),
           exceptions[]  { id, month, kind, label, amount },
           loans[]       { id, name, type, principal, principalPaidThroughMonth, apr, monthlyPayment,
                           contractEndMonth, penaltyPct, penaltyCapMonths, kind, creditLimit, position, archivedAt }
@@ -471,7 +474,9 @@ independent reference engine disagrees with Excel on any cell.
   `movingSavings` (its value is the primary goal's entry in `goalBalances`);
   version 6 adds the settings' `expenseInflationRate` and `incomeGrowthRate` and the lines' `indexed`
   (D27; older files: `0`, `0`, `true`); version 7 adds the settings' `emergencyRate` and `freeSavingsRate`
-  and the goals' `rate` (D28; older files: `0`).
+  and the goals' `rate` (D28; older files: `0`); version 8 adds the lines' `paydayDay` and
+  `paydayPreviousMonth` and `incomePayments[] { month, budgetLineId, paidOn }` (D29; older files: `1`,
+  `false`, `[]`).
 
 ### 10.2 Plan CSV, `finance-plan-YYYY-MM-DD.csv`
 

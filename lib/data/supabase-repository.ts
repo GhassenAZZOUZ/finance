@@ -65,6 +65,8 @@ interface LineRow {
   start_month: string | null;
   end_month: string | null;
   indexed: boolean;
+  payday_day: number;
+  payday_previous_month: boolean;
 }
 interface LoanRow {
   id: string;
@@ -205,6 +207,8 @@ function lineColumns(l: BudgetLineDraft) {
     start_month: l.startMonth,
     end_month: l.endMonth,
     indexed: l.indexed !== false,
+    payday_day: l.paydayDay ?? 1,
+    payday_previous_month: l.paydayPreviousMonth ?? false,
   };
 }
 
@@ -225,11 +229,11 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   async load(): Promise<FinanceSnapshot> {
-    const [settings, lines, loans, actuals, exceptions, goals, profile] = await Promise.all([
+    const [settings, lines, loans, actuals, exceptions, goals, profile, incomePayments] = await Promise.all([
       this.db.from("budget_settings").select(SETTINGS_COLUMNS).maybeSingle<SettingsRow>(),
       this.db
         .from("budget_lines")
-        .select("id, category, label, amount, position, start_month, end_month, indexed")
+        .select("id, category, label, amount, position, start_month, end_month, indexed, payday_day, payday_previous_month")
         .order("position")
         .returns<LineRow[]>(),
       this.db
@@ -253,6 +257,11 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         .returns<ExceptionRow[]>(),
       this.db.from("savings_goals").select(GOAL_COLUMNS).order("priority").returns<GoalRow[]>(),
       this.db.from("profiles").select("reminder_enabled").maybeSingle<{ reminder_enabled: boolean }>(),
+      this.db
+        .from("income_payments")
+        .select("month, budget_line_id, paid_on")
+        .order("month")
+        .returns<{ month: string; budget_line_id: string; paid_on: string }[]>(),
     ]);
     const s = checkMaybe(settings);
     const allLoans = check(loans).map(toLoan);
@@ -279,12 +288,17 @@ export class SupabaseFinanceRepository implements FinanceRepository {
           startMonth: l.start_month,
           endMonth: l.end_month,
           ...(l.indexed ? {} : { indexed: false }),
+          // Income lines only (SPEC D29); the default payday (1 of the same month) is left out.
+          ...(l.category === "income" && (l.payday_day !== 1 || l.payday_previous_month)
+            ? { paydayDay: l.payday_day, paydayPreviousMonth: l.payday_previous_month }
+            : {}),
         }),
       ),
       exceptions: check(exceptions).map(toException),
       loans: allLoans.filter((l) => l.archivedAt === null),
       archivedLoans: allLoans.filter((l) => l.archivedAt !== null),
       reminderEnabled: checkMaybe(profile)?.reminder_enabled ?? true,
+      incomePayments: check(incomePayments).map((p) => ({ month: p.month, budgetLineId: p.budget_line_id, paidOn: p.paid_on })),
       goals: check(goals).map(toGoal),
       actuals: check(actuals).map(
         (a): MonthlyActual => ({
@@ -447,6 +461,18 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   async setReminder(enabled: boolean): Promise<void> {
     const updated = check(await this.db.from("profiles").update({ reminder_enabled: enabled }).not("user_id", "is", null).select("user_id"));
     if (updated.length === 0) throw new RepositoryError("Profil introuvable", "not_found");
+  }
+
+  async setIncomePayment(month: string, budgetLineId: string, paidOn: string | null): Promise<void> {
+    if (paidOn === null) {
+      checkMaybe(await this.db.from("income_payments").delete().eq("month", month).eq("budget_line_id", budgetLineId));
+      return;
+    }
+    checkMaybe(
+      await this.db
+        .from("income_payments")
+        .upsert({ month, budget_line_id: budgetLineId, paid_on: paidOn }, { onConflict: "user_id,month,budget_line_id" }),
+    );
   }
 
   async deleteAccount(): Promise<void> {

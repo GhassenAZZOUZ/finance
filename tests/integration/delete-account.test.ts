@@ -20,6 +20,7 @@ const USER_TABLES = [
   "savings_goals",
   "monthly_actual_goal_balances",
   "reminder_log",
+  "income_payments",
 ] as const;
 
 type Row = { id: string } & Record<string, unknown>;
@@ -44,6 +45,8 @@ async function seed(user: TestUser): Promise<void> {
     db.from("savings_goals").insert({ name: "Voiture", target: 8000, deadline_month: "2028-06", priority: 2 }).select("id").single(),
   );
   await must(db.from("monthly_actual_goal_balances").insert({ monthly_actual_id: actual.id, goal_id: goal.id, balance: 50 }));
+  const line = await must(db.from("budget_lines").select("id").eq("category", "income").limit(1).single());
+  await must(db.from("income_payments").insert({ month: "2027-02", budget_line_id: line.id, paid_on: "2027-01-28" }));
   await must(adminClient().from("reminder_log").insert({ user_id: user.id, month: "2027-01" }));
 }
 

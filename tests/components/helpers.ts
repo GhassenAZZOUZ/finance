@@ -33,6 +33,7 @@ export function createRepositoryMock(snapshot: FinanceSnapshot = makeSnapshot())
     deleteGoal: vi.fn<FinanceRepository["deleteGoal"]>(async () => {}),
     orderGoals: vi.fn<FinanceRepository["orderGoals"]>(async () => {}),
     setReminder: vi.fn<FinanceRepository["setReminder"]>(async () => {}),
+    setIncomePayment: vi.fn<FinanceRepository["setIncomePayment"]>(async () => {}),
     deleteAccount: vi.fn<FinanceRepository["deleteAccount"]>(async () => {}),
   };
 }
@@ -89,6 +90,7 @@ export function makeSnapshot(overrides: Partial<FinanceSnapshot> = {}): FinanceS
     archivedLoans: [],
     actuals: [],
     reminderEnabled: true,
+    incomePayments: [],
     ...overrides,
     goals,
   };

@@ -51,6 +51,17 @@ export function formatMonthLong(ym: YearMonth): string {
 }
 
 /** Current month in the user's time zone (Europe/Paris by default), as YYYY-MM. */
+/** Today in Europe/Paris as YYYY-MM-DD (SPEC D29, like currentYearMonth). */
+export function currentDate(now: Date = new Date(), timeZone = "Europe/Paris"): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+}
+
+/** "27/09/2026" from "2026-09-27". */
+export function formatDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
 export function currentYearMonth(now: Date = new Date(), timeZone = "Europe/Paris"): YearMonth {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit" }).formatToParts(now);
   const year = parts.find((p) => p.type === "year")?.value;
