@@ -1,4 +1,5 @@
 import type { CsvMapping } from "@/lib/import/bank-csv";
+import type { BankRule } from "@/lib/import/bank-rules";
 import type {
   BudgetException,
   BudgetExceptionDraft,
@@ -61,6 +62,9 @@ export interface FinanceRepository {
   setReminder(enabled: boolean): Promise<void>;
   /** Saves (or forgets, with null) the column mapping of the user's bank CSV (SPEC D30). */
   setBankCsvMapping(mapping: CsvMapping | null): Promise<void>;
+  /** Stores a bank import (SPEC D31): replaces the month's per-line totals, upserts the learnt rules. */
+  saveBankImport(month: string, totals: { budgetLineId: string; actual: number }[], rules: Omit<BankRule, "id">[]): Promise<void>;
+  deleteBankRule(id: string): Promise<void>;
   /** Records (or clears, with null) the actual date an income line was paid for a month (SPEC D29). */
   setIncomePayment(month: string, budgetLineId: string, paidOn: string | null): Promise<void>;
   /** Deletes the signed-in user's account and every row of theirs, for good (SPEC D26). */

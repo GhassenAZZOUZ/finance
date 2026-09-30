@@ -1,5 +1,6 @@
 import type { Cents, YearMonth } from "@/lib/engine";
 import type { CsvMapping } from "@/lib/import/bank-csv";
+import type { BankLineTotal, BankRule } from "@/lib/import/bank-rules";
 
 export const BUDGET_CATEGORIES = ["income", "fixed", "variable"] as const;
 export type BudgetCategory = (typeof BUDGET_CATEGORIES)[number];
@@ -177,4 +178,7 @@ export interface FinanceSnapshot {
   incomePayments: IncomePayment[];
   /** Column mapping of the user's bank CSV export (SPEC D30); null or omitted = none saved. */
   bankCsvMapping?: CsvMapping | null;
+  /** Keyword rules learnt from bank imports, and each imported month's total per line (SPEC D31). */
+  bankRules?: BankRule[];
+  bankLineTotals?: BankLineTotal[];
 }

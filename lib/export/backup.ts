@@ -18,8 +18,9 @@ export const BACKUP_FORMAT = "finance-plan-backup";
  * 7: `settings` gain `emergencyRate` and `freeSavingsRate`, goals `rate` (savings interest, #35).
  * 8: income lines gain `paydayDay` and `paydayPreviousMonth`; `incomePayments` (paydays, #60).
  * 9: `bankCsvMapping`, the saved column mapping of the bank CSV import (#38); never a transaction.
+ * 10: `bankRules` and `bankLineTotals` (bank import rules and per-line totals, #63).
  */
-export const BACKUP_VERSION = 9;
+export const BACKUP_VERSION = 10;
 
 /** Euros with exactly 2 decimals and a dot ("1234.50", "-0.05"), computed from integer cents. */
 export type DecimalEuros = string;
@@ -94,6 +95,9 @@ export interface Backup {
     incomePayments: { month: YearMonth; budgetLineId: string; paidOn: string }[];
     /** Bank CSV column mapping (SPEC D30); null when none is saved. */
     bankCsvMapping: CsvMapping | null;
+    /** Keyword → budget line (null = ignored) rules, and each imported month's totals per line (SPEC D31). */
+    bankRules: { keyword: string; budgetLineId: string | null }[];
+    bankLineTotals: { month: YearMonth; budgetLineId: string; actual: DecimalEuros }[];
     exceptions: { id: string; month: YearMonth; kind: string; label: string; amount: DecimalEuros }[];
     /** Active loans first (entry order), then archived ones. */
     loans: BackupLoan[];
@@ -196,6 +200,8 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
       })),
       incomePayments: snapshot.incomePayments.map((p) => ({ month: p.month, budgetLineId: p.budgetLineId, paidOn: p.paidOn })),
       bankCsvMapping: snapshot.bankCsvMapping ?? null,
+      bankRules: (snapshot.bankRules ?? []).map((r) => ({ keyword: r.keyword, budgetLineId: r.budgetLineId })),
+      bankLineTotals: (snapshot.bankLineTotals ?? []).map((t) => ({ month: t.month, budgetLineId: t.budgetLineId, actual: centsToDecimal(t.actual) })),
       exceptions: snapshot.exceptions.map((e) => ({
         id: e.id,
         month: e.month,

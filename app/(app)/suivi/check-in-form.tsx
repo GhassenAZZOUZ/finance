@@ -10,6 +10,7 @@ import { type ActualForm, parseAmount } from "@/lib/domain/validation";
 import type { ActualStatus, Cents, YearMonth } from "@/lib/engine";
 import type { BudgetLine } from "@/lib/domain/types";
 import type { CsvMapping } from "@/lib/import/bank-csv";
+import type { BankRule } from "@/lib/import/bank-rules";
 import { amountInputValue, formatEuros, formatMonthLong } from "@/lib/format";
 import { STATUS_LABEL } from "@/lib/labels";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,7 @@ export interface CheckInFormProps {
   /** Budget lines and saved CSV mapping, for the bank statement import (SPEC D30); no import without lines. */
   budgetLines?: BudgetLine[];
   bankCsvMapping?: CsvMapping | null;
+  bankRules?: BankRule[];
   planned: Record<YearMonth, PlannedValues | null>;
   /** Active loans, same order as `ActualForm.loanBalances` and `PlannedValues.loanBalances`. */
   loans: { id: string; label: string }[];
@@ -74,6 +76,7 @@ export function CheckInForm({
   earlyMonth = null,
   budgetLines = [],
   bankCsvMapping = null,
+  bankRules = [],
   planned,
   loans,
   goals = [],
@@ -282,6 +285,7 @@ export function CheckInForm({
               month={month}
               lines={budgetLines}
               savedMapping={bankCsvMapping}
+              rules={bankRules}
               onApply={({ income, expenses }) =>
                 setForm((f) => ({ ...f, income: amountInputValue(income), expenses: amountInputValue(expenses) }))
               }

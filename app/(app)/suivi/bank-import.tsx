@@ -4,7 +4,7 @@ import { FileUp, TriangleAlert } from "lucide-react";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { getRepository } from "@/lib/data/client-store";
+import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
 import type { BudgetCategory, BudgetLine } from "@/lib/domain/types";
 import { type Cents, type YearMonth, isLineActive } from "@/lib/engine";
 import { reportError } from "@/lib/errors";
@@ -26,6 +26,7 @@ import {
   totalsOf,
   transactionsOfMonth,
 } from "@/lib/import/bank-csv";
+import { type BankRule, learnRules, lineTotals, matchRule } from "@/lib/import/bank-rules";
 
 const CATEGORY_GROUP: Record<BudgetCategory, string> = {
   income: "Revenus",
@@ -40,6 +41,8 @@ type Stage =
       kind: "preview";
       transactions: BankTransaction[];
       assignments: Assignment[];
+      /** Pre-assigned by a rule (SPEC D31), until the user changes it. */
+      proposed: boolean[];
       outside: number;
       ignored: IgnoredRow[];
       /** To save once the import is confirmed (not for Revolut, which needs none). */
@@ -55,11 +58,14 @@ export function BankImport({
   month,
   lines,
   savedMapping,
+  rules = [],
   onApply,
 }: {
   month: YearMonth;
   lines: BudgetLine[];
   savedMapping: CsvMapping | null;
+  /** Keyword rules learnt from previous imports (SPEC D31). */
+  rules?: BankRule[];
   onApply: (totals: { income: Cents; expenses: Cents }) => void;
 }) {
   const id = useId();
@@ -71,9 +77,15 @@ export function BankImport({
 
   function preview(transactions: BankTransaction[], ignored: IgnoredRow[], mapping: CsvMapping | null) {
     const { inMonth, outside } = transactionsOfMonth(transactions, month);
-    // A first guess the user corrects: money in → first income line, money out → first variable line.
-    const assignments = inMonth.map((t) => (t.amount >= 0 ? firstOf("income") : (firstOf("variable") ?? firstOf("fixed"))));
-    setStage({ kind: "preview", transactions: inMonth, assignments, outside, ignored, mapping });
+    // A rule proposes its line (D31); otherwise a first guess the user corrects: money in → first
+    // income line, money out → first variable line.
+    const activeIds = new Set(active.map((l) => l.id));
+    const matches = inMonth.map((t) => matchRule(t.label, rules));
+    const proposed = matches.map((r) => r !== undefined && (r.budgetLineId === null || activeIds.has(r.budgetLineId)));
+    const assignments = inMonth.map((t, i) =>
+      proposed[i] ? matches[i]!.budgetLineId : t.amount >= 0 ? firstOf("income") : (firstOf("variable") ?? firstOf("fixed")),
+    );
+    setStage({ kind: "preview", transactions: inMonth, assignments, proposed, outside, ignored, mapping });
   }
 
   async function read(file: File) {
@@ -102,14 +114,33 @@ export function BankImport({
     }
   }
 
-  function confirm(current: Extract<Stage, { kind: "preview" }>) {
+  async function confirm(current: Extract<Stage, { kind: "preview" }>) {
     onApply(totalsOf(current.transactions, current.assignments, categoryOf));
-    if (current.mapping) {
-      void getRepository()
-        .setBankCsvMapping(current.mapping)
-        .catch((e: unknown) => reportError(e, "bankCsv.mapping"));
-    }
     setStage({ kind: "idle" });
+    try {
+      const repo = getRepository();
+      if (current.mapping) await repo.setBankCsvMapping(current.mapping);
+      // The month's totals per line replace any earlier import; the assignments become rules (D31).
+      await repo.saveBankImport(
+        month,
+        lineTotals(current.transactions, current.assignments, categoryOf),
+        learnRules(current.transactions, current.assignments),
+      );
+      notifyDataChanged();
+    } catch (saveError) {
+      reportError(saveError, "bankCsv.save");
+      setError("Les totaux ont été reportés, mais le détail par ligne et les règles n’ont pas été enregistrés.");
+    }
+  }
+
+  async function removeRule(rule: BankRule) {
+    try {
+      await getRepository().deleteBankRule(rule.id);
+      notifyDataChanged();
+    } catch (deleteError) {
+      reportError(deleteError, "bankCsv.rule");
+      setError("La règle n’a pas été supprimée. Réessayez dans un instant.");
+    }
   }
 
   return (
@@ -161,10 +192,36 @@ export function BankImport({
           stage={stage}
           lines={active}
           totals={totalsOf(stage.transactions, stage.assignments, categoryOf)}
-          onAssign={(i, lineId) => setStage({ ...stage, assignments: stage.assignments.map((a, j) => (j === i ? lineId : a)) })}
+          onAssign={(i, lineId) =>
+            setStage({
+              ...stage,
+              assignments: stage.assignments.map((a, j) => (j === i ? lineId : a)),
+              proposed: stage.proposed.map((p, j) => (j === i ? false : p)),
+            })
+          }
           onCancel={() => setStage({ kind: "idle" })}
-          onConfirm={() => confirm(stage)}
+          onConfirm={() => void confirm(stage)}
         />
+      ) : null}
+
+      {rules.length > 0 ? (
+        <details className="text-sm">
+          <summary className="flex min-h-10 cursor-pointer items-center text-muted-foreground">
+            Règles apprises ({rules.length})
+          </summary>
+          <ul className="flex flex-col gap-1 pb-2">
+            {rules.map((rule) => (
+              <li key={rule.id} className="flex items-center justify-between gap-2">
+                <span>
+                  « {rule.keyword} » → {lines.find((l) => l.id === rule.budgetLineId)?.label ?? "Ignoré"}
+                </span>
+                <Button type="button" variant="ghost" className="min-h-10" onClick={() => void removeRule(rule)} aria-label={`Supprimer la règle « ${rule.keyword} »`}>
+                  Supprimer
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </details>
       ) : null}
     </div>
   );
@@ -321,7 +378,10 @@ function PreviewStep({
           {stage.transactions.map((t, i) => (
             <li key={t.line} className="grid gap-2 py-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_7rem_12rem] sm:items-center">
               <span className="text-[13px] text-muted-foreground tabular-nums">{formatDate(t.date)}</span>
-              <span className="break-words text-sm">{t.label}</span>
+              <span className="break-words text-sm">
+                {t.label}
+                {stage.proposed[i] ? <span className="ml-2 rounded-full border px-1.5 text-xs text-muted-foreground">proposé</span> : null}
+              </span>
               <span className={`text-right text-sm tabular-nums ${t.amount >= 0 ? "text-good" : ""}`}>{formatEuros(t.amount)}</span>
               <span>
                 <Label htmlFor={`${id}-a${i}`} className="sr-only">

@@ -1,4 +1,5 @@
 import type { CsvMapping } from "@/lib/import/bank-csv";
+import type { BankLineTotal, BankRule } from "@/lib/import/bank-rules";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { centsToEuros, eurosToCents } from "@/lib/engine";
 import type {
@@ -230,7 +231,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   async load(): Promise<FinanceSnapshot> {
-    const [settings, lines, loans, actuals, exceptions, goals, profile, incomePayments] = await Promise.all([
+    const [settings, lines, loans, actuals, exceptions, goals, profile, incomePayments, bankRules, bankLineTotals] = await Promise.all([
       this.db.from("budget_settings").select(SETTINGS_COLUMNS).maybeSingle<SettingsRow>(),
       this.db
         .from("budget_lines")
@@ -266,6 +267,12 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         .select("month, budget_line_id, paid_on")
         .order("month")
         .returns<{ month: string; budget_line_id: string; paid_on: string }[]>(),
+      this.db.from("bank_csv_rules").select("id, keyword, budget_line_id").order("keyword").returns<{ id: string; keyword: string; budget_line_id: string | null }[]>(),
+      this.db
+        .from("bank_line_totals")
+        .select("month, budget_line_id, actual")
+        .order("month")
+        .returns<{ month: string; budget_line_id: string; actual: number }[]>(),
     ]);
     const s = checkMaybe(settings);
     const allLoans = check(loans).map(toLoan);
@@ -303,6 +310,10 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       archivedLoans: allLoans.filter((l) => l.archivedAt !== null),
       reminderEnabled: checkMaybe(profile)?.reminder_enabled ?? true,
       bankCsvMapping: checkMaybe(profile)?.bank_csv_mapping ?? null,
+      bankRules: check(bankRules).map((b): BankRule => ({ id: b.id, keyword: b.keyword, budgetLineId: b.budget_line_id })),
+      bankLineTotals: check(bankLineTotals).map(
+        (t): BankLineTotal => ({ month: t.month, budgetLineId: t.budget_line_id, actual: cents(t.actual) }),
+      ),
       incomePayments: check(incomePayments).map((p) => ({ month: p.month, budgetLineId: p.budget_line_id, paidOn: p.paid_on })),
       goals: check(goals).map(toGoal),
       actuals: check(actuals).map(
@@ -473,6 +484,25 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       await this.db.from("profiles").update({ bank_csv_mapping: mapping }).not("user_id", "is", null).select("user_id"),
     );
     if (updated.length === 0) throw new RepositoryError("Profil introuvable", "not_found");
+  }
+
+  /** One transaction (Postgres function `save_bank_import`): the month's totals replaced, the rules upserted. */
+  async saveBankImport(
+    month: string,
+    totals: { budgetLineId: string; actual: number }[],
+    rules: Omit<BankRule, "id">[],
+  ): Promise<void> {
+    checkMaybe(
+      await this.db.rpc("save_bank_import", {
+        p_month: month,
+        p_totals: totals.map((t) => ({ budget_line_id: t.budgetLineId, actual: centsToEuros(t.actual) })),
+        p_rules: rules.map((r) => ({ keyword: r.keyword, budget_line_id: r.budgetLineId })),
+      }),
+    );
+  }
+
+  async deleteBankRule(id: string): Promise<void> {
+    checkMaybe(await this.db.from("bank_csv_rules").delete().eq("id", id));
   }
 
   async setIncomePayment(month: string, budgetLineId: string, paidOn: string | null): Promise<void> {
