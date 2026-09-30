@@ -63,14 +63,17 @@ describe("BankImport", () => {
     expect(document.querySelector("img")).toBeNull();
   });
 
-  it("AC-03 / AC-04 — assigns, updates the totals live and pre-fills the check-in", async () => {
+  it("AC-03 / AC-04 — assigns, updates the totals live and pre-fills the check-in rows (#72)", async () => {
     const { user, onApply } = renderImport();
     await upload(user, csv(REVOLUT));
     await screen.findByRole("heading", { name: "3 opérations en septembre 2026" });
     await user.selectOptions(within(row("Vers Livret A")).getByRole("combobox"), "");
     expect(screen.getByRole("status").textContent).toBe(`Revenus ${formatEuros(260_000)} · Dépenses ${formatEuros(4_250)}`);
     await user.click(screen.getByRole("button", { name: "Reporter dans le suivi" }));
-    expect(onApply).toHaveBeenCalledWith({ income: 260_000, expenses: 4_250 });
+    expect(onApply).toHaveBeenCalledWith([
+      { budgetLineId: "salary", actual: 260_000 },
+      { budgetLineId: "food", actual: 4_250 },
+    ]);
     // Revolut needs no mapping: nothing is saved.
     expect(mocks.repo!.setBankCsvMapping).not.toHaveBeenCalled();
   });
@@ -82,7 +85,10 @@ describe("BankImport", () => {
     await user.click(screen.getByRole("button", { name: "Continuer" }));
     expect(await screen.findByRole("heading", { name: "2 opérations en septembre 2026" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Reporter dans le suivi" }));
-    expect(onApply).toHaveBeenCalledWith({ income: 260_000, expenses: 12_340 });
+    expect(onApply).toHaveBeenCalledWith([
+      { budgetLineId: "salary", actual: 260_000 },
+      { budgetLineId: "food", actual: 12_340 },
+    ]);
     await waitFor(() => expect(mocks.repo!.setBankCsvMapping).toHaveBeenCalledOnce());
     const saved = mocks.repo!.setBankCsvMapping.mock.calls[0]![0]!;
     expect(saved).toMatchObject({ header: ["Date opération", "Libellé", "Débit", "Crédit"], debit: 2, credit: 3, decimal: "," });
@@ -118,20 +124,20 @@ describe("BankImport", () => {
 });
 
 describe("rules and per-line totals (#63, SPEC D31)", () => {
-  it("AC-01 / AC-03 — proposes from a rule, then stores the month's totals and the learnt rules", async () => {
-    const { user } = renderImport(null, [{ id: "r1", keyword: "VERS LIVRET", budgetLineId: null }]);
+  it("AC-01 / AC-03 — proposes from a rule, then hands the totals to the check-in and stores the learnt rules", async () => {
+    const { user, onApply } = renderImport(null, [{ id: "r1", keyword: "VERS LIVRET", budgetLineId: null }]);
     await upload(user, csv(REVOLUT));
     await screen.findByRole("heading", { name: "3 opérations en septembre 2026" });
     expect(within(row("Vers Livret A")).getByText("proposé")).toBeTruthy();
     expect((within(row("Vers Livret A")).getByRole("combobox") as HTMLSelectElement).value).toBe("");
     await user.click(screen.getByRole("button", { name: "Reporter dans le suivi" }));
-    await waitFor(() => expect(mocks.repo!.saveBankImport).toHaveBeenCalledOnce());
-    const [month, totals, rules] = mocks.repo!.saveBankImport.mock.calls[0]!;
-    expect(month).toBe("2026-09");
-    expect(totals).toEqual([
+    // The totals are saved with the check-in (#72), only the rules are stored now.
+    expect(onApply).toHaveBeenCalledWith([
       { budgetLineId: "salary", actual: 260_000 },
       { budgetLineId: "food", actual: 4_250 },
     ]);
+    await waitFor(() => expect(mocks.repo!.saveBankRules).toHaveBeenCalledOnce());
+    const [rules] = mocks.repo!.saveBankRules.mock.calls[0]!;
     expect(rules).toContainEqual({ keyword: "VIREMENT SALAIRE", budgetLineId: "salary" });
     expect(rules).toContainEqual({ keyword: "VERS LIVRET", budgetLineId: null });
     expect(mocks.notify).toHaveBeenCalled();
@@ -145,14 +151,32 @@ describe("rules and per-line totals (#63, SPEC D31)", () => {
     expect(mocks.repo!.deleteBankRule).toHaveBeenCalledWith("r1");
   });
 
-  it("AC-02 — shows « Réel vs budget » per line, flagging the lines off budget in words", () => {
+  it("AC-02 — shows « Réel vs budget » per line of a check-in (#72), flagging the lines off budget in words", () => {
+    const saved = (label: string, direction: "income" | "expense", planned: number, actual: number) => ({
+      kind: "line" as const,
+      direction,
+      category: direction === "income" ? ("income" as const) : ("variable" as const),
+      budgetLineId: label,
+      exceptionId: null,
+      label,
+      planned,
+      actual,
+    });
     render(
       <LineActualsCard
-        lines={LINES}
-        settings={{ startMonth: "2026-01" }}
-        totals={[
-          { month: "2026-09", budgetLineId: "food", actual: 15_000 },
-          { month: "2026-09", budgetLineId: "salary", actual: 10_000 },
+        actuals={[
+          {
+            id: "a",
+            month: "2026-09",
+            income: 10_000,
+            expenses: 25_000,
+            emergencySavings: 0,
+            freeSavings: 0,
+            loanBalances: [],
+            goalBalances: [],
+            frozen: null,
+            lines: [saved("Salaire", "income", 10_000, 10_000), saved("Courses", "expense", 10_000, 15_000), saved("Loyer", "expense", 10_000, 0)],
+          },
         ]}
       />,
     );

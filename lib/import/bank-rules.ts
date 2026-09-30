@@ -1,9 +1,8 @@
 /**
  * Bank import rules and per-line totals (issue #63, SPEC D31): assignments confirmed in an import
- * become keyword rules proposed next time; each import stores the month's actual total per line.
+ * become keyword rules proposed next time; the month's actual total per line pre-fills the check-in (#72).
  */
-import { type Cents, type YearMonth, indexationYears, indexedAmount, isLineActive, lineRate } from "@/lib/engine";
-import type { BudgetLine, BudgetSettings } from "@/lib/domain/types";
+import type { Cents } from "@/lib/engine";
 import type { Assignment, BankTransaction } from "./bank-csv";
 
 export interface BankRule {
@@ -12,13 +11,6 @@ export interface BankRule {
   keyword: string;
   /** Budget line, or null for « Ignoré ». */
   budgetLineId: string | null;
-}
-
-export interface BankLineTotal {
-  month: YearMonth;
-  budgetLineId: string;
-  /** Income received, or money spent (refunds lower it). */
-  actual: Cents;
 }
 
 /** Upper case, no accents, digits or punctuation, single spaces: « Carrefour Market 1234 » → « CARREFOUR MARKET ». */
@@ -69,32 +61,4 @@ export function lineTotals(
     totals.set(lineId, (totals.get(lineId) ?? 0) + (category === "income" ? t.amount : -t.amount));
   });
   return [...totals].map(([budgetLineId, actual]) => ({ budgetLineId, actual }));
-}
-
-export interface LineVsBudget {
-  line: BudgetLine;
-  /** That month's budget (D15 period, D27 indexation); 0 when the line is not active. */
-  budget: Cents;
-  actual: Cents;
-  /** actual − budget. */
-  gap: Cents;
-  /** An expense line spent more than its budget, or an income line received less. */
-  off: boolean;
-}
-
-/** « Réel vs budget » of an imported month (SPEC D31): every line with a budget or an actual total. */
-export function lineVsBudget(
-  lines: readonly BudgetLine[],
-  settings: Pick<BudgetSettings, "startMonth" | "expenseInflationRate" | "incomeGrowthRate">,
-  month: YearMonth,
-  totals: readonly BankLineTotal[],
-): LineVsBudget[] {
-  const years = indexationYears(settings.startMonth, month);
-  return lines.flatMap((line) => {
-    const actual = totals.find((t) => t.month === month && t.budgetLineId === line.id)?.actual ?? 0;
-    const budget = isLineActive(line, month) ? indexedAmount(line.amount, lineRate(line, settings), years) : 0;
-    if (budget === 0 && actual === 0) return [];
-    const gap = actual - budget;
-    return [{ line, budget, actual, gap, off: line.category === "income" ? gap < 0 : gap > 0 }];
-  });
 }

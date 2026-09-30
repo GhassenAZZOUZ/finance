@@ -20,6 +20,7 @@ const actual = (month: string, extra: Partial<MonthlyActual> = {}): MonthlyActua
   freeSavings: 5,
   loanBalances: [{ loanId: "a", balance: 250050 }],
   goalBalances: [{ goalId: "p", balance: 10000 }],
+  lines: [],
   ...extra,
 });
 
@@ -39,8 +40,7 @@ describe("prefillForm", () => {
   it("is empty without an entry, one balance per active loan", () => {
     expect(prefillForm("2027-01", undefined, [{ id: "a" }, { id: "b" }], [{ id: "p" }])).toEqual({
       month: "2027-01",
-      income: "",
-      expenses: "",
+      lines: [],
       emergencySavings: "",
       freeSavings: "",
       loanBalances: [
@@ -54,8 +54,7 @@ describe("prefillForm", () => {
   it("uses the existing entry; a loan or goal added since stays empty", () => {
     expect(prefillForm("2027-01", actual("2027-01"), [{ id: "a" }, { id: "b" }], [{ id: "p" }, { id: "new" }])).toEqual({
       month: "2027-01",
-      income: "",
-      expenses: "1234,56",
+      lines: [],
       emergencySavings: "0,00",
       freeSavings: "0,05",
       loanBalances: [

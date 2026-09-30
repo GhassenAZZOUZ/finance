@@ -3,6 +3,7 @@
  * database constraints and RLS remain the real safeguards.
  */
 import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
+import { checkInRows } from "@/lib/domain/actual-lines";
 import { computePlan, toActualInput } from "@/lib/domain/plan";
 import { frozenFor, planRebase } from "@/lib/domain/rebase";
 import { type ActualForm, type Errors, parseMonth, validateActual } from "@/lib/domain/validation";
@@ -29,10 +30,12 @@ export async function saveActualAction(_prev: SaveActualState, formData: FormDat
     }
     const activeLoanIds = snapshot.loans.map((l) => l.id);
     const goalIds = snapshot.goals.map((g) => g.id);
+    // The month's rows come from the saved budget, never from the client (#72).
+    const month = parseMonth(text(formData, "month"));
+    const rows = month.ok ? checkInRows(snapshot.lines, snapshot.exceptions, snapshot.settings, month.value) : [];
     const form: ActualForm = {
       month: text(formData, "month"),
-      income: text(formData, "income"),
-      expenses: text(formData, "expenses"),
+      lines: rows.map((row) => ({ key: row.key, actual: text(formData, `line.${row.key}`) })),
       emergencySavings: text(formData, "emergencySavings"),
       freeSavings: text(formData, "freeSavings"),
       loanBalances: activeLoanIds.map((loanId) => ({ loanId, balance: text(formData, `loan.${loanId}`) })),
@@ -51,6 +54,7 @@ export async function saveActualAction(_prev: SaveActualState, formData: FormDat
       currentMonth: openUntil,
       activeLoanIds,
       goalIds,
+      rows,
     });
     if (!validated.ok) {
       return { status: "error", message: "Certains champs sont à corriger.", errors: validated.errors };

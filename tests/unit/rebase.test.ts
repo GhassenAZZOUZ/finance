@@ -11,7 +11,7 @@ const loan = (id: string, principal: number): Loan => ({
 });
 const actual = (month: string, balances: [string, number][], extra: Partial<MonthlyActual> = {}): MonthlyActual => ({
   id: month, month, income: null, expenses: null, emergencySavings: 40_000, freeSavings: 5_000,
-  loanBalances: balances.map(([loanId, balance]) => ({ loanId, balance })), goalBalances: [{ goalId: "goal-primary", balance: 30_000 }],
+  loanBalances: balances.map(([loanId, balance]) => ({ loanId, balance })), goalBalances: [{ goalId: "goal-primary", balance: 30_000 }], lines: [],
   frozen: null, ...extra,
 });
 const snapshot = (actuals: MonthlyActual[]): FinanceSnapshot => ({

@@ -17,6 +17,7 @@ const checkIn: MonthlyActual = {
   freeSavings: 5,
   loanBalances: [{ loanId: "loan-1", balance: 450000 }],
   goalBalances: [{ goalId: "goal-primary", balance: 10000 }],
+  lines: [],
   frozen: { plannedDebt: 1, plannedSavings: 2, plannedIncome: 3, plannedExpenses: 4, planStartMonth: "2026-01" },
 };
 
@@ -79,6 +80,7 @@ describe("buildBackup", () => {
         freeSavings: "0.05",
         loanBalances: [{ loanId: "loan-1", balance: "4500.00" }],
         goalBalances: [{ goalId: "goal-primary", balance: "100.00" }],
+        lines: [],
         frozen: { plannedDebt: "0.01", plannedSavings: "0.02", plannedIncome: "0.03", plannedExpenses: "0.04", planStartMonth: "2026-01" },
       },
     ]);
@@ -86,7 +88,7 @@ describe("buildBackup", () => {
 
   it("is valid JSON with empty arrays for a new user", () => {
     const parsed = JSON.parse(serializeBackup(buildBackup(makeSnapshot(), NOW)));
-    expect(parsed.data).toEqual({ settings: null, budgetLines: [], incomePayments: [], bankCsvMapping: null, bankRules: [], bankLineTotals: [], exceptions: [], loans: [], goals: [], checkIns: [] });
+    expect(parsed.data).toEqual({ settings: null, budgetLines: [], incomePayments: [], bankCsvMapping: null, bankRules: [], exceptions: [], loans: [], goals: [], checkIns: [] });
   });
 
   it("names the file after the local date", () => {

@@ -15,6 +15,7 @@ import {
   type SavingsGoalDraft,
 } from "./types";
 import { formatDate } from "@/lib/format";
+import { type ActualLine, type CheckInRow, rowTotals } from "./actual-lines";
 import { isIsoDate, paidOnBounds } from "./payday";
 
 /** Largest amount accepted by numeric(12,2). */
@@ -325,8 +326,8 @@ export function validateException(form: ExceptionForm): Validated<BudgetExceptio
 
 export interface ActualForm {
   month: string;
-  income: string;
-  expenses: string;
+  /** Actual amount of each row of the month (#72), by `CheckInRow.key`. */
+  lines?: { key: string; actual: string }[];
   emergencySavings: string;
   freeSavings: string;
   /** One entry per active loan. */
@@ -342,7 +343,8 @@ export function validateActual(
     currentMonth,
     activeLoanIds,
     goalIds = [],
-  }: { startMonth: YearMonth; currentMonth: YearMonth; activeLoanIds: string[]; goalIds?: string[] },
+    rows = [],
+  }: { startMonth: YearMonth; currentMonth: YearMonth; activeLoanIds: string[]; goalIds?: string[]; rows?: CheckInRow[] },
 ): Validated<MonthlyActualDraft> {
   const c = new Collector();
   const month = c.take("month", parseMonth(form.month));
@@ -359,10 +361,24 @@ export function validateActual(
     goalId,
     balance: c.take(`goal.${goalId}`, parseAmount(givenGoals.get(goalId))) as Cents,
   }));
+  // Every row is required (0 allowed); the month's income and expenses are their sums (#72).
+  const givenLines = new Map((form.lines ?? []).map((l) => [l.key, l.actual]));
+  const lines: ActualLine[] = rows.map((row) => ({
+    kind: row.kind,
+    direction: row.direction,
+    category: row.category,
+    budgetLineId: row.budgetLineId,
+    exceptionId: row.exceptionId,
+    label: row.label,
+    planned: row.planned,
+    actual: c.take(`line.${row.key}`, parseAmount(givenLines.get(row.key))) as Cents,
+  }));
+  const totals = rowTotals(lines);
   return c.result({
     month,
-    income: c.take("income", parseAmount(form.income, { required: false })),
-    expenses: c.take("expenses", parseAmount(form.expenses, { required: false })),
+    income: rows.length > 0 ? totals.income : null,
+    expenses: rows.length > 0 ? totals.expenses : null,
+    lines,
     emergencySavings: c.take("emergencySavings", parseAmount(form.emergencySavings)) as Cents,
     freeSavings: c.take("freeSavings", parseAmount(form.freeSavings)) as Cents,
     loanBalances,

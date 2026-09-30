@@ -22,7 +22,7 @@ const USER_TABLES = [
   "reminder_log",
   "income_payments",
   "bank_csv_rules",
-  "bank_line_totals",
+  "monthly_actual_lines",
 ] as const;
 
 type Row = { id: string } & Record<string, unknown>;
@@ -49,7 +49,19 @@ async function seed(user: TestUser): Promise<void> {
   await must(db.from("monthly_actual_goal_balances").insert({ monthly_actual_id: actual.id, goal_id: goal.id, balance: 50 }));
   const line = await must(db.from("budget_lines").select("id").eq("category", "income").limit(1).single());
   await must(db.from("income_payments").insert({ month: "2027-02", budget_line_id: line.id, paid_on: "2027-01-28" }));
-  await must(db.rpc("save_bank_import", { p_month: "2027-02", p_totals: [{ budget_line_id: line.id, actual: 2600 }], p_rules: [{ keyword: "SALAIRE", budget_line_id: line.id }] }));
+  await must(db.rpc("save_bank_rules", { p_rules: [{ keyword: "SALAIRE", budget_line_id: line.id }] }));
+  await must(
+    db.from("monthly_actual_lines").insert({
+      monthly_actual_id: actual.id,
+      kind: "line",
+      direction: "income",
+      category: "income",
+      budget_line_id: line.id,
+      label: "Salaire",
+      planned: 2800,
+      actual: 2600,
+    }),
+  );
   await must(adminClient().from("reminder_log").insert({ user_id: user.id, month: "2027-01" }));
 }
 

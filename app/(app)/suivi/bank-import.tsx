@@ -66,7 +66,8 @@ export function BankImport({
   savedMapping: CsvMapping | null;
   /** Keyword rules learnt from previous imports (SPEC D31). */
   rules?: BankRule[];
-  onApply: (totals: { income: Cents; expenses: Cents }) => void;
+  /** The month's actual total per budget line, to pre-fill the check-in rows (#72). */
+  onApply: (totals: { budgetLineId: string; actual: Cents }[]) => void;
 }) {
   const id = useId();
   const [stage, setStage] = useState<Stage>({ kind: "idle" });
@@ -115,21 +116,18 @@ export function BankImport({
   }
 
   async function confirm(current: Extract<Stage, { kind: "preview" }>) {
-    onApply(totalsOf(current.transactions, current.assignments, categoryOf));
+    // The totals per line pre-fill the check-in rows (#72), saved with the check-in; the
+    // assignments become rules (D31).
+    onApply(lineTotals(current.transactions, current.assignments, categoryOf));
     setStage({ kind: "idle" });
     try {
       const repo = getRepository();
       if (current.mapping) await repo.setBankCsvMapping(current.mapping);
-      // The month's totals per line replace any earlier import; the assignments become rules (D31).
-      await repo.saveBankImport(
-        month,
-        lineTotals(current.transactions, current.assignments, categoryOf),
-        learnRules(current.transactions, current.assignments),
-      );
+      await repo.saveBankRules(learnRules(current.transactions, current.assignments));
       notifyDataChanged();
     } catch (saveError) {
       reportError(saveError, "bankCsv.save");
-      setError("Les totaux ont été reportés, mais le détail par ligne et les règles n’ont pas été enregistrés.");
+      setError("Les montants ont été reportés, mais les règles d’affectation n’ont pas été enregistrées.");
     }
   }
 

@@ -55,6 +55,7 @@ describe("saveActual", () => {
     freeSavings: 1234,
     loanBalances: [],
     goalBalances: [],
+    lines: [],
     frozen: { plannedDebt: 480000, plannedSavings: 174355, plannedIncome: 290000, plannedExpenses: 172500, planStartMonth: "2027-01" },
   };
 
@@ -102,7 +103,7 @@ describe("saveActual", () => {
   });
 
   it("is not callable without a session", async () => {
-    const { error } = await anonClient().rpc("save_actual", { p_actual: {}, p_loan_balances: [], p_goal_balances: [] });
+    const { error } = await anonClient().rpc("save_actual", { p_actual: {}, p_loan_balances: [], p_goal_balances: [], p_lines: [] });
     expect(error?.code).toBe("42501");
   });
 });
@@ -131,6 +132,7 @@ describe("rebasePlan / freezeActuals", () => {
       { loanId: repaid, balance: 0 },
     ],
     goalBalances: [{ goalId: goal, balance: 7000 }],
+    lines: [],
     frozen: null,
   });
 

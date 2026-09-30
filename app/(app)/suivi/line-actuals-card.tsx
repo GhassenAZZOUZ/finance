@@ -4,30 +4,26 @@ import { TriangleAlert } from "lucide-react";
 import { useId, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { BudgetLine, BudgetSettings } from "@/lib/domain/types";
+import { isOffBudget } from "@/lib/domain/actual-lines";
+import type { MonthlyActual } from "@/lib/domain/types";
 import type { YearMonth } from "@/lib/engine";
 import { formatEuros, formatMonthLong } from "@/lib/format";
-import { type BankLineTotal, lineVsBudget } from "@/lib/import/bank-rules";
 
 /**
- * « Réel vs budget » per line of the months imported from the bank CSV (issue #63, SPEC D31). Lines
- * off budget are flagged in words and with an icon, not by colour alone.
+ * « Réel vs budget » per line of the check-ins entered line by line (#72, SPEC D31): each row as
+ * saved, with the budget of that month. Rows off budget are flagged in words and with an icon, not
+ * by colour alone.
  */
-export function LineActualsCard({
-  lines,
-  settings,
-  totals,
-}: {
-  lines: BudgetLine[];
-  settings: Pick<BudgetSettings, "startMonth" | "expenseInflationRate" | "incomeGrowthRate">;
-  totals: BankLineTotal[];
-}) {
+export function LineActualsCard({ actuals }: { actuals: MonthlyActual[] }) {
   const id = useId();
-  const months = [...new Set(totals.map((t) => t.month))].sort().reverse();
+  const detailed = actuals.filter((a) => a.lines.length > 0);
+  const months = detailed.map((a) => a.month).sort().reverse();
   const [month, setMonth] = useState<YearMonth | undefined>(months[0]);
   const shown = month && months.includes(month) ? month : months[0];
-  if (!shown) return null;
-  const rows = lineVsBudget(lines, settings, shown, totals);
+  const actual = detailed.find((a) => a.month === shown);
+  if (!shown || !actual) return null;
+  // Rows neither budgeted nor spent add nothing to read.
+  const rows = actual.lines.filter((l) => l.planned !== 0 || l.actual !== 0);
   return (
     <section aria-labelledby={`${id}-title`} className="flex min-w-0 flex-col gap-3 rounded-2xl border bg-card p-4 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -36,7 +32,7 @@ export function LineActualsCard({
         </h2>
         <div className="flex items-center gap-2">
           <Label htmlFor={`${id}-month`} className="text-sm">
-            Mois importé
+            Mois
           </Label>
           <select
             id={`${id}-month`}
@@ -68,27 +64,31 @@ export function LineActualsCard({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((r) => (
-            <TableRow key={r.line.id}>
-              <TableCell className="whitespace-normal">{r.line.label}</TableCell>
-              <TableCell className="text-right tabular-nums">{formatEuros(r.budget)}</TableCell>
-              <TableCell className="text-right tabular-nums">{formatEuros(r.actual)}</TableCell>
-              <TableCell className={`text-right tabular-nums ${r.off ? "font-semibold text-bad" : ""}`}>
-                {r.gap > 0 ? "+" : ""}
-                {formatEuros(r.gap)}
-                {r.off ? (
-                  <span className="ml-1.5 inline-flex items-center gap-1 text-xs">
-                    <TriangleAlert aria-hidden className="size-3.5" />
-                    {r.line.category === "income" ? "en dessous" : "dépassement"}
-                  </span>
-                ) : null}
-              </TableCell>
-            </TableRow>
-          ))}
+          {rows.map((r, i) => {
+            const gap = r.actual - r.planned;
+            const off = isOffBudget(r);
+            return (
+              <TableRow key={`${r.kind}-${r.budgetLineId ?? r.exceptionId ?? r.direction}-${i}`}>
+                <TableCell className="whitespace-normal">{r.label}</TableCell>
+                <TableCell className="text-right tabular-nums">{formatEuros(r.planned)}</TableCell>
+                <TableCell className="text-right tabular-nums">{formatEuros(r.actual)}</TableCell>
+                <TableCell className={`text-right tabular-nums ${off ? "font-semibold text-bad" : ""}`}>
+                  {gap > 0 ? "+" : ""}
+                  {formatEuros(gap)}
+                  {off ? (
+                    <span className="ml-1.5 inline-flex items-center gap-1 text-xs">
+                      <TriangleAlert aria-hidden className="size-3.5" />
+                      {r.direction === "income" ? "en dessous" : "dépassement"}
+                    </span>
+                  ) : null}
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
       <p className="text-[13px] text-muted-foreground">
-        Budget du mois (périodes et indexation comprises), hors mois exceptionnels. Un nouvel import du même mois remplace ces totaux.
+        Budget du mois tel qu’il était à la saisie (périodes, indexation et mois exceptionnels compris).
       </p>
     </section>
   );

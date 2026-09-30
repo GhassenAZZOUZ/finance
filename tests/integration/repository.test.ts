@@ -81,7 +81,7 @@ describe("SupabaseFinanceRepository", () => {
     expect((await repo.load()).incomePayments).toEqual([]);
   });
 
-  it("stores a bank import: a re-import replaces the month's totals, rules are upserted (SPEC D31)", async () => {
+  it("stores the rules learnt from a bank import, upserted by keyword (SPEC D31)", async () => {
     await repo.saveBudget(settings, [
       { category: "income", label: "Salaire banque", amount: 280000, position: 0, startMonth: null, endMonth: null },
       { category: "variable", label: "Courses banque", amount: 40000, position: 0, startMonth: null, endMonth: null },
@@ -89,13 +89,12 @@ describe("SupabaseFinanceRepository", () => {
     const { lines } = await repo.load();
     const salary = lines.find((l) => l.label === "Salaire banque")!;
     const food = lines.find((l) => l.label === "Courses banque")!;
-    await repo.saveBankImport("2027-02", [{ budgetLineId: salary.id, actual: 260_000 }, { budgetLineId: food.id, actual: 12_340 }], [
+    await repo.saveBankRules([
       { keyword: "CARREFOUR", budgetLineId: food.id },
       { keyword: "VIREMENT LIVRET", budgetLineId: null },
     ]);
-    await repo.saveBankImport("2027-02", [{ budgetLineId: food.id, actual: 9_999 }], [{ keyword: "CARREFOUR", budgetLineId: salary.id }]);
+    await repo.saveBankRules([{ keyword: "CARREFOUR", budgetLineId: salary.id }]);
     const snap = await repo.load();
-    expect(snap.bankLineTotals).toEqual([{ month: "2027-02", budgetLineId: food.id, actual: 9_999 }]);
     expect(snap.bankRules!.map((r) => [r.keyword, r.budgetLineId])).toEqual([
       ["CARREFOUR", salary.id],
       ["VIREMENT LIVRET", null],
@@ -163,6 +162,7 @@ describe("SupabaseFinanceRepository", () => {
         { loanId: b!.id, balance: 45000 },
       ],
       goalBalances: [],
+      lines: [],
       frozen: null,
     };
     await repo.saveActual(draft);
