@@ -25,11 +25,17 @@ const baseInput: PlanInput = {
 describe("parseRowCount", () => {
   it.each([
     [undefined, DEFAULT_ROW_COUNT],
+    ["1", 1],
+    ["3", 3],
+    ["6", 6],
+    ["12", 12],
     ["18", 18],
     ["60", 60],
     ["300", 300],
     [["300", "24"], 300],
     ["24", DEFAULT_ROW_COUNT],
+    ["7", DEFAULT_ROW_COUNT],
+    ["0", DEFAULT_ROW_COUNT],
     ["abc", DEFAULT_ROW_COUNT],
     ["1000", DEFAULT_ROW_COUNT],
   ])("%s → %d", (param, expected) => {
