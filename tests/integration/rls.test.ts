@@ -16,6 +16,8 @@ const TABLES = [
   "savings_goals",
   "monthly_actual_goal_balances",
   "income_payments",
+  "bank_csv_rules",
+  "bank_line_totals",
 ] as const;
 type Table = (typeof TABLES)[number];
 
@@ -31,6 +33,8 @@ const KEY: Record<Table, string> = {
   savings_goals: "id",
   monthly_actual_goal_balances: "id",
   income_payments: "budget_line_id",
+  bank_csv_rules: "id",
+  bank_line_totals: "budget_line_id",
 };
 
 /** A harmless column to try to overwrite. */
@@ -45,6 +49,8 @@ const PATCH: Record<Table, Record<string, unknown>> = {
   savings_goals: { target: 1 },
   monthly_actual_goal_balances: { balance: 1 },
   income_payments: { paid_on: "2027-01-02" },
+  bank_csv_rules: { keyword: "PIRATE" },
+  bank_line_totals: { actual: 1 },
 };
 
 let a: TestUser;
@@ -106,6 +112,8 @@ beforeAll(async () => {
   const payment = await must<{ budget_line_id: string }>(
     a.client.from("income_payments").insert({ month: "2027-02", budget_line_id: line.id, paid_on: "2027-01-28" }).select("budget_line_id").single(),
   );
+  const bankRule = await must(a.client.from("bank_csv_rules").insert({ keyword: "CARREFOUR", budget_line_id: line.id }).select("id").single());
+  await must(a.client.from("bank_line_totals").insert({ month: "2027-01", budget_line_id: line.id, actual: 12.5 }));
   aLoanId = loan.id;
   aActualId = actual.id;
   aGoalId = goal.id;
@@ -120,6 +128,8 @@ beforeAll(async () => {
     savings_goals: goal.id,
     monthly_actual_goal_balances: goalBalance.id,
     income_payments: payment.budget_line_id,
+    bank_csv_rules: bankRule.id,
+    bank_line_totals: line.id,
   });
 });
 
@@ -190,6 +200,8 @@ describe("forged writes", () => {
       savings_goals: { user_id: a.id, name: "forged", target: 1, deadline_month: "2028-01", priority: 3 },
       monthly_actual_goal_balances: { user_id: a.id, monthly_actual_id: aActualId, goal_id: aGoalId, balance: 1 },
       income_payments: { user_id: a.id, month: "2027-03", budget_line_id: aRow.budget_lines, paid_on: "2027-02-27" },
+      bank_csv_rules: { user_id: a.id, keyword: "FORGED", budget_line_id: aRow.budget_lines },
+      bank_line_totals: { user_id: a.id, month: "2027-05", budget_line_id: aRow.budget_lines, actual: 1 },
     };
     for (const table of TABLES) {
       const { error } = await b.client.from(table).insert(forged[table]);

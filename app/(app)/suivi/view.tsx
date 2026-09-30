@@ -15,6 +15,7 @@ import { ActualVsPlannedCard } from "./actual-vs-planned";
 import { CheckInForm } from "./check-in-form";
 import { History, HistoryList } from "./history";
 import { IncomePaymentsCard } from "./income-payments-card";
+import { LineActualsCard } from "./line-actuals-card";
 import {
   type PlannedValues,
   buildHistory,
@@ -118,6 +119,7 @@ export function SuiviView() {
                 earlyMonth={earlyMonth}
                 budgetLines={snapshot.lines}
                 bankCsvMapping={snapshot.bankCsvMapping ?? null}
+                bankRules={snapshot.bankRules ?? []}
                 planned={planned}
                 loans={loans}
                 goals={goals.map((g) => ({ id: g.id, label: g.name }))}
@@ -160,6 +162,10 @@ export function SuiviView() {
       </div>
 
       <ActualVsPlannedCard comparisons={plan.comparisons} />
+
+      {snapshot.bankLineTotals?.length ? (
+        <LineActualsCard lines={snapshot.lines} settings={snapshot.settings} totals={snapshot.bankLineTotals} />
+      ) : null}
 
       {history.length > 0 ? (
         <section aria-labelledby="suivi-detail-title" className="flex min-w-0 flex-col gap-4">

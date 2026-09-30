@@ -5,11 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BankImport } from "@/app/(app)/suivi/bank-import";
 import type { BudgetLine } from "@/lib/domain/types";
 import type { CsvMapping } from "@/lib/import/bank-csv";
+import type { BankRule } from "@/lib/import/bank-rules";
+import { LineActualsCard } from "@/app/(app)/suivi/line-actuals-card";
 import { formatEuros } from "@/lib/format";
 import { type RepositoryMock, createRepositoryMock } from "./helpers";
 
-const mocks = vi.hoisted(() => ({ repo: null as RepositoryMock | null }));
-vi.mock("@/lib/data/client-store", () => ({ getRepository: () => mocks.repo, notifyDataChanged: vi.fn() }));
+const mocks = vi.hoisted(() => ({ repo: null as RepositoryMock | null, notify: vi.fn() }));
+vi.mock("@/lib/data/client-store", () => ({ getRepository: () => mocks.repo, notifyDataChanged: mocks.notify }));
 
 const line = (id: string, category: BudgetLine["category"], label: string): BudgetLine => ({
   id,
@@ -34,9 +36,9 @@ const BANK_FR = ["Date opération;Libellé;Débit;Crédit", "01/09/2026;SALAIRE;
 
 const csv = (text: string, name = "releve.csv") => new File([text], name, { type: "text/csv" });
 
-function renderImport(savedMapping: CsvMapping | null = null) {
+function renderImport(savedMapping: CsvMapping | null = null, rules: BankRule[] = []) {
   const onApply = vi.fn();
-  render(<BankImport month="2026-09" lines={LINES} savedMapping={savedMapping} onApply={onApply} />);
+  render(<BankImport month="2026-09" lines={LINES} savedMapping={savedMapping} rules={rules} onApply={onApply} />);
   // applyAccept: false lets a test pick a file the picker would hide (the component still checks it).
   return { user: userEvent.setup({ applyAccept: false }), onApply };
 }
@@ -112,5 +114,52 @@ describe("BankImport", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("pas un PDF");
     await upload(user, csv("Date;Libellé;Montant\n"));
     expect((await screen.findByRole("alert")).textContent).toContain("Aucune opération dans ce fichier");
+  });
+});
+
+describe("rules and per-line totals (#63, SPEC D31)", () => {
+  it("AC-01 / AC-03 — proposes from a rule, then stores the month's totals and the learnt rules", async () => {
+    const { user } = renderImport(null, [{ id: "r1", keyword: "VERS LIVRET", budgetLineId: null }]);
+    await upload(user, csv(REVOLUT));
+    await screen.findByRole("heading", { name: "3 opérations en septembre 2026" });
+    expect(within(row("Vers Livret A")).getByText("proposé")).toBeTruthy();
+    expect((within(row("Vers Livret A")).getByRole("combobox") as HTMLSelectElement).value).toBe("");
+    await user.click(screen.getByRole("button", { name: "Reporter dans le suivi" }));
+    await waitFor(() => expect(mocks.repo!.saveBankImport).toHaveBeenCalledOnce());
+    const [month, totals, rules] = mocks.repo!.saveBankImport.mock.calls[0]!;
+    expect(month).toBe("2026-09");
+    expect(totals).toEqual([
+      { budgetLineId: "salary", actual: 260_000 },
+      { budgetLineId: "food", actual: 4_250 },
+    ]);
+    expect(rules).toContainEqual({ keyword: "VIREMENT SALAIRE", budgetLineId: "salary" });
+    expect(rules).toContainEqual({ keyword: "VERS LIVRET", budgetLineId: null });
+    expect(mocks.notify).toHaveBeenCalled();
+  });
+
+  it("AC-04 — lists the rules and deletes one", async () => {
+    const { user } = renderImport(null, [{ id: "r1", keyword: "CARREFOUR", budgetLineId: "food" }]);
+    await user.click(screen.getByText("Règles apprises (1)"));
+    expect(screen.getByText("« CARREFOUR » → Courses")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Supprimer la règle « CARREFOUR »" }));
+    expect(mocks.repo!.deleteBankRule).toHaveBeenCalledWith("r1");
+  });
+
+  it("AC-02 — shows « Réel vs budget » per line, flagging the lines off budget in words", () => {
+    render(
+      <LineActualsCard
+        lines={LINES}
+        settings={{ startMonth: "2026-01" }}
+        totals={[
+          { month: "2026-09", budgetLineId: "food", actual: 15_000 },
+          { month: "2026-09", budgetLineId: "salary", actual: 10_000 },
+        ]}
+      />,
+    );
+    const food = screen.getByText("Courses").closest("tr")!;
+    expect(food.textContent).toContain("dépassement");
+    expect(food.textContent).toContain(formatEuros(5_000));
+    expect(screen.getByText("Salaire").closest("tr")!.textContent).not.toContain("en dessous");
+    expect(screen.getByText("Loyer").closest("tr")!.textContent).toContain(formatEuros(-10_000));
   });
 });
