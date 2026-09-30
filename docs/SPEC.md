@@ -33,7 +33,7 @@ from our code.
 | Budget | Inputs (income, costs, parameters) | `/budget` |
 | Crédits | Up to 6 loans + derived columns | `/credits` |
 | Suivi réel | Monthly actuals vs plan | `/suivi` |
-| Plan | Month-by-month allocation, 300 months | `/plan` |
+| Plan | Month-by-month allocation, 300 months; shows the first 1, 3, 6, 12 or 18 months, 5 or 25 years (`?mois=`, 18 by default; issue #76) | `/plan` |
 | Calcul | Per-loan simulation (plan + baseline) | engine only |
 | Synthèse | KPIs + 2 charts + latest actuals status | `/` dashboard |
 

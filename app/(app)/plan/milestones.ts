@@ -6,6 +6,11 @@ import { HORIZON_MONTHS, type PlanInput, type PlanResult, type YearMonth, months
 
 /** Range control of the /plan page: `?mois=` value and label. */
 export const ROW_COUNTS = [
+  // The next months only (issue #76).
+  { count: 1, label: "1 mois" },
+  { count: 3, label: "3 mois" },
+  { count: 6, label: "6 mois" },
+  { count: 12, label: "12 mois" },
   { count: 18, label: "18 mois" },
   { count: 60, label: "5 ans" },
   { count: HORIZON_MONTHS, label: "25 ans" },
@@ -13,7 +18,7 @@ export const ROW_COUNTS = [
 
 export const DEFAULT_ROW_COUNT = 18;
 
-/** `?mois=18|60|300` picks the rows shown; anything else shows the first 18 months. */
+/** `?mois=1|3|6|12|18|60|300` picks the rows shown; anything else shows the first 18 months. */
 export function parseRowCount(param: string | string[] | null | undefined): number {
   const value = Array.isArray(param) ? param[0] : param;
   return ROW_COUNTS.find((r) => String(r.count) === value)?.count ?? DEFAULT_ROW_COUNT;

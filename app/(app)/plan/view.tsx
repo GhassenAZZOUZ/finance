@@ -2,7 +2,7 @@
 
 import { TriangleAlert } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useFinance } from "@/components/app/finance-provider";
 import { Onboarding } from "@/components/app/onboarding";
 import { PageHeader } from "@/components/app/page-header";
@@ -89,10 +89,36 @@ export function PlanView() {
   );
 }
 
-/** 18 mois / 5 ans / 25 ans, kept in the URL (`?mois=`). */
+/**
+ * 1 mois … 25 ans, kept in the URL (`?mois=`). Seven choices do not fit a phone's width: a select
+ * there, the segmented links from `sm` (issue #76).
+ */
 function RangeControl({ rowCount }: { rowCount: number }) {
+  const router = useRouter();
   return (
-    <nav aria-label="Période affichée" className="inline-flex overflow-hidden rounded-[10px] border border-input bg-card">
+    <>
+      <label className="flex items-center gap-2 text-sm font-medium sm:hidden">
+        Période affichée
+        <select
+          value={rowCount}
+          onChange={(e) => router.replace(`/plan?mois=${e.target.value}`, { scroll: false })}
+          className="min-h-11 rounded-[10px] border border-input bg-card px-3 text-sm"
+        >
+          {ROW_COUNTS.map((r) => (
+            <option key={r.count} value={r.count}>
+              {r.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <RangeLinks rowCount={rowCount} />
+    </>
+  );
+}
+
+function RangeLinks({ rowCount }: { rowCount: number }) {
+  return (
+    <nav aria-label="Période affichée" className="hidden overflow-hidden rounded-[10px] border border-input bg-card sm:inline-flex">
       {ROW_COUNTS.map((r) => {
         const active = r.count === rowCount;
         return (
@@ -145,7 +171,7 @@ function Overview({
           </span>
         ) : null}
       </div>
-      <div role="img" aria-label={`${summary}. Les ${rowCount} premiers mois sont affichés ci-dessous.`} className="relative flex h-8.5 gap-0.5">
+      <div role="img" aria-label={`${summary}. ${rowCount === 1 ? "Le premier mois est affiché" : `Les ${rowCount} premiers mois sont affichés`} ci-dessous.`} className="relative flex h-8.5 gap-0.5">
         {phases.map((p, i) => {
           const width = (length(p) / total) * 100;
           const free = months[p.startIndex - 1]?.toFreeSavings ?? 0;
