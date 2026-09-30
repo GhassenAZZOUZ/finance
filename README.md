@@ -167,7 +167,8 @@ to `main`:
 
 - The owner's real workbook `docs/plan_financier.xlsx` is git-ignored and must **never** be
   committed or quoted. Everything in the repo (template, fixtures, seed, docs) uses invented values.
-- No IBANs, account numbers or bank credentials are stored: only balances and amounts.
+- No IBANs, account numbers or bank credentials are stored: only balances and amounts. The bank CSV import
+  (SPEC D30) reads the file in the browser; only its column mapping is saved, never a transaction.
 - Every table has RLS; each user only sees their own rows.
 - Export and import happen in the browser: no file is uploaded anywhere.
 - « Mes données » › « Supprimer mon compte » deletes the account and every row of the user at once

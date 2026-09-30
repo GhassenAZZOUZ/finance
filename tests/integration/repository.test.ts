@@ -81,6 +81,25 @@ describe("SupabaseFinanceRepository", () => {
     expect((await repo.load()).incomePayments).toEqual([]);
   });
 
+  it("saves and forgets the bank CSV mapping (SPEC D30)", async () => {
+    expect((await repo.load()).bankCsvMapping).toBeNull();
+    const mapping = {
+      header: ["Date", "Libellé", "Montant"],
+      separator: ";" as const,
+      date: 0,
+      label: 1,
+      amount: 2,
+      debit: null,
+      credit: null,
+      decimal: "," as const,
+      dateFormat: "dmy" as const,
+    };
+    await repo.setBankCsvMapping(mapping);
+    expect((await repo.load()).bankCsvMapping).toEqual(mapping);
+    await repo.setBankCsvMapping(null);
+    expect((await repo.load()).bankCsvMapping).toBeNull();
+  });
+
   it("adds, lists (by month) and deletes one-off exceptions", async () => {
     const late = await repo.addException({ month: "2027-08", kind: "expense", label: " Vacances ", amount: 90000 });
     const early = await repo.addException({ month: "2027-03", kind: "income", label: "Prime", amount: 100050 });
