@@ -27,6 +27,11 @@ export interface CheckInFormProps {
   statuses?: Record<YearMonth, ActualStatus | null>;
   /** Month still running ("en cours"); defaults to the newest month. */
   currentMonth?: YearMonth;
+  /**
+   * Next month, opened before its 1st because its first income is paid (SPEC D29): its loans are
+   * not entered but taken from the plan (read-only, `values` already hold them).
+   */
+  earlyMonth?: YearMonth | null;
   planned: Record<YearMonth, PlannedValues | null>;
   /** Active loans, same order as `ActualForm.loanBalances` and `PlannedValues.loanBalances`. */
   loans: { id: string; label: string }[];
@@ -60,6 +65,7 @@ export function CheckInForm({
   existing,
   statuses = {},
   currentMonth,
+  earlyMonth = null,
   planned,
   loans,
   goals = [],
@@ -76,6 +82,7 @@ export function CheckInForm({
   const plan = planned[month] ?? null;
   const alreadyEntered = existing.includes(month);
   const running = currentMonth ?? months[0];
+  const early = month === earlyMonth;
   const check = provisionalCheck(form, plan);
 
   // Months to enter first (oldest first), then the ones already entered (newest first).
@@ -134,7 +141,13 @@ export function CheckInForm({
               >
                 <span className="font-semibold first-letter:uppercase">{formatMonthLong(m)}</span>
                 <span className={cn("text-[13px]", entered && status ? STATUS_TONE[status].text : "text-muted-foreground")}>
-                  {entered ? `saisi${status ? ` · ${STATUS_LABEL[status].toLowerCase()}` : ""}` : m === running ? "en cours" : "à saisir"}
+                  {entered
+                    ? `saisi${status ? ` · ${STATUS_LABEL[status].toLowerCase()}` : ""}`
+                    : m === earlyMonth
+                      ? "ouvert en avance"
+                      : m === running
+                        ? "en cours"
+                        : "à saisir"}
                 </span>
               </button>
             );
@@ -189,8 +202,27 @@ export function CheckInForm({
           <legend className="mb-1 text-[15px] font-semibold">
             Capital restant dû <span className="font-normal text-muted-foreground">· relevés de crédit</span>
           </legend>
+          {early ? (
+            <p className="mb-2 flex items-start gap-2 text-sm text-muted-foreground">
+              <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
+              Mois ouvert en avance : l’échéance de {formatMonthLong(month)} est considérée comme payée d’ici la fin du mois. Les soldes
+              sont repris du plan, rien à saisir.
+            </p>
+          ) : null}
           <ColumnHeads />
-          {loans.map((loan, j) => (
+          {early
+            ? loans.map((loan, j) => (
+                <div key={loan.id} className={cn("flex items-center justify-between gap-3 border-t border-divider py-2.5 text-sm", ROW_GRID)}>
+                  <span className="font-medium">{loan.label}</span>
+                  <span className="text-right tabular-nums text-muted-foreground sm:col-span-2">
+                    {plan ? formatEuros(plan.loanBalances[j] ?? 0) : "—"}
+                    <span className="sr-only"> : solde après l’échéance de {formatMonthLong(month)}, repris du plan</span>
+                  </span>
+                  <span aria-hidden className="hidden sm:block" />
+                </div>
+              ))
+            : null}
+          {early ? null : loans.map((loan, j) => (
             <AmountRow
               key={loan.id}
               id={`suivi-loan-${loan.id}`}

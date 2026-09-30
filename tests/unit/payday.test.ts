@@ -1,7 +1,16 @@
-/** Income paydays (issue #60, SPEC D29): usual payday per income line, per-month exceptions. */
+/** Income paydays (issues #60, #61, SPEC D29): usual payday, per-month exceptions, early opening of Suivi. */
 import { describe, expect, it } from "vitest";
 import { initialFormState, parsePayload, toPayload } from "@/app/(app)/budget/budget-form-state";
-import { daysInMonth, effectivePayDate, expectedPayDate, incomeLinesFor, isIsoDate, paidOnBounds } from "@/lib/domain/payday";
+import {
+  daysInMonth,
+  effectivePayDate,
+  expectedPayDate,
+  incomeLinesFor,
+  isIsoDate,
+  lastOpenMonth,
+  openingOf,
+  paidOnBounds,
+} from "@/lib/domain/payday";
 import type { BudgetLine, IncomePayment } from "@/lib/domain/types";
 import { type BudgetForm, parsePaidOn, parsePaydayDay, validateBudget } from "@/lib/domain/validation";
 import { currentDate, formatDate } from "@/lib/format";
@@ -138,5 +147,47 @@ describe("the budget form carries the payday of income lines", () => {
     expect(parsed?.form.lines[0]).toMatchObject({ paydayDay: "27", paydayPreviousMonth: true });
     // A default payday is left out of the payload (the saved value stays 1 of the same month).
     expect(toPayload(initialFormState(null, [salary()], "2026-09")).form.lines[0]).not.toHaveProperty("paydayDay");
+  });
+});
+
+describe("#61 — the next month opens once its first income is paid", () => {
+  const a = salary({ id: "a", label: "Salaire A", paydayDay: 27, paydayPreviousMonth: true });
+  const b = salary({ id: "b", label: "Salaire B" });
+  const both1 = [salary({ id: "a", label: "Salaire A" }), b];
+
+  it("AC-01 — opens on the earliest payday of its income lines", () => {
+    expect(openingOf([a, b], "2026-10", [])).toMatchObject({ date: "2026-09-27", line: { id: "a" } });
+    expect(lastOpenMonth("2026-09", "2026-09-28", [a, b], [])).toBe("2026-10");
+  });
+
+  it("AC-02 — stays closed while no income is paid, opens with an early exception", () => {
+    expect(lastOpenMonth("2026-09", "2026-09-28", both1, [])).toBe("2026-09");
+    const early: IncomePayment[] = [{ month: "2026-10", budgetLineId: "b", paidOn: "2026-09-28" }];
+    expect(lastOpenMonth("2026-09", "2026-09-28", both1, early)).toBe("2026-10");
+  });
+
+  it("AC-04 — never opens further than the next month", () => {
+    const previous1 = [salary({ paydayDay: 1, paydayPreviousMonth: true })];
+    // November's income is expected on 01/10, but only October can open early on 28/09.
+    expect(lastOpenMonth("2026-09", "2026-09-28", previous1, [])).toBe("2026-10");
+  });
+
+  it("opens on the payday itself, not the day before", () => {
+    expect(lastOpenMonth("2026-09", "2026-09-27", [a], [])).toBe("2026-10");
+    expect(lastOpenMonth("2026-09", "2026-09-26", [a], [])).toBe("2026-09");
+  });
+
+  it("crosses the year boundary", () => {
+    const december = [salary({ paydayDay: 29, paydayPreviousMonth: true })];
+    expect(lastOpenMonth("2026-12", "2026-12-29", december, [])).toBe("2027-01");
+  });
+
+  it("without income lines, keeps the current month", () => {
+    expect(openingOf([], "2026-10", [])).toBeNull();
+    expect(lastOpenMonth("2026-09", "2026-09-30", [], [])).toBe("2026-09");
+  });
+
+  it("moves to the next income when the earliest line is deleted", () => {
+    expect(openingOf([b], "2026-10", [])).toMatchObject({ date: "2026-10-01", line: { id: "b" } });
   });
 });

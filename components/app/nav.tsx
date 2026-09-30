@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { pendingCheckIns, pendingMonthsText } from "@/app/(app)/suivi/logic";
 import type { YearMonth } from "@/lib/engine";
-import { currentYearMonth, formatMonthLong } from "@/lib/format";
+import { currentDate, currentYearMonth, formatMonthLong } from "@/lib/format";
+import { lastOpenMonth } from "@/lib/domain/payday";
 import { cn } from "@/lib/utils";
 import { useOptionalFinance } from "./finance-provider";
 import { SignOutButton } from "./sign-out-button";
@@ -41,9 +42,11 @@ export function usePendingCheckIns(): YearMonth[] {
   const finance = useOptionalFinance();
   const settings = finance?.snapshot.settings;
   if (!finance || !settings) return [];
+  // The next month counts once its first income is paid (SPEC D29).
+  const { lines, incomePayments } = finance.snapshot;
   return pendingCheckIns(
     settings.startMonth,
-    currentYearMonth(),
+    lastOpenMonth(currentYearMonth(), currentDate(), lines, incomePayments),
     finance.snapshot.actuals.map((a) => a.month),
   );
 }

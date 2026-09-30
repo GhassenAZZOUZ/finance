@@ -8,7 +8,9 @@ import { frozenFor, planRebase } from "@/lib/domain/rebase";
 import { type ActualForm, type Errors, parseMonth, validateActual } from "@/lib/domain/validation";
 import { type ActualStatus, type YearMonth, compareActual } from "@/lib/engine";
 import { errorMessage, reportError } from "@/lib/errors";
-import { currentYearMonth } from "@/lib/format";
+import { lastOpenMonth } from "@/lib/domain/payday";
+import { currentDate, currentYearMonth } from "@/lib/format";
+import { earlyLoanBalances } from "./logic";
 
 export type SaveActualState =
   | { status: "idle" }
@@ -36,9 +38,17 @@ export async function saveActualAction(_prev: SaveActualState, formData: FormDat
       loanBalances: activeLoanIds.map((loanId) => ({ loanId, balance: text(formData, `loan.${loanId}`) })),
       goalBalances: goalIds.map((goalId) => ({ goalId, balance: text(formData, `goal.${goalId}`) })),
     };
+    // The next month opens once its first income is paid (SPEC D29); recomputed here, never trusted.
+    const currentMonth = currentYearMonth();
+    const openUntil = lastOpenMonth(currentMonth, currentDate(), snapshot.lines, snapshot.incomePayments);
+    const plan = computePlan(snapshot);
+    // An early month's loans are not entered: the plan's balances after that month's payment.
+    if (plan && form.month === openUntil && openUntil !== currentMonth) {
+      form.loanBalances = earlyLoanBalances(plan.result, snapshot.settings.startMonth, form.month, activeLoanIds);
+    }
     const validated = validateActual(form, {
       startMonth: snapshot.settings.startMonth,
-      currentMonth: currentYearMonth(),
+      currentMonth: openUntil,
       activeLoanIds,
       goalIds,
     });
@@ -47,7 +57,6 @@ export async function saveActualAction(_prev: SaveActualState, formData: FormDat
     }
 
     // Freeze what the plan expects for that month (SPEC D16), keeping values already frozen.
-    const plan = computePlan(snapshot);
     const existing = snapshot.actuals.find((a) => a.month === validated.value.month);
     const draft = { ...validated.value, frozen: plan ? frozenFor(validated.value.month, plan, existing) : null };
     await repo.saveActual(draft);
