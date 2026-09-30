@@ -1,3 +1,4 @@
+import type { CsvMapping } from "@/lib/import/bank-csv";
 import type {
   BudgetException,
   BudgetExceptionDraft,
@@ -58,6 +59,8 @@ export interface FinanceRepository {
   orderGoals(ids: string[]): Promise<void>;
   /** Turns the monthly e-mail reminder on or off (SPEC D25). */
   setReminder(enabled: boolean): Promise<void>;
+  /** Saves (or forgets, with null) the column mapping of the user's bank CSV (SPEC D30). */
+  setBankCsvMapping(mapping: CsvMapping | null): Promise<void>;
   /** Records (or clears, with null) the actual date an income line was paid for a month (SPEC D29). */
   setIncomePayment(month: string, budgetLineId: string, paidOn: string | null): Promise<void>;
   /** Deletes the signed-in user's account and every row of theirs, for good (SPEC D26). */

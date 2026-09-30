@@ -116,6 +116,8 @@ export function SuiviView() {
                 statuses={statuses}
                 currentMonth={calendarMonth}
                 earlyMonth={earlyMonth}
+                budgetLines={snapshot.lines}
+                bankCsvMapping={snapshot.bankCsvMapping ?? null}
                 planned={planned}
                 loans={loans}
                 goals={goals.map((g) => ({ id: g.id, label: g.name }))}

@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type ActualForm, parseAmount } from "@/lib/domain/validation";
 import type { ActualStatus, Cents, YearMonth } from "@/lib/engine";
-import { formatEuros, formatMonthLong } from "@/lib/format";
+import type { BudgetLine } from "@/lib/domain/types";
+import type { CsvMapping } from "@/lib/import/bank-csv";
+import { amountInputValue, formatEuros, formatMonthLong } from "@/lib/format";
 import { STATUS_LABEL } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { type SaveActualState, saveActualAction } from "./actions";
+import { BankImport } from "./bank-import";
 import { type PlannedValues, isDebtGapGood, isSavingsGapGood, provisionalCheck } from "./logic";
 
 export interface CheckInFormProps {
@@ -32,6 +35,9 @@ export interface CheckInFormProps {
    * not entered but taken from the plan (read-only, `values` already hold them).
    */
   earlyMonth?: YearMonth | null;
+  /** Budget lines and saved CSV mapping, for the bank statement import (SPEC D30); no import without lines. */
+  budgetLines?: BudgetLine[];
+  bankCsvMapping?: CsvMapping | null;
   planned: Record<YearMonth, PlannedValues | null>;
   /** Active loans, same order as `ActualForm.loanBalances` and `PlannedValues.loanBalances`. */
   loans: { id: string; label: string }[];
@@ -66,6 +72,8 @@ export function CheckInForm({
   statuses = {},
   currentMonth,
   earlyMonth = null,
+  budgetLines = [],
+  bankCsvMapping = null,
   planned,
   loans,
   goals = [],
@@ -268,6 +276,17 @@ export function CheckInForm({
             rule="info"
             error={errors.expenses}
           />
+          {budgetLines.length > 0 ? (
+            <BankImport
+              key={month}
+              month={month}
+              lines={budgetLines}
+              savedMapping={bankCsvMapping}
+              onApply={({ income, expenses }) =>
+                setForm((f) => ({ ...f, income: amountInputValue(income), expenses: amountInputValue(expenses) }))
+              }
+            />
+          ) : null}
         </div>
       </details>
 

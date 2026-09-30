@@ -1,3 +1,4 @@
+import type { CsvMapping } from "@/lib/import/bank-csv";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { centsToEuros, eurosToCents } from "@/lib/engine";
 import type {
@@ -256,7 +257,10 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         .order("created_at")
         .returns<ExceptionRow[]>(),
       this.db.from("savings_goals").select(GOAL_COLUMNS).order("priority").returns<GoalRow[]>(),
-      this.db.from("profiles").select("reminder_enabled").maybeSingle<{ reminder_enabled: boolean }>(),
+      this.db
+        .from("profiles")
+        .select("reminder_enabled, bank_csv_mapping")
+        .maybeSingle<{ reminder_enabled: boolean; bank_csv_mapping: CsvMapping | null }>(),
       this.db
         .from("income_payments")
         .select("month, budget_line_id, paid_on")
@@ -298,6 +302,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       loans: allLoans.filter((l) => l.archivedAt === null),
       archivedLoans: allLoans.filter((l) => l.archivedAt !== null),
       reminderEnabled: checkMaybe(profile)?.reminder_enabled ?? true,
+      bankCsvMapping: checkMaybe(profile)?.bank_csv_mapping ?? null,
       incomePayments: check(incomePayments).map((p) => ({ month: p.month, budgetLineId: p.budget_line_id, paidOn: p.paid_on })),
       goals: check(goals).map(toGoal),
       actuals: check(actuals).map(
@@ -460,6 +465,13 @@ export class SupabaseFinanceRepository implements FinanceRepository {
 
   async setReminder(enabled: boolean): Promise<void> {
     const updated = check(await this.db.from("profiles").update({ reminder_enabled: enabled }).not("user_id", "is", null).select("user_id"));
+    if (updated.length === 0) throw new RepositoryError("Profil introuvable", "not_found");
+  }
+
+  async setBankCsvMapping(mapping: CsvMapping | null): Promise<void> {
+    const updated = check(
+      await this.db.from("profiles").update({ bank_csv_mapping: mapping }).not("user_id", "is", null).select("user_id"),
+    );
     if (updated.length === 0) throw new RepositoryError("Profil introuvable", "not_found");
   }
 
