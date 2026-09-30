@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { type CheckInRow, checkInRows } from "@/lib/domain/actual-lines";
 import { type PotBalances, balancesByMonth, monthsNotEntered, plannedDeposits, startingBalances } from "@/lib/domain/deposits";
 import { lastOpenMonth, openingOf } from "@/lib/domain/payday";
+import { verdictOf } from "@/lib/domain/verdict";
 import { planRebase } from "@/lib/domain/rebase";
 import type { ActualForm } from "@/lib/domain/validation";
 import { type ActualStatus, addMonths, compareMonths } from "@/lib/engine";
@@ -136,6 +137,7 @@ export function SuiviView() {
                 values={values}
                 existing={entered}
                 statuses={statuses}
+                verdicts={Object.fromEntries(snapshot.actuals.map((a) => [a.month, verdictOf(a)?.kind ?? null]))}
                 currentMonth={calendarMonth}
                 earlyMonth={earlyMonth}
                 budgetLines={snapshot.lines}
