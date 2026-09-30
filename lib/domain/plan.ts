@@ -20,6 +20,7 @@ import {
   sumCents,
 } from "@/lib/engine";
 import { currentYearMonth } from "@/lib/format";
+import { withComputedBalances } from "./deposits";
 import type {
   BudgetCategory,
   BudgetException,
@@ -189,6 +190,8 @@ export interface ComputedPlan {
   result: PlanResult;
   /** Check-ins compared with the plan, oldest first. */
   comparisons: ActualComparison[];
+  /** The check-ins with their balances computed from the deposits (SPEC D33), oldest first. */
+  actuals: MonthlyActual[];
 }
 
 /** Null until the budget parameters exist (first-login onboarding). */
@@ -197,6 +200,16 @@ export function computePlan(snapshot: FinanceSnapshot, currentMonth: YearMonth =
   const kpiMonth = referenceMonth(snapshot.settings.startMonth, currentMonth);
   const input = buildPlanInput(snapshot.settings, snapshot.lines, snapshot.loans, snapshot.exceptions, kpiMonth, snapshot.goals);
   const result = simulatePlan(input);
-  const comparisons = snapshot.actuals.map((a) => compareActual(toActualInput(a), result, input.budget));
-  return { input, referenceMonth: kpiMonth, result, comparisons };
+  const actuals = withComputedBalances(result, snapshot.settings, snapshot.goals, snapshot.actuals);
+  const comparisons = actuals.map((a) => compareActual(toActualInput(a), result, input.budget));
+  return { input, referenceMonth: kpiMonth, result, comparisons, actuals };
+}
+
+/**
+ * The snapshot with its check-ins' balances computed from the deposits (SPEC D33), and its plan:
+ * what every page and action reads.
+ */
+export function withPlan(snapshot: FinanceSnapshot, currentMonth?: YearMonth): { snapshot: FinanceSnapshot; plan: ComputedPlan | null } {
+  const plan = computePlan(snapshot, currentMonth);
+  return { snapshot: plan ? { ...snapshot, actuals: plan.actuals } : snapshot, plan };
 }

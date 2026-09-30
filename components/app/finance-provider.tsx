@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { getRepository, onDataChanged } from "@/lib/data/client-store";
-import { type ComputedPlan, computePlan } from "@/lib/domain/plan";
+import { type ComputedPlan, withPlan } from "@/lib/domain/plan";
 import type { FinanceSnapshot } from "@/lib/domain/types";
 import { errorMessage, reportError } from "@/lib/errors";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -32,8 +32,9 @@ async function fetchFinance(): Promise<State | "signed-out"> {
   const { data } = await supabaseBrowser().auth.getSession();
   if (!data.session) return "signed-out";
   try {
-    const snapshot = await getRepository().load();
-    return { status: "ready", email: data.session.user.email ?? null, snapshot, plan: computePlan(snapshot) };
+    // Check-in balances are computed from the deposits (SPEC D33) before any page reads them.
+    const { snapshot, plan } = withPlan(await getRepository().load());
+    return { status: "ready", email: data.session.user.email ?? null, snapshot, plan };
   } catch (error) {
     reportError(error, "finance.load");
     return { status: "error", message: errorMessage(error, "Impossible de charger vos données. Vérifiez votre connexion.") };

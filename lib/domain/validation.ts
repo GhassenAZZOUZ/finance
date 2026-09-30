@@ -17,6 +17,7 @@ import {
 import { formatDate } from "@/lib/format";
 import { type ActualLine, type CheckInRow, rowTotals } from "./actual-lines";
 import { isIsoDate, paidOnBounds } from "./payday";
+import type { PotBalances, SavingsDeposit } from "./deposits";
 
 /** Largest amount accepted by numeric(12,2). */
 const MAX_CENTS = 9_999_999_999_99;
@@ -40,6 +41,15 @@ export function parseAmount(raw: string | null | undefined, { required = true } 
 }
 
 /** A percentage typed by the user ("4,9" → 0.049). Between 0 and 100, up to 4 decimals. */
+/** A deposit (SPEC D33): an amount, negative for a withdrawal (« -200 », « −200 »); required. */
+export function parseDeposit(raw: string | null | undefined): Parsed<Cents> {
+  const text = (raw ?? "").trim().replace(/^[−–]/, "-");
+  const negative = text.startsWith("-");
+  const parsed = parseAmount(negative ? text.slice(1) : text);
+  if (!parsed.ok) return parsed;
+  return { ok: true, value: negative ? -(parsed.value as Cents) : (parsed.value as Cents) };
+}
+
 export function parsePercent(raw: string | null | undefined): Parsed<number> {
   const text = (raw ?? "").replace(/[\s  %]/g, "").replace(",", ".");
   if (text === "") return { ok: false, error: "Taux requis" };
@@ -344,7 +354,19 @@ export function validateActual(
     activeLoanIds,
     goalIds = [],
     rows = [],
-  }: { startMonth: YearMonth; currentMonth: YearMonth; activeLoanIds: string[]; goalIds?: string[]; rows?: CheckInRow[] },
+    deposits,
+  }: {
+    startMonth: YearMonth;
+    currentMonth: YearMonth;
+    activeLoanIds: string[];
+    goalIds?: string[];
+    rows?: CheckInRow[];
+    /**
+     * Deposits mode (SPEC D33): the savings fields are the month's deposits (negative = withdrawal),
+     * with the plan's deposit of each pot and the goals' names. Without it, typed balances (before #73).
+     */
+    deposits?: { planned: PotBalances; goalNames: Record<string, string> };
+  },
 ): Validated<MonthlyActualDraft> {
   const c = new Collector();
   const month = c.take("month", parseMonth(form.month));
@@ -357,10 +379,40 @@ export function validateActual(
     balance: c.take(`loan.${loanId}`, parseAmount(given.get(loanId))) as Cents,
   }));
   const givenGoals = new Map((form.goalBalances ?? []).map((b) => [b.goalId, b.balance]));
+  if (deposits) {
+    const savings: SavingsDeposit[] = [
+      ...goalIds.map((goalId) => ({
+        pot: "goal" as const,
+        goalId,
+        goalName: deposits.goalNames[goalId] ?? "Objectif",
+        planned: deposits.planned.goals[goalId] ?? 0,
+        amount: c.take(`goal.${goalId}`, parseDeposit(givenGoals.get(goalId))),
+      })),
+      { pot: "emergency", goalId: null, goalName: null, planned: deposits.planned.emergency, amount: c.take("emergencySavings", parseDeposit(form.emergencySavings)) },
+      { pot: "free", goalId: null, goalName: null, planned: deposits.planned.free, amount: c.take("freeSavings", parseDeposit(form.freeSavings)) },
+    ];
+    return finishActual(c, month, form, rows, loanBalances, { deposits: savings, emergencySavings: 0, freeSavings: 0, goalBalances: [] });
+  }
   const goalBalances = goalIds.map((goalId) => ({
     goalId,
     balance: c.take(`goal.${goalId}`, parseAmount(givenGoals.get(goalId))) as Cents,
   }));
+  return finishActual(c, month, form, rows, loanBalances, {
+    emergencySavings: c.take("emergencySavings", parseAmount(form.emergencySavings)) as Cents,
+    freeSavings: c.take("freeSavings", parseAmount(form.freeSavings)) as Cents,
+    goalBalances,
+  });
+}
+
+/** The rows (#72), their totals and the savings part: the rest of a check-in draft. */
+function finishActual(
+  c: Collector,
+  month: YearMonth,
+  form: ActualForm,
+  rows: CheckInRow[],
+  loanBalances: MonthlyActualDraft["loanBalances"],
+  savings: Pick<MonthlyActualDraft, "deposits" | "emergencySavings" | "freeSavings" | "goalBalances">,
+): Validated<MonthlyActualDraft> {
   // Every row is required (0 allowed); the month's income and expenses are their sums (#72).
   const givenLines = new Map((form.lines ?? []).map((l) => [l.key, l.actual]));
   const lines: ActualLine[] = rows.map((row) => ({
@@ -379,10 +431,8 @@ export function validateActual(
     income: rows.length > 0 ? totals.income : null,
     expenses: rows.length > 0 ? totals.expenses : null,
     lines,
-    emergencySavings: c.take("emergencySavings", parseAmount(form.emergencySavings)) as Cents,
-    freeSavings: c.take("freeSavings", parseAmount(form.freeSavings)) as Cents,
+    ...savings,
     loanBalances,
-    goalBalances,
     frozen: null,
   });
 }

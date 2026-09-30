@@ -7,6 +7,7 @@ import { Onboarding } from "@/components/app/onboarding";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { type CheckInRow, checkInRows } from "@/lib/domain/actual-lines";
+import { type PotBalances, balancesByMonth, monthsNotEntered, plannedDeposits, startingBalances } from "@/lib/domain/deposits";
 import { lastOpenMonth, openingOf } from "@/lib/domain/payday";
 import { planRebase } from "@/lib/domain/rebase";
 import type { ActualForm } from "@/lib/domain/validation";
@@ -21,6 +22,7 @@ import {
   type PlannedValues,
   buildHistory,
   checkInMonths,
+  depositValues,
   earlyLoanBalances,
   parseMonthParam,
   pendingCheckIns,
@@ -67,10 +69,26 @@ export function SuiviView() {
   const rows: Record<string, CheckInRow[]> = {};
   // Savings goals (SPEC D23): one field each, in priority order.
   const goals = snapshot.goals;
+  // Savings are entered as deposits; the balances are computed (SPEC D33).
+  const balances = months[0] ? balancesByMonth(plan.result, snapshot.settings, goals, snapshot.actuals, months[0]) : new Map();
+  const start = startingBalances(snapshot.settings, goals);
+  const total = (b: PotBalances) => goals.reduce((s, g) => s + (b.goals[g.id] ?? 0), 0) + b.emergency + b.free;
   for (const month of months) {
     rows[month] = checkInRows(snapshot.lines, snapshot.exceptions, snapshot.settings, month);
-    values[month] = prefillForm(month, actualsByMonth.get(month), snapshot.loans, goals, rows[month]);
-    planned[month] = plannedForMonth(plan.result, startMonth, month, goals);
+    const actual = actualsByMonth.get(month);
+    const before = balances.get(addMonths(month, -1)) ?? start;
+    const deposits = plannedDeposits(plan.result, snapshot.settings, goals, month);
+    values[month] = {
+      ...prefillForm(month, actual, snapshot.loans, goals, rows[month]),
+      ...depositValues(actual, goals, before, balances.get(month)),
+    };
+    const monthPlan = plannedForMonth(plan.result, startMonth, month, goals);
+    planned[month] = monthPlan && {
+      ...monthPlan,
+      deposits: { goals: goals.map((g) => deposits.goals[g.id] ?? 0), emergency: deposits.emergency, free: deposits.free },
+      savingsBefore: total(before),
+      notEntered: monthsNotEntered(snapshot.settings, snapshot.actuals, month),
+    };
   }
   // An early month's loans are not entered: the plan's balances after its payment (SPEC D29).
   if (earlyMonth && values[earlyMonth]) {

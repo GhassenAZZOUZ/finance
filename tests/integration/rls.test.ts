@@ -18,6 +18,7 @@ const TABLES = [
   "income_payments",
   "bank_csv_rules",
   "monthly_actual_lines",
+  "monthly_actual_deposits",
 ] as const;
 type Table = (typeof TABLES)[number];
 
@@ -35,6 +36,7 @@ const KEY: Record<Table, string> = {
   income_payments: "budget_line_id",
   bank_csv_rules: "id",
   monthly_actual_lines: "id",
+  monthly_actual_deposits: "id",
 };
 
 /** A harmless column to try to overwrite. */
@@ -51,6 +53,7 @@ const PATCH: Record<Table, Record<string, unknown>> = {
   income_payments: { paid_on: "2027-01-02" },
   bank_csv_rules: { keyword: "PIRATE" },
   monthly_actual_lines: { actual: 1 },
+  monthly_actual_deposits: { amount: 1 },
 };
 
 let a: TestUser;
@@ -113,6 +116,13 @@ beforeAll(async () => {
     a.client.from("income_payments").insert({ month: "2027-02", budget_line_id: line.id, paid_on: "2027-01-28" }).select("budget_line_id").single(),
   );
   const bankRule = await must(a.client.from("bank_csv_rules").insert({ keyword: "CARREFOUR", budget_line_id: line.id }).select("id").single());
+  const deposit = await must(
+    a.client
+      .from("monthly_actual_deposits")
+      .insert({ monthly_actual_id: actual.id, pot: "goal", goal_id: goal.id, goal_name: "Voiture", planned: 300, amount: 250 })
+      .select("id")
+      .single(),
+  );
   const actualLine = await must(
     a.client
       .from("monthly_actual_lines")
@@ -145,6 +155,7 @@ beforeAll(async () => {
     income_payments: payment.budget_line_id,
     bank_csv_rules: bankRule.id,
     monthly_actual_lines: actualLine.id,
+    monthly_actual_deposits: deposit.id,
   });
 });
 
@@ -216,6 +227,7 @@ describe("forged writes", () => {
       monthly_actual_goal_balances: { user_id: a.id, monthly_actual_id: aActualId, goal_id: aGoalId, balance: 1 },
       income_payments: { user_id: a.id, month: "2027-03", budget_line_id: aRow.budget_lines, paid_on: "2027-02-27" },
       bank_csv_rules: { user_id: a.id, keyword: "FORGED", budget_line_id: aRow.budget_lines },
+      monthly_actual_deposits: { user_id: a.id, monthly_actual_id: aActualId, pot: "free", planned: 0, amount: 1 },
       monthly_actual_lines: {
         user_id: a.id,
         monthly_actual_id: aActualId,
