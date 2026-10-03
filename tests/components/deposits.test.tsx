@@ -31,7 +31,7 @@ const SNAPSHOT: FinanceSnapshot = makeSnapshot({
 const MONTH = "2027-01";
 const ROWS = checkInRows(SNAPSHOT.lines, SNAPSHOT.exceptions, SNAPSHOT.settings!, MONTH);
 
-function renderForm() {
+function renderForm(savingsInterest = 0) {
   const plan = computePlan(SNAPSHOT, MONTH)!;
   const deposits = plannedDeposits(plan.result, SNAPSHOT.settings!, SNAPSHOT.goals, MONTH);
   const start = startingBalances(SNAPSHOT.settings!, SNAPSHOT.goals);
@@ -46,6 +46,7 @@ function renderForm() {
           ...plannedForMonth(plan.result, "2027-01", MONTH, SNAPSHOT.goals)!,
           deposits: { goals: [deposits.goals.voyage!], emergency: deposits.emergency, free: deposits.free },
           savingsBefore: start.goals.voyage! + start.emergency + start.free,
+          savingsInterest,
           notEntered: [],
         },
       }}
@@ -80,6 +81,19 @@ describe("Épargne versée ce mois", () => {
     expect((field("Fonds d’urgence") as HTMLInputElement).value).toBe("0,00");
     // 1 000 + 500 + 100 € before, + 300 € deposited: as planned.
     expect(screen.getByText(/Épargne totale en fin de mois/).textContent).toContain(formatEuros(190_000));
+  });
+
+  it("#82 AC-05 — a crediting month adds the estimated interest to the total and says so", async () => {
+    const user = renderForm(3_456);
+    await user.click(screen.getByRole("button", { name: "Tout comme prévu : épargne" }));
+    const total = plain(screen.getByText(/Épargne totale en fin de mois/).textContent);
+    expect(total).toContain(plain(formatEuros(193_456)));
+    expect(total).toContain(plain(`dont ${formatEuros(3_456)} d’intérêts estimés`));
+  });
+
+  it("no interest that month: no mention", () => {
+    renderForm();
+    expect(screen.queryByText(/intérêts estimés/)).toBeNull();
   });
 
   it("AC-03 — shows a negative amount as a withdrawal", async () => {
