@@ -7,7 +7,7 @@ import { DeleteAccountCard } from "./delete-account-card";
 import { ExportCard } from "./export-card";
 import { ReminderCard } from "./reminder-card";
 
-export const metadata: Metadata = { title: "Mes données · Cap" };
+export const metadata: Metadata = { title: "Mes données · Boussole" };
 
 /** Static shell; the export reads the user's data in the browser. */
 export default function Page() {

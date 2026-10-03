@@ -1,4 +1,4 @@
-# Cap
+# Boussole
 
 Private, French-language personal-finance web app that reproduces the owner's spreadsheet
 (`plan_financier`) and goes further:

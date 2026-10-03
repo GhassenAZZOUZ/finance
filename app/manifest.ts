@@ -10,8 +10,8 @@ export const dynamic = "force-static";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: `${BASE_PATH}/`,
-    name: "Cap",
-    short_name: "Cap",
+    name: "Boussole",
+    short_name: "Boussole",
     description: "Budget, crédits, épargne et suivi mensuel",
     lang: "fr",
     start_url: `${BASE_PATH}/`,

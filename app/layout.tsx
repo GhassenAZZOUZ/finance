@@ -18,10 +18,10 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Cap",
+  title: "Boussole",
   description: "Budget, crédits, épargne et suivi mensuel",
   // iOS "Sur l'écran d'accueil": full screen, with this name (issue #6). Icon: app/apple-icon.png.
-  appleWebApp: { capable: true, title: "Cap", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Boussole", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

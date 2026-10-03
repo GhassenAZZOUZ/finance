@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ConfirmLogin } from "./confirm-login";
 
-export const metadata: Metadata = { title: "Connexion · Cap" };
+export const metadata: Metadata = { title: "Connexion · Boussole" };
 
 export default function ConfirmPage() {
   return (

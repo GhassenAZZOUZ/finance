@@ -10,7 +10,7 @@ export interface TourStep {
 export const TOUR_STEPS: readonly TourStep[] = [
   {
     target: null,
-    title: "Bienvenue dans Cap",
+    title: "Bienvenue dans Boussole",
     body: "Ce court guide vous présente les rubriques de l’application. Une minute suffit, et vous pourrez le revoir à tout moment.",
   },
   {
