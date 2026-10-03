@@ -102,7 +102,7 @@ export function Sidebar() {
     <aside className="sticky top-0 hidden h-dvh w-62 shrink-0 flex-col gap-8 overflow-y-auto border-r border-sidebar-border bg-sidebar px-4.5 py-7 text-sidebar-foreground md:flex">
       <div className="flex items-center gap-2.5 px-2">
         <BrandMark />
-        <span className="font-heading text-xl leading-tight font-semibold text-foreground">Plan financier</span>
+        <span className="font-heading text-xl leading-tight font-semibold text-foreground">Cap</span>
       </div>
 
       <nav aria-label="Navigation principale">
@@ -221,7 +221,7 @@ export function MobileHeader() {
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:hidden">
       <Link href="/" className={cn("flex items-center gap-2 rounded-md", FOCUS_RING)}>
         <BrandMark className="size-6.5" />
-        <span className="font-heading text-lg font-semibold">Plan financier</span>
+        <span className="font-heading text-lg font-semibold">Cap</span>
       </Link>
       <div className="relative">
         <button

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Unsubscribe } from "./unsubscribe";
 
-export const metadata: Metadata = { title: "Rappel mensuel · Plan financier" };
+export const metadata: Metadata = { title: "Rappel mensuel · Cap" };
 
 /** Public page (no login): the unsubscribe link of the monthly reminder e-mail. */
 export default function ReminderPage() {

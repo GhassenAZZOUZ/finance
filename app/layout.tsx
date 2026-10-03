@@ -18,10 +18,10 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Plan financier",
+  title: "Cap",
   description: "Budget, crédits, épargne et suivi mensuel",
   // iOS "Sur l'écran d'accueil": full screen, with this name (issue #6). Icon: app/apple-icon.png.
-  appleWebApp: { capable: true, title: "Plan financier", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Cap", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

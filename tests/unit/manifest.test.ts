@@ -13,7 +13,7 @@ async function load(basePath: string) {
 describe("manifest", { timeout: 20_000 }, () => {
   it("opens standalone at the app root, with 192/512 and maskable icons", async () => {
     const m = await load("");
-    expect(m).toMatchObject({ name: "Plan financier", display: "standalone", start_url: "/", scope: "/" });
+    expect(m).toMatchObject({ name: "Cap", display: "standalone", start_url: "/", scope: "/" });
     expect(m.icons?.map((i) => [i.sizes, i.purpose])).toEqual([
       ["192x192", "any"],
       ["512x512", "any"],
