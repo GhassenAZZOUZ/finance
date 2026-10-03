@@ -88,6 +88,7 @@ export function SuiviView() {
       ...monthPlan,
       deposits: { goals: goals.map((g) => deposits.goals[g.id] ?? 0), emergency: deposits.emergency, free: deposits.free },
       savingsBefore: total(before),
+      savingsInterest: balances.get(month)?.interest ?? 0,
       notEntered: monthsNotEntered(snapshot.settings, snapshot.actuals, month),
     };
   }

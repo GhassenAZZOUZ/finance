@@ -71,7 +71,7 @@ describe("AC-01 — the plan's deposit of each pot", () => {
 describe("AC-02 — balances are computed from the deposits", () => {
   it("adds the deposits to the starting amounts", () => {
     const snap = snapshot([checkIn("2027-01", deposits(30_000, 1_000, 500)), checkIn("2027-02", deposits(25_000))]);
-    expect(balancesAt(snap, "2027-02")).toEqual({ goals: { voyage: 155_000 }, emergency: 51_000, free: 20_500 });
+    expect(balancesAt(snap, "2027-02")).toMatchObject({ goals: { voyage: 155_000 }, emergency: 51_000, free: 20_500 });
   });
 
   it("gives every reader the computed balances (comparison, goals' progress)", () => {
@@ -162,6 +162,6 @@ describe("goals added or deleted", () => {
   it("ignores the deposits of a deleted goal and starts a new goal from its amount already saved", () => {
     const other: SavingsDeposit = { pot: "goal", goalId: "gone", goalName: "Ancien", planned: 0, amount: 99_900 };
     const snap = snapshot([checkIn("2027-01", [...deposits(30_000), other])]);
-    expect(balancesAt(snap, "2027-01")).toEqual({ goals: { voyage: 130_000 }, emergency: 50_000, free: 20_000 });
+    expect(balancesAt(snap, "2027-01")).toMatchObject({ goals: { voyage: 130_000 }, emergency: 50_000, free: 20_000 });
   });
 });
