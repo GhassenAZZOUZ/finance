@@ -98,4 +98,17 @@ describe("LoginForm", () => {
     expect(await screen.findByLabelText("Code de connexion")).toBeTruthy();
     expect(mocks.signInWithOtp).toHaveBeenCalledTimes(2);
   });
+  it("AC-09 — the code field is labelled, numeric, autofilled from the e-mail and links its error", async () => {
+    const user = await requestCode();
+    const field = await screen.findByLabelText("Code de connexion");
+    expect(field.getAttribute("inputmode")).toBe("numeric");
+    expect(field.getAttribute("autocomplete")).toBe("one-time-code");
+    expect(document.activeElement).toBe(field);
+    // 44 px tap target for the submit button.
+    expect(screen.getByRole("button", { name: "Se connecter" }).className).toContain("min-h-11");
+    await user.type(field, "12");
+    await user.click(screen.getByRole("button", { name: "Se connecter" }));
+    const error = await screen.findByRole("alert");
+    expect(field.getAttribute("aria-describedby")).toBe(error.id);
+  });
 });

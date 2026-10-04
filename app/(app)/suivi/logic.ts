@@ -155,6 +155,8 @@ export interface PlannedValues {
    */
   deposits?: { goals: Cents[]; emergency: Cents; free: Cents };
   savingsBefore?: Cents;
+  /** Interest the computed balances get credited that month (December, D28; issue #82), all pots. */
+  savingsInterest?: Cents;
   notEntered?: YearMonth[];
 }
 
@@ -233,7 +235,8 @@ export function provisionalCheck(form: ActualForm, planned: PlannedValues | null
   const missing = [...savings, ...loans].filter((v) => v === null).length;
   const total = (values: (Cents | null)[]) => (values.every((v) => v !== null) ? sumCents(values as Cents[]) : null);
   const deposited = total(savings);
-  const actualSavings = deposited === null ? null : deposited + (depositsMode ? (planned?.savingsBefore ?? 0) : 0);
+  const actualSavings =
+    deposited === null ? null : deposited + (depositsMode ? (planned?.savingsBefore ?? 0) + (planned?.savingsInterest ?? 0) : 0);
   const actualDebt = total(loans);
   const debtGap = planned && actualDebt !== null ? actualDebt - sumCents(planned.loanBalances) : null;
   const savingsGap =

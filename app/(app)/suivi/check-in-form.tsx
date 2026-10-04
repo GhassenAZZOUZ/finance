@@ -580,7 +580,8 @@ function DepositsSection({
         );
       })}
       <p className="mt-2 text-sm tabular-nums">
-        Épargne totale en fin de mois : <strong>{formatEuros((plan.savingsBefore ?? 0) + deposited)}</strong>{" "}
+        Épargne totale en fin de mois : <strong>{formatEuros((plan.savingsBefore ?? 0) + deposited + (plan.savingsInterest ?? 0))}</strong>
+        {plan.savingsInterest ? <span> dont {formatEuros(plan.savingsInterest)} d’intérêts estimés</span> : null}{" "}
         <span className="text-muted-foreground">
           (prévu {formatEuros(plan.goalBalances.reduce((s, v) => s + v, 0) + plan.emergencySavings + plan.freeSavings)})
         </span>

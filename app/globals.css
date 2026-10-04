@@ -151,6 +151,11 @@
   --bucket-fixed: #a69d8b;
   --bucket-payments-strong: #6b665c;
   --hatch-moving: #ebcb8e;
+  /* « Dettes par crédit » bands (#88), in repayment order; validated for colour-blind separation. */
+  --loan-1: #b04a32;
+  --loan-2: #5f59b0;
+  --loan-3: #d0901c;
+  --loan-4: #1f8a64;
 
   --row-highlight: #fbfaf6;
   --faint: #b5ad9d;
@@ -228,6 +233,11 @@
   --bucket-fixed: #7d7566;
   --bucket-payments-strong: #b8b1a3;
   --hatch-moving: #6b5220;
+  /* « Dettes par crédit » bands (#88), in repayment order; validated for colour-blind separation. */
+  --loan-1: #cc6650;
+  --loan-2: #7e77dc;
+  --loan-3: #b98618;
+  --loan-4: #2c946a;
 
   --row-highlight: #26241f;
   --faint: #6f685c;

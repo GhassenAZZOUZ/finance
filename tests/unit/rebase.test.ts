@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { primaryGoal } from "../components/helpers";
 import { computePlan } from "@/lib/domain/plan";
 import { frozenFor, planRebase } from "@/lib/domain/rebase";
+import { latestActual } from "@/lib/engine";
 import type { FinanceSnapshot, Loan, MonthlyActual } from "@/lib/domain/types";
 
 const loan = (id: string, principal: number): Loan => ({
@@ -55,5 +56,15 @@ describe("planRebase", () => {
     expect(planRebase(snapshot([]), computePlan(snapshot([]), "2027-01")!)).toBeNull();
     const early = snapshot([actual("2026-11", [])]);
     expect(planRebase(early, computePlan(early, "2027-01")!)).toBeNull();
+  });
+});
+
+describe("#61 AC-08 — an early check-in for next month", () => {
+  it("is the latest actual on the dashboard, and the re-base starts the month after it", () => {
+    // Today is in March; April's check-in was saved early (its first income was paid in March).
+    const snap = snapshot([actual("2027-02", [["car", 480_000], ["debt", 10_000]]), actual("2027-04", [["car", 460_000], ["debt", 0]])]);
+    const plan = computePlan(snap, "2027-03")!;
+    expect(latestActual(plan.comparisons)?.month).toBe("2027-04");
+    expect(planRebase(snap, plan)).toMatchObject({ fromMonth: "2027-04", newStartMonth: "2027-05" });
   });
 });

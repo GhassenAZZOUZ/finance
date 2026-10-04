@@ -1,4 +1,6 @@
 /** Theme resolution (issue #11): system default, manual override, corrupt or blocked storage. */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   THEME_INIT_SCRIPT,
@@ -87,5 +89,55 @@ describe("THEME_INIT_SCRIPT", () => {
     expect(run("light", true)).toBe(false);
     expect(run("blue", true)).toBe(true);
     expect(run(null, true, true)).toBe(true);
+  });
+});
+
+describe("AC-05 — contrast ≥ 4.5:1 in both themes", () => {
+  const css = readFileSync(join(process.cwd(), "app/globals.css"), "utf8");
+  const tokens = (selector: string) => {
+    const start = css.indexOf(`${selector} {`);
+    const body = css.slice(start, css.indexOf("\n}", start));
+    return Object.fromEntries([...body.matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{6})/g)].map((m) => [m[1]!, m[2]!]));
+  };
+  const luminance = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+  };
+  const contrast = (a: string, b: string) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi! + 0.05) / (lo! + 0.05);
+  };
+  // Text colours on the surfaces they are used on.
+  const PAIRS = [
+    ["foreground", "background"],
+    ["foreground", "card"],
+    ["muted-foreground", "card"],
+    ["muted-foreground", "background"],
+    ["primary-foreground", "primary"],
+    ["bucket-moving-ink", "bucket-moving-tint"],
+    ["bucket-moving-ink", "card"],
+    ["bucket-emergency-ink", "bucket-emergency-tint"],
+    ["bucket-emergency-ink", "card"],
+    ["bucket-debts-ink", "bucket-debts-tint"],
+    ["bucket-debts-ink", "card"],
+    ["bucket-remainder-ink", "card"],
+    ["good", "good-bg"],
+    ["warning", "warning-bg"],
+    ["bad", "bad-bg"],
+    ["good", "card"],
+    ["bad", "card"],
+  ] as const;
+  const light = tokens(":root");
+  const dark = { ...light, ...tokens(".dark") };
+
+  it.each([
+    ["light", light],
+    ["dark", dark],
+  ])("%s theme", (_, theme) => {
+    for (const [text, surface] of PAIRS) {
+      expect(theme[text], text).toBeDefined();
+      expect(theme[surface], surface).toBeDefined();
+      expect(contrast(theme[text]!, theme[surface]!), `${text} on ${surface}`).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });
