@@ -6,23 +6,20 @@ import { useFinance } from "@/components/app/finance-provider";
 import { checkInHref, usePendingCheckIns } from "@/components/app/nav";
 import { Onboarding } from "@/components/app/onboarding";
 import { PageHeader } from "@/components/app/page-header";
-import { PLAN_GROUP } from "@/components/app/tones";
 import { Button } from "@/components/ui/button";
 import type { ComputedPlan } from "@/lib/domain/plan";
 import { HORIZON_MONTHS, type YearMonth, monthsBetween } from "@/lib/engine";
-import { currentYearMonth, formatMonthLong, formatMonthShort } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { currentYearMonth, formatMonthLong } from "@/lib/format";
 import {
   checkInStrip,
   dashboardHeadline,
-  debtSavingsSeries,
-  debtSavingsSummary,
   goalsName,
   primaryGoalName,
   movingShortfallOptions,
 } from "./_dashboard/logic";
-import { PlanLineChart } from "./_dashboard/plan-line-chart";
-import { CARD } from "./_dashboard/styles";
+import { PlanCharts } from "./_dashboard/plan-charts";
+import { IncomeUses } from "./_dashboard/income-uses";
+import { CheckInCharts } from "./_dashboard/check-in-charts";
 import { NegativeBudgetNotice, MovingAlert } from "./_dashboard/notices";
 import { MarginTile, DebtTile, SavingsTile } from "./_dashboard/tiles";
 import { Roadmap } from "./_dashboard/roadmap";
@@ -94,21 +91,7 @@ function Dashboard({ plan, pending }: { plan: ComputedPlan; pending: YearMonth[]
       <Roadmap plan={plan} refIndex={refIndex} />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
-        <section aria-labelledby="chart-title" className={cn(CARD, "flex min-w-0 flex-col gap-4")}>
-          <h2 id="chart-title" className="text-base font-semibold md:text-[17px]">
-            Dettes et épargne libre, 24 mois
-          </h2>
-          <PlanLineChart
-            data={debtSavingsSeries(months)}
-            summary={debtSavingsSummary(months)}
-            tableCaption="Dette restante et épargne libre cumulée, par mois"
-            todayLabel={refIndex <= 24 ? formatMonthShort(plan.referenceMonth) : undefined}
-            series={[
-              { key: "debt", name: "Dettes", color: PLAN_GROUP.debts.stroke },
-              { key: "freeSavings", name: "Épargne libre", color: PLAN_GROUP.remainder.stroke, dashed: true },
-            ]}
-          />
-        </section>
+        <PlanCharts plan={plan} refIndex={refIndex} />
         <Goals plan={plan} current={ref} in12={months[refIndex - 1 + 12]} />
       </div>
 
@@ -120,6 +103,10 @@ function Dashboard({ plan, pending }: { plan: ComputedPlan; pending: YearMonth[]
         />
         <RepaymentOrder plan={plan} />
       </div>
+
+      <IncomeUses plan={plan} refIndex={refIndex} />
+
+      <CheckInCharts plan={plan} firstCheckInHref={oldestPending ? checkInHref(oldestPending) : "/suivi"} />
     </>
   );
 }
