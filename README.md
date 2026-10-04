@@ -160,6 +160,9 @@ to `main`:
 | `checks` | lint, typecheck, unit and component tests | — |
 | `integration` | local Supabase in the runner, `supabase db lint`, integration tests | `checks` |
 | `e2e` | its own local Supabase, static build, Playwright journeys | `checks` |
+| `migrations-preview` | pull requests with a migration: dry-run against the hosted Supabase, destructive statements flagged | — |
+| `migrate-plan` | `main` only: pending migrations listed and scanned | `checks`, `integration`, `e2e` |
+| `migrate-approval` | `main` only, destructive migration: waits for the owner (environment `hosted-db-destructive`) | `migrate-plan` |
 | `migrate` | `main` only: pending migrations to the hosted Supabase | all of the above |
 | `deploy` | `main` only: static build published to GitHub Pages | all of the above |
 
@@ -186,6 +189,8 @@ How it deploys, on every push to `main` once the checks, integration and E2E tes
    missing from the remote history are applied, never the seed. A failed migration stops the
    deployment. **Migrations reach the hosted database only this way**: do not apply them by hand
    (a different version number in the remote history would make the next push re-run them).
+   A destructive migration (`DROP`, `RENAME`, `TRUNCATE`…) first waits for the owner’s approval;
+   pull requests show a dry-run. Details and the rollback runbook: [docs/MIGRATIONS.md](docs/MIGRATIONS.md).
 2. The `deploy` job runs `npm run build:pages` (`next build` +
    [scripts/prepare-pages.mjs](scripts/prepare-pages.mjs): `.nojekyll` and flattened
    segment-prefetch files) with the base path `/<repository name>`, then publishes `out/`.
@@ -198,8 +203,9 @@ One-time setup (already done for this repository):
 3. GitHub → Settings → Secrets and variables → Actions → **Variables**:
    `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public values, not secrets),
    optionally `NEXT_PUBLIC_SENTRY_DSN` (Sentry project → Client Keys);
-   **Secret**: `SUPABASE_ACCESS_TOKEN` (Supabase account → Access tokens), used only by the `migrate`
-   job. No database password is needed: the CLI logs in with a temporary role created through the token.
+   **Secret**: `SUPABASE_ACCESS_TOKEN` (Supabase account → Access tokens), used by the migration jobs
+   (the PR dry-run only reads). No database password is needed: the CLI logs in with a temporary role created through the token.
+4. GitHub → Settings → Environments → `hosted-db-destructive`: required reviewer = the owner.
 
 Preview the static build locally, as the E2E job does (no base path): `npm run build:pages`, then
 `node scripts/serve-static.mjs out 3000`. To check the Pages base path, build with
