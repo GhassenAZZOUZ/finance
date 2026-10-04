@@ -75,14 +75,14 @@ function GapsCard({ plan, firstCheckInHref }: { plan: ComputedPlan; firstCheckIn
             {
               key: "incomeGap",
               name: "Revenus (plein)",
-              color: TONE_FILL.good,
+              color: "var(--muted-foreground)",
               type: "bar",
               fillFor: (row: Row) => TONE_FILL[gapTone("incomeGap", row.incomeGap as number | null) ?? "good"],
             },
             {
               key: "expensesGap",
               name: "Dépenses (contour)",
-              color: TONE_FILL.good,
+              color: "var(--muted-foreground)",
               type: "bar",
               outline: true,
               fillFor: (row: Row) => TONE_FILL[gapTone("expensesGap", row.expensesGap as number | null) ?? "good"],

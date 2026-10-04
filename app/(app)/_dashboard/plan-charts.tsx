@@ -66,13 +66,13 @@ export function PlanCharts({ plan, refIndex }: { plan: ComputedPlan; refIndex: n
     const series: ChartSeries[] = [];
     if (target > 0) {
       series.push(
-        { key: "moving", name: goals, color: PLAN_GROUP.moving.stroke, marker: "circle" },
+        { key: "moving", name: goals, color: PLAN_GROUP.moving.stroke },
         { key: "movingGoal", name: `Objectif ${goals}`, color: PLAN_GROUP.moving.stroke, dashed: true },
       );
     }
     if (budget.emergencyTarget > 0) {
       series.push(
-        { key: "emergency", name: "Fonds d’urgence", color: PLAN_GROUP.emergency.stroke, marker: "square" },
+        { key: "emergency", name: "Fonds d’urgence", color: PLAN_GROUP.emergency.stroke },
         { key: "emergencyTarget", name: "Objectif fonds d’urgence", color: PLAN_GROUP.emergency.stroke, dashed: true },
       );
     }
@@ -197,7 +197,7 @@ function ChartTabs({ tabs }: { tabs: Tab[] }) {
       <h2 id={`${base}-title`} className="text-base font-semibold md:text-[17px]">
         Évolution du plan, {PLAN_CHART_MONTHS} mois
       </h2>
-      <div role="tablist" aria-label="Graphiques du plan" onKeyDown={onKeyDown} className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+      <div role="tablist" aria-label="Graphiques du plan" onKeyDown={onKeyDown} className="flex flex-wrap gap-1.5">
         {tabs.map((tab) => {
           const isActive = tab.id === active.id;
           return (
