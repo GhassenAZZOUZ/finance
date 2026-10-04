@@ -215,6 +215,27 @@ describe("BudgetForm", () => {
     expect(screen.getByText("hors de la période du plan : sans effet")).toBeTruthy();
   });
 
+  it("#99 — warns live when two same-name lines overlap, and not once their periods follow each other", async () => {
+    const user = renderForm();
+    await user.click(screen.getByRole("button", { name: "Ajouter une charge" }));
+    await user.type(screen.getByLabelText("Libellé (Charge 2)"), "loyer");
+    const warnings = () => screen.queryAllByText(/lignes « (L|l)oyer » actives/);
+    expect(warnings().map((w) => w.textContent)).toEqual([
+      "Attention : 2 lignes « Loyer » actives chaque mois",
+      "Attention : 2 lignes « loyer » actives chaque mois",
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Période (Loyer)" }));
+    fireEvent.change(periodInput("Loyer", "Fin (incluse)"), { target: { value: "2027-06" } });
+    expect(warnings().map((w) => w.textContent)).toEqual([
+      "Attention : 2 lignes « Loyer » actives jusqu’à juin 2027",
+      "Attention : 2 lignes « loyer » actives jusqu’à juin 2027",
+    ]);
+    await user.click(screen.getByRole("button", { name: "Période (loyer)" }));
+    fireEvent.change(periodInput("loyer", "Début (inclus)"), { target: { value: "2027-07" } });
+    expect(warnings()).toEqual([]);
+  });
+
   it("shows an end before the start on the line and does not save", async () => {
     const user = renderForm();
     await user.click(screen.getByRole("button", { name: "Période (Loyer)" }));
