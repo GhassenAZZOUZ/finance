@@ -51,7 +51,7 @@ function renderJune(snapshot: FinanceSnapshot, early: boolean) {
       goals={snapshot.goals.map((g) => ({ id: g.id, label: g.name }))}
     />,
   );
-  return { user: userEvent.setup(), plan };
+  return { user: userEvent.setup({ delay: null }), plan };
 }
 
 const field = (label: string) => screen.getByLabelText((text) => text === label || text === `${label}*`);

@@ -23,7 +23,7 @@ function renderSidebar() {
       <Sidebar />
     </TourProvider>,
   );
-  return userEvent.setup();
+  return userEvent.setup({ delay: null });
 }
 const accountButton = () => screen.getByRole("button", { name: /Compte/ });
 

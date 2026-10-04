@@ -60,7 +60,7 @@ const SNAPSHOT = makeSnapshot({
 function renderCard() {
   const preview = planRebase(SNAPSHOT, computePlan(SNAPSHOT)!);
   const view = render(<RebaseCard preview={preview} startMonth="2026-01" loanLabels={LABELS} />);
-  return { user: userEvent.setup(), container: view.container };
+  return { user: userEvent.setup({ delay: null }), container: view.container };
 }
 
 /** Text with the non-breaking spaces of the French number format normalised. */
@@ -151,7 +151,7 @@ describe("RebaseCard", () => {
     // The page stays mounted and recomputes the preview, which becomes null once re-based.
     const preview = planRebase(SNAPSHOT, computePlan(SNAPSHOT)!);
     const view = render(<RebaseCard preview={preview} startMonth="2026-01" loanLabels={LABELS} />);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await user.click(screen.getByRole("button", { name: "Recaler le plan…" }));
     await user.click(screen.getByRole("button", { name: "Confirmer le recalage" }));
     await screen.findByRole("status");
