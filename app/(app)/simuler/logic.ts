@@ -25,7 +25,9 @@ import {
   centsToEuros,
   compareMonths,
   monthsBetween,
+  penaltyFor,
   simulatePlan,
+  worthRepaying,
 } from "@/lib/engine";
 import { amountInputValue, formatEuros, formatEurosWhole, formatMonthLong, formatMonthShort, formatPercent, percentInputValue } from "@/lib/format";
 import { formatSignedEuros, goalsName } from "../_dashboard/logic";
@@ -328,6 +330,33 @@ export function compareScenarios(current: PlanKpis, simulated: PlanKpis): Compar
 }
 
 /** First month whose cumulative free savings are negative (an extra taken from savings too early). */
+export interface ExtraPenalty {
+  /** IRA paid on top of the extra repayment (#97, SPEC D22). */
+  penalty: Cents;
+  /** The penalty costs more than the interest the repaid money would still cost (D22). */
+  notWorthIt: boolean;
+}
+
+/**
+ * IRA of each valid extra repayment of the scenario, by row key (issue #97): the loan's penalty
+ * rule on the amount, and whether it is worth paying, judged on the balance that month.
+ */
+export function extraPenalties(base: SimulationBase, scenario: Scenario, simulated: PlanResult): Record<string, ExtraPenalty> {
+  const loans = scenarioInput(base, scenario).loans;
+  const out: Record<string, ExtraPenalty> = {};
+  for (const extra of scenario.extras) {
+    const index = loans.findIndex((l) => l.id === extra.loanId);
+    const loan = loans[index];
+    if (!loan) continue;
+    const penalty = penaltyFor(loan, extra.amount);
+    if (penalty <= 0) continue;
+    const month = simulated.months.find((m) => m.month === extra.month);
+    const balance = month?.loans[index]?.balanceAfterPayment ?? 0;
+    out[extra.key] = { penalty, notWorthIt: !worthRepaying(loan, balance) };
+  }
+  return out;
+}
+
 export function firstNegativeFreeSavings(result: PlanResult): YearMonth | null {
   return result.months.find((m) => m.freeSavingsCumulative < 0)?.month ?? null;
 }

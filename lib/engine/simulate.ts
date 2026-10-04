@@ -121,7 +121,7 @@ function monthsToRepay(loan: LoanInput, balance: Cents): number {
  * Worth repaying early despite the penalty (SPEC D22): each euro repaid now costs `penaltyRate`
  * and saves at least apr / 12 per remaining month of the loan; strict net gain required.
  */
-function worthRepaying(loan: LoanInput, balance: Cents): boolean {
+export function worthRepaying(loan: LoanInput, balance: Cents): boolean {
   const rate = penaltyRate(loan);
   return rate === 0 || rate < (loan.apr / 12) * monthsToRepay(loan, balance);
 }
@@ -250,6 +250,7 @@ export function simulatePlan(input: PlanInput): PlanResult {
         extraRepayment: 0,
         earlyRepayment: 0,
         penalty: 0,
+        extraPenalty: 0,
         draw: 0,
         endBalance: 0,
         baselineInterest,
@@ -282,14 +283,17 @@ export function simulatePlan(input: PlanInput): PlanResult {
     const remainder = Math.max(0, available - toMoving - toEmergency);
     const toEarlyRepayment = roundHalfAwayFromZero(remainder * budget.earlyRepaymentPct);
 
-    // One-off extra repayments (SPEC D17): after the normal payment, capped at the balance left.
+    // One-off extra repayments (SPEC D17): after the normal payment, capped at the balance left. The
+    // loan's IRA (D22) is paid on top, from the same source (#97).
     let extraFromFreeSavings = 0;
     for (const r of extraRepayments.get(month) ?? []) {
       const lm = loanMonths[r.index] as LoanMonth;
       const applied = Math.min(r.amount, lm.balanceAfterPayment - lm.extraRepayment);
       if (applied <= 0) continue;
+      const penalty = penaltyFor(loans[r.index] as LoanInput, applied);
       lm.extraRepayment += applied;
-      if (r.fromSavings) extraFromFreeSavings += applied;
+      lm.extraPenalty += penalty;
+      if (r.fromSavings) extraFromFreeSavings += applied + penalty;
     }
 
     // Avalanche: the budget fills each loan up to its open balance, in priority order. A loan with a
@@ -329,6 +333,7 @@ export function simulatePlan(input: PlanInput): PlanResult {
 
     const totalEarlyRepayment = sumCents(loanMonths.map((l) => l.earlyRepayment));
     const totalPenalty = sumCents(loanMonths.map((l) => l.penalty));
+    const totalExtraPenalty = sumCents(loanMonths.map((l) => l.extraPenalty));
     const unusedEarlyRepayment = Math.max(0, toEarlyRepayment - totalEarlyRepayment - totalPenalty);
     const toFreeSavings = remainder - toEarlyRepayment + unusedEarlyRepayment;
     const freeSavingsCumulative = freePrev + toFreeSavings - extraFromFreeSavings + freeSavingsInterest;
@@ -364,6 +369,7 @@ export function simulatePlan(input: PlanInput): PlanResult {
       loans: loanMonths,
       totalEarlyRepayment,
       totalPenalty,
+      totalExtraPenalty,
       overdraftDraw: sumCents(loanMonths.map((l) => l.draw)),
       totalExtraRepayment: sumCents(loanMonths.map((l) => l.extraRepayment)),
       extraFromFreeSavings,
@@ -414,7 +420,7 @@ function summarizeLoans(
       payoffMonthWithoutPlan: repaid ? firstMonth(months, (m) => at(m).baselineEndBalance <= PAID_OFF_THRESHOLD) : null,
       interestWithPlan: sumCents(months.map((m) => at(m).interest)),
       interestWithoutPlan: sumCents(months.map((m) => at(m).baselineInterest)),
-      penaltiesPaid: sumCents(months.map((m) => at(m).penalty)),
+      penaltiesPaid: sumCents(months.map((m) => at(m).penalty + at(m).extraPenalty)),
       paymentBelowInterest:
         !isOverdraft(loan) && loan.principal > 0 && loan.monthlyPayment <= monthlyInterest(loan.principal, loan.apr),
     };
@@ -459,7 +465,7 @@ function computeKpis(input: PlanInput, months: readonly PlanMonth[]): PlanKpis {
 
   const interestWithoutPlan = sumCents(months.map((m) => m.totalBaselineInterest));
   const interestWithPlan = sumCents(months.map((m) => m.totalInterest));
-  const penaltiesPaid = sumCents(months.map((m) => m.totalPenalty));
+  const penaltiesPaid = sumCents(months.map((m) => m.totalPenalty + m.totalExtraPenalty));
   const month12 = months[11] as PlanMonth;
   const hasDebt = totalPrincipal > 0;
 

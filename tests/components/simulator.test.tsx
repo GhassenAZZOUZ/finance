@@ -256,5 +256,35 @@ describe("#98 — « Appliquer au plan »", () => {
     expect(plain(screen.getByRole("alert").textContent)).toBe("Impossible d’appliquer la simulation pour le moment. Votre plan n’a pas changé.");
     expect(mocks.notify).not.toHaveBeenCalled();
     expect(screen.getByRole("region", { name: "Appliquer la simulation à votre plan ?" })).toBeTruthy();
+describe("#97 — IRA on an extra repayment", () => {
+  const withIra = (loan: Parameters<typeof makeLoan>[1]) =>
+    simulationBase({ ...SNAPSHOT, loans: [makeLoan(1, { name: "Prêt auto", ...loan })] }, "2027-01") as SimulationBase;
+
+  async function addExtra(base: SimulationBase, amount: string) {
+    render(<Simulator base={base} currentMonth="2027-01" />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Ajouter un remboursement" }));
+    const group = screen.getByRole("group", { name: "Remboursement 1" });
+    await user.click(within(group).getByLabelText("Argent en plus (prime, cadeau…)"));
+    await retype(user, within(group).getByLabelText("Montant (€)"), amount);
+    return group;
+  }
+
+  it("AC-03 — states the IRA paid on top and the total", async () => {
+    const group = await addExtra(withIra({ apr: 0.06, penaltyPct: 0.03 }), "2000");
+    expect(plain(within(group).getByText(/d’IRA/).textContent)).toBe("+ 60,00 € d’IRA, soit 2 060,00 € au total");
+    expect(within(group).queryByText(/coûte plus en IRA/)).toBeNull();
+    for (const method of Object.values(mocks.repo!)) expect(method).not.toHaveBeenCalled();
+  });
+
+  it("warns when the IRA costs more than the interest it saves", async () => {
+    // 1 % APR, 5 % IRA, a loan almost repaid: a few months of interest cannot pay 5 %.
+    const group = await addExtra(withIra({ apr: 0.01, penaltyPct: 0.05, principal: 60_000, monthlyPayment: 20_000 }), "100");
+    expect(within(group).getByText("Ce remboursement coûte plus en IRA qu’il n’économise d’intérêts.")).toBeTruthy();
+  });
+
+  it("says nothing for a loan without IRA", async () => {
+    const group = await addExtra(BASE, "2000");
+    expect(within(group).queryByText(/d’IRA/)).toBeNull();
   });
 });

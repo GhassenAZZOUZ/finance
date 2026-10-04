@@ -133,3 +133,45 @@ describe("extra repayments (SPEC D17)", () => {
     expect(sumCents(simulated.loans.map((l) => l.earlyRepayment))).toBe(budget);
   });
 });
+
+describe("extra repayments pay the loan's IRA (#97, SPEC D22)", () => {
+  const withIra = (penaltyPct: number, penaltyCapMonths: number | null = null): PlanInput["loans"] => [
+    { ...LOANS[0]!, penaltyPct, penaltyCapMonths },
+    LOANS[1]!,
+  ];
+  const run = (loans: PlanInput["loans"], extras: ExtraRepaymentInput[]) => simulatePlan({ ...input(0, extras), loans });
+
+  it("AC-01 — 2 000 € repaid on a 3 % IRA loan: 2 000 € of capital, 60 € of IRA on top, 2 060 € from the source", () => {
+    const free = run(withIra(0.03), [extra({ source: "freeSavings" })]).months[2]!;
+    const none = run(withIra(0.03), []).months[2]!;
+    expect(free.loans[0]!.extraRepayment).toBe(200_000);
+    expect(free.loans[0]!.extraPenalty).toBe(6_000);
+    expect(free.totalExtraPenalty).toBe(6_000);
+    expect(free.extraFromFreeSavings).toBe(206_000);
+    expect(free.freeSavingsCumulative).toBe(none.freeSavingsCumulative - 206_000);
+    // Outside money: the capital is repaid the same, nothing else in the plan moves.
+    const outside = run(withIra(0.03), [extra()]).months[2]!;
+    expect(outside.loans[0]!.endBalance).toBe(free.loans[0]!.endBalance);
+    expect(outside.freeSavingsCumulative).toBe(none.freeSavingsCumulative);
+  });
+
+  it("AC-02 — the penalty follows the cap in months of interest", () => {
+    // 6 % APR, cap 1 month: 0,5 % < 3 %, so 2 000 € × 0,5 % = 10 €.
+    const capped = run(withIra(0.03, 1), [extra()]).months[2]!;
+    expect(capped.loans[0]!.extraPenalty).toBe(1_000);
+  });
+
+  it("AC-03 — « intérêts économisés » is net of the extra repayment's IRA", () => {
+    const plain = run(LOANS, [extra()]);
+    const charged = run(withIra(0.03), [extra()]);
+    expect(charged.kpis.penaltiesPaid).toBe(6_000);
+    expect(charged.kpis.interestSaved).toBe(plain.kpis.interestSaved - 6_000);
+    expect(charged.loans[0]!.penaltiesPaid).toBe(6_000);
+  });
+
+  it("AC-04 — a loan without IRA is unchanged", () => {
+    const result = run(LOANS, [extra({ source: "freeSavings" })]);
+    expect(result.months.every((m) => m.totalExtraPenalty === 0)).toBe(true);
+    expect(result.months[2]!.extraFromFreeSavings).toBe(200_000);
+  });
+});

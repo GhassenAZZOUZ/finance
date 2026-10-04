@@ -263,6 +263,44 @@ export function formPlanStart(params: ParamValues, savedStartMonth: YearMonth | 
   return monthOrNull(params.startMonth) ?? savedStartMonth;
 }
 
+/** A line's name compared ignoring case, accents and spaces (« loyer » = « Loyer » = « Loyér », #99). */
+export function sameNameKey(label: string): string {
+  return label.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/** The months both periods cover (bounds inclusive, null = no limit), or null when they never meet. */
+export function periodOverlap(a: LinePeriod, b: LinePeriod): LinePeriod | null {
+  const later = (x: YearMonth | null, y: YearMonth | null) => (x && y ? (compareMonths(x, y) >= 0 ? x : y) : (x ?? y));
+  const earlier = (x: YearMonth | null, y: YearMonth | null) => (x && y ? (compareMonths(x, y) <= 0 ? x : y) : (x ?? y));
+  const startMonth = later(a.startMonth, b.startMonth);
+  const endMonth = earlier(a.endMonth, b.endMonth);
+  return startMonth && endMonth && compareMonths(startMonth, endMonth) > 0 ? null : { startMonth, endMonth };
+}
+
+/**
+ * Issue #99: a warning per line key when other lines of the same category with the same name are
+ * active in the same months (« 2 lignes « Loyer » actives à partir de juil. 2027 »). A warning only:
+ * same-name lines whose periods follow each other are legitimate.
+ */
+export function overlapWarnings(lines: readonly LineState[]): Record<string, string> {
+  const warnings: Record<string, string> = {};
+  for (const line of lines) {
+    const key = sameNameKey(line.label);
+    if (!key) continue;
+    const overlaps = lines
+      .filter((other) => other !== line && other.category === line.category && sameNameKey(other.label) === key)
+      .map((other) => periodOverlap(linePeriod(line), linePeriod(other)))
+      .filter((overlap): overlap is LinePeriod => overlap !== null);
+    if (overlaps.length === 0) continue;
+    const name = `« ${line.label.trim()} »`;
+    warnings[line.key] =
+      overlaps.length === 1
+        ? `2 lignes ${name} actives ${periodText(overlaps[0]!) ?? "chaque mois"}`
+        : `${overlaps.length + 1} lignes ${name} actives en même temps`;
+  }
+  return warnings;
+}
+
 /**
  * Month the totals and KPIs describe (SPEC D15): the current month kept within the plan period.
  * Without a plan start, the current month.
