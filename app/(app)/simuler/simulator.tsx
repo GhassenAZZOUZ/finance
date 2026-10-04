@@ -134,6 +134,22 @@ export function Simulator({ base, currentMonth }: { base: SimulationBase; curren
                 hint={`Plan actuel : ${formatPercent(base.settings.incomeGrowthRate ?? 0)}. Appliquée chaque 1ᵉʳ janvier.`}
                 onChange={(v) => change((f) => ({ ...f, incomeGrowthRate: v }))}
               />
+              <Field
+                id="sim-emergency-rate"
+                label="Taux d’intérêt du fonds d’urgence, par an (%)"
+                value={state.form.emergencyRate}
+                error={state.errors.emergencyRate}
+                hint={`Plan actuel : ${formatPercent(base.settings.emergencyRate ?? 0)}. Intérêts versés chaque 31 décembre.`}
+                onChange={(v) => change((f) => ({ ...f, emergencyRate: v }))}
+              />
+              <Field
+                id="sim-free-rate"
+                label="Taux d’intérêt de l’épargne libre, par an (%)"
+                value={state.form.freeSavingsRate}
+                error={state.errors.freeSavingsRate}
+                hint={`Plan actuel : ${formatPercent(base.settings.freeSavingsRate ?? 0)}. Intérêts versés chaque 31 décembre.`}
+                onChange={(v) => change((f) => ({ ...f, freeSavingsRate: v }))}
+              />
             </div>
 
             <section aria-labelledby="sim-extras-title" className="flex flex-col gap-3 border-t pt-4">
