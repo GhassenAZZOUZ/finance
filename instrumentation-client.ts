@@ -13,7 +13,17 @@ if (dsn) {
       Sentry.init({
         dsn,
         environment: process.env.NODE_ENV,
-        sendDefaultPii: false,
+        // Sentry 11 replaced `sendDefaultPii` with `dataCollection`, whose defaults collect user info,
+        // cookies, headers, bodies and query params: turn every category off explicitly.
+        dataCollection: {
+          userInfo: false,
+          cookies: false,
+          httpHeaders: false,
+          httpBodies: [],
+          urlQueryParams: false,
+          graphQL: { document: false, variables: false },
+          genAI: { inputs: false, outputs: false },
+        },
         // console.error breadcrumbs could carry logged values; fetch/navigation ones are enough.
         beforeBreadcrumb: (breadcrumb) => (breadcrumb.category === "console" ? null : breadcrumb),
       });
