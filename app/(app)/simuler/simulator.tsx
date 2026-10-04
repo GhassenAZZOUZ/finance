@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { CircleAlert, CircleCheck, Info, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { CircleAlert, CircleCheck, Info, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { GAP_TONE, PLAN_GROUP } from "@/components/app/tones";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -19,6 +19,7 @@ import {
   type SimulationBase,
   type SimulationForm,
   type Tone,
+  appliedChanges,
   chartMonthCount,
   compareScenarios,
   firstNegativeFreeSavings,
@@ -29,6 +30,7 @@ import {
   scenarioSummary,
   updateSimulation,
 } from "./logic";
+import { applySimulationAction } from "./actions";
 
 const CATEGORY_TITLE: Record<BudgetCategory, string> = {
   income: "Revenus",
@@ -40,13 +42,29 @@ const SELECT_CLASS =
   "h-10 w-full rounded-lg border border-input bg-background px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm";
 
 /**
- * "Et si…" simulator (issue #2). Everything stays in memory: this component never touches the
- * repository, and leaving the page or "Reprendre le plan actuel" discards the simulation.
+ * "Et si…" simulator (issue #2). Everything stays in memory: leaving the page or "Reprendre le plan
+ * actuel" discards the simulation. Only « Appliquer au plan » (#98) writes, after a confirmation;
+ * the data reload that follows remounts the simulator on the new plan.
  */
-export function Simulator({ base, currentMonth }: { base: SimulationBase; currentMonth: YearMonth }) {
+export function Simulator({
+  base,
+  currentMonth,
+  onApplied,
+}: {
+  base: SimulationBase;
+  currentMonth: YearMonth;
+  onApplied?: () => void;
+}) {
   const initial = useMemo(() => initialSimulation(base), [base]);
   const [state, setState] = useState(initial);
   const nextKey = useRef(1);
+  const [confirming, setConfirming] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applying, startApply] = useTransition();
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (confirming) cancelRef.current?.focus();
+  }, [confirming]);
 
   const current = useMemo(() => simulatePlan(scenarioInput(base, initial.scenario)), [base, initial]);
   const simulated = useMemo(() => simulatePlan(scenarioInput(base, state.scenario)), [base, state.scenario]);
@@ -60,6 +78,16 @@ export function Simulator({ base, currentMonth }: { base: SimulationBase; curren
   const change = (update: (form: SimulationForm) => SimulationForm) =>
     setState((prev) => updateSimulation(prev, update(prev.form), base));
   const reset = () => setState(initialSimulation(base));
+
+  const changes = appliedChanges(base, state.scenario);
+  const canApply = changes.length > 0 && !hasErrors;
+  const apply = () =>
+    startApply(async () => {
+      setApplyError(null);
+      const result = await applySimulationAction(base, state.scenario);
+      if (result.ok) onApplied?.();
+      else setApplyError(result.message);
+    });
 
   const { first, last } = planBounds(base);
   const defaultMonth =
@@ -83,14 +111,73 @@ export function Simulator({ base, currentMonth }: { base: SimulationBase; curren
     <>
       <PageHeader
         title="Et si… ?"
-        description="Testez des changements et comparez-les à votre plan. Rien n’est enregistré : vos données ne changent pas."
+        description="Testez des changements et comparez-les à votre plan. Rien n’est enregistré tant que vous n’appliquez pas la simulation."
         actions={
-          <Button type="button" variant="outline" className="min-h-10" onClick={reset} disabled={pristine && !hasErrors && state.form.extras.length === 0}>
-            <RotateCcw aria-hidden />
-            Reprendre le plan actuel
-          </Button>
+          <>
+            <Button type="button" variant="outline" className="min-h-10" onClick={reset} disabled={pristine && !hasErrors && state.form.extras.length === 0}>
+              <RotateCcw aria-hidden />
+              Reprendre le plan actuel
+            </Button>
+            <Button
+              type="button"
+              className="min-h-10"
+              onClick={() => {
+                setApplyError(null);
+                setConfirming(true);
+              }}
+              disabled={!canApply || confirming}
+              aria-expanded={confirming}
+              aria-controls="sim-apply"
+            >
+              <Save aria-hidden />
+              Appliquer au plan
+            </Button>
+          </>
         }
       />
+
+      {confirming ? (
+        <section
+          id="sim-apply"
+          aria-labelledby="sim-apply-title"
+          className="flex flex-col gap-3 rounded-2xl border border-warning-border bg-warning-bg p-4 text-sm"
+        >
+          <h2 id="sim-apply-title" className="text-base font-semibold">
+            Appliquer la simulation à votre plan ?
+          </h2>
+          {changes.length > 0 ? (
+            <ul className="flex list-disc flex-col gap-1 pl-5" aria-label="Changements enregistrés">
+              {changes.map((c) => (
+                <li key={c.label} className="break-words">
+                  {c.label} : <span className="tabular-nums">{c.from}</span> → <strong className="tabular-nums">{c.to}</strong>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>La simulation est identique au plan : rien à appliquer.</p>
+          )}
+          {state.form.extras.length > 0 ? (
+            <p className="flex items-start gap-1.5">
+              <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
+              Les remboursements exceptionnels ne sont pas enregistrés dans le plan.
+            </p>
+          ) : null}
+          {hasErrors ? <p role="alert">Corrigez les champs en erreur avant d’appliquer la simulation.</p> : null}
+          {applyError ? (
+            <p role="alert" className="text-bad">
+              {applyError}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" className="min-h-10" onClick={apply} disabled={!canApply || applying}>
+              {applying ? "Enregistrement…" : "Confirmer"}
+            </Button>
+            <Button ref={cancelRef} type="button" variant="outline" className="min-h-10" onClick={() => setConfirming(false)} disabled={applying}>
+              Annuler
+            </Button>
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)]">
         <Card>
