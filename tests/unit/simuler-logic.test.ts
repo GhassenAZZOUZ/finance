@@ -232,3 +232,25 @@ describe("charts (AC-08)", () => {
     });
   });
 });
+
+describe("#36 AC-08 — yearly rates in « Et si… ? »", () => {
+  it("changes the simulation only, from the next January", () => {
+    const state = edit(initialSimulation(BASE), { expenseInflationRate: "3", incomeGrowthRate: "2" });
+    expect(state.errors).toEqual({});
+    expect(state.scenario).toMatchObject({ expenseInflationRate: 0.03, incomeGrowthRate: 0.02 });
+    const { current, simulated } = results(state);
+    // January 2027 is the start: nothing indexed yet; January 2028 is indexed.
+    expect(simulated.months[0]!.expenses).toBe(current.months[0]!.expenses);
+    expect(simulated.months[12]!.expenses).toBeGreaterThan(current.months[12]!.expenses);
+    expect(simulated.months[12]!.income).toBeGreaterThan(current.months[12]!.income);
+    // The saved settings are untouched.
+    expect(BASE.settings.expenseInflationRate ?? 0).toBe(0);
+  });
+
+  it("rejects a rate above 100 % in French and keeps the last valid one", () => {
+    const valid = edit(initialSimulation(BASE), { expenseInflationRate: "3" });
+    const invalid = edit(valid, { expenseInflationRate: "150" });
+    expect(invalid.errors.expenseInflationRate).toBe("Le taux doit être compris entre −100 % et 100 %");
+    expect(invalid.scenario.expenseInflationRate).toBe(0.03);
+  });
+});

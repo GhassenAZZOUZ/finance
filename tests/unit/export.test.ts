@@ -148,3 +148,18 @@ describe("planToCsv", () => {
     expect(rows[1]!.split(",").slice(0, 3)).toEqual(["2026-01", "1", "2500.00"]);
   });
 });
+
+describe("#35 AC-10 — savings interest in the plan CSV", () => {
+  it("has an « Intérêts épargne » column, credited in December only", () => {
+    const snap = makeSnapshot({ ...full, settings: makeSettings({ freeSavingsExisting: 1_200_000, freeSavingsRate: 0.024 }) });
+    const plan = computePlan(snap, "2026-01")!;
+    const lines = planToCsv(plan.result, "fr").slice(1).split("\r\n");
+    const column = lines[0]!.split(";").indexOf("Intérêts épargne");
+    expect(column).toBeGreaterThan(0);
+    const cell = (month: string) => lines.find((l) => l.startsWith(`${month};`))!.split(";")[column];
+    expect(cell("2026-11")).toBe("0,00");
+    const december = plan.result.months.find((m) => m.month === "2026-12")!;
+    expect(december.savingsInterest).toBeGreaterThan(0);
+    expect(cell("2026-12")).toBe(csvAmount(december.savingsInterest, "fr"));
+  });
+});
