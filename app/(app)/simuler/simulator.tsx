@@ -21,6 +21,7 @@ import {
   type Tone,
   chartMonthCount,
   compareScenarios,
+  extraPenalties,
   firstNegativeFreeSavings,
   initialSimulation,
   planBounds,
@@ -53,6 +54,7 @@ export function Simulator({ base, currentMonth }: { base: SimulationBase; curren
   const rows = compareScenarios(current.kpis, simulated.kpis);
   const pristine = JSON.stringify(state.scenario) === JSON.stringify(initial.scenario);
   const negativeFrom = firstNegativeFreeSavings(simulated);
+  const penalties = extraPenalties(base, state.scenario, simulated);
   const count = chartMonthCount(current, simulated);
   const points = scenarioSeries(current, simulated, count);
   const hasErrors = Object.keys(state.errors).length > 0;
@@ -217,6 +219,13 @@ export function Simulator({ base, currentMonth }: { base: SimulationBase; curren
                           aria-describedby={err("amount") ? `${id}-amount-error` : undefined}
                         />
                         <FieldError id={`${id}-amount-error`} error={err("amount")} />
+                        {penalties[row.key] && !err("amount") ? (
+                          <ExtraPenaltyNote
+                            penalty={penalties[row.key]!.penalty}
+                            amount={state.scenario.extras.find((x) => x.key === row.key)?.amount ?? 0}
+                            notWorthIt={penalties[row.key]!.notWorthIt}
+                          />
+                        ) : null}
                       </div>
                       <div className="flex flex-col gap-1.5">
                         <span id={`${id}-source-label`} className="text-sm leading-none font-medium">
@@ -485,6 +494,23 @@ function Field({
         </p>
       ) : null}
       <FieldError id={`${id}-error`} error={error} />
+    </div>
+  );
+}
+
+/** IRA paid on top of an extra repayment (#97), and a warning when it costs more than it saves. */
+function ExtraPenaltyNote({ penalty, amount, notWorthIt }: { penalty: number; amount: number; notWorthIt: boolean }) {
+  return (
+    <div className="flex flex-col gap-1 text-sm">
+      <p className="text-muted-foreground tabular-nums">
+        + {formatEuros(penalty)} d’IRA, soit {formatEuros(amount + penalty)} au total
+      </p>
+      {notWorthIt ? (
+        <p className="flex items-start gap-1.5 text-warning">
+          <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+          Ce remboursement coûte plus en IRA qu’il n’économise d’intérêts.
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -13,6 +13,7 @@ export {
   isOverdraft,
   lineRate,
   penaltyFor,
+  worthRepaying,
 } from "./simulate";
 export { compareActual, latestActual, plannedSnapshot, statusFor, GAP_TOLERANCE } from "./actuals";
 export { paymentsBeforeStart, paymentsUntilRepaid, projectBalance } from "./project";

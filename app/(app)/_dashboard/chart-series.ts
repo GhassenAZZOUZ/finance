@@ -107,7 +107,7 @@ export function interestSeries(months: readonly PlanMonth[], count = PLAN_CHART_
   let withPlan = 0;
   let withoutPlan = 0;
   return months.slice(0, count).map((m) => {
-    withPlan += m.totalInterest + m.totalPenalty;
+    withPlan += m.totalInterest + m.totalPenalty + m.totalExtraPenalty;
     withoutPlan += m.totalBaselineInterest;
     return { month: m.month, label: formatMonthShort(m.month), withPlan: centsToEuros(withPlan), withoutPlan: centsToEuros(withoutPlan) };
   });
@@ -117,7 +117,7 @@ export function interestSummary(months: readonly PlanMonth[], count = PLAN_CHART
   const slice = months.slice(0, count);
   const end = last(slice);
   if (!end) return "Aucune donnée.";
-  const withPlan = sumCents(slice.map((m) => m.totalInterest + m.totalPenalty));
+  const withPlan = sumCents(slice.map((m) => m.totalInterest + m.totalPenalty + m.totalExtraPenalty));
   const withoutPlan = sumCents(slice.map((m) => m.totalBaselineInterest));
   return (
     `Intérêts cumulés sur ${slice.length} mois, jusqu’en ${formatMonthLong(end.month)} : ${formatEuros(withPlan)} avec le plan ` +

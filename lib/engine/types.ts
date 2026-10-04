@@ -156,6 +156,8 @@ export interface LoanMonth {
   earlyRepayment: Cents;
   /** IRA paid on this month's early repayment (SPEC D22), taken from the early-repayment budget. */
   penalty: Cents;
+  /** IRA on this month's extra repayment (#97): paid on top of it, from the same source. */
+  extraPenalty: Cents;
   /** Overdraft only (SPEC D24): shortfall of a negative month added to the balance. */
   draw: Cents;
   endBalance: Cents;
@@ -209,6 +211,8 @@ export interface PlanMonth {
   totalEarlyRepayment: Cents;
   /** Σ penalty of the loans (SPEC D22). */
   totalPenalty: Cents;
+  /** Σ extraPenalty of the loans (#97), not taken from the early-repayment budget. */
+  totalExtraPenalty: Cents;
   /** Σ overdraft draws of a negative month (SPEC D24); the rest of the shortfall is dropped. */
   overdraftDraw: Cents;
   /** Σ extraRepayment of the loans (SPEC D17). */
