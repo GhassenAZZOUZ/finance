@@ -56,19 +56,14 @@ export function checkInHref(month: YearMonth): string {
   return `/suivi?mois=${month}`;
 }
 
-/** Logo: a rising line on an ink tile. */
+/** Logo (Boussole): a "€" whose crossbar is a compass needle, ochre tip pointing east. Same as app/icon.svg. */
 export function BrandMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 30 30" aria-hidden className={cn("size-7.5 shrink-0", className)}>
-      <rect width="30" height="30" rx="8" className="fill-brand-tile" />
-      <path
-        d="M8 20 L13 14 L17 17 L22 10"
-        stroke="var(--bucket-moving)"
-        strokeWidth="2.2"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg viewBox="0 0 120 120" aria-hidden className={cn("size-7.5 shrink-0", className)}>
+      <rect width="120" height="120" rx="28" className="fill-brand-tile" />
+      <path d="M85 37 A30 30 0 1 0 85 83" fill="none" stroke="#F3F0E8" strokeWidth="13" strokeLinecap="round" />
+      <path d="M100 60 L58 49 L58 71 Z" fill="var(--bucket-moving)" />
+      <path d="M16 60 L58 49 L58 71 Z" fill="#F3F0E8" />
     </svg>
   );
 }

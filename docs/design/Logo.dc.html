@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Logo Boussole</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;display=swap">
+<style>
+body{margin:0;font-family:"IBM Plex Sans",system-ui,sans-serif;background:#F3F0E8;color:#1D1C19}
+a{color:#1F4B3B}a:hover{color:#123126}
+.serif{font-family:Newsreader,Georgia,serif}
+.card{background:#FFFFFF;border:1px solid #DDD7CA;border-radius:20px}
+.lbl{font-size:12px;font-weight:600;color:#57534B;letter-spacing:.08em;text-transform:uppercase}
+.hint{font-size:14px;color:#57534B;line-height:1.5}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1320px; box-sizing: border-box; padding: 72px; background: #F3F0E8; display: flex; flex-direction: column; gap: 40px">
+
+<header style="display: flex; flex-direction: column; gap: 12px">
+<span class="lbl">Identité · icône de l’application</span>
+<h1 class="serif" style="margin: 0; font-size: 64px; line-height: 1; font-weight: 500; letter-spacing: -0.015em">Boussole</h1>
+<p class="hint" style="margin: 0; font-size: 17px; max-width: 720px">Piste retenue : C · Euro-aiguille. Le « € » dont la barre devient une aiguille de boussole, pointe ocre vers l’est, le sens de lecture et de la progression.</p>
+</header>
+
+<section aria-label="Pistes" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px">
+<div class="card" style="padding: 32px; display: flex; flex-direction: column; gap: 20px; opacity: 0.6">
+<span class="lbl">A · Pièce-boussole</span>
+<div style="display: flex; justify-content: center; padding: 12px 0">
+<svg width="176" height="176" viewBox="0 0 120 120" role="img" aria-label="Icône A : pièce dorée crénelée servant de cadran, avec une aiguille de boussole orientée nord-est">
+<rect width="120" height="120" rx="28" fill="#1D1C19"></rect>
+<circle cx="60" cy="60" r="44" fill="#D39A36"></circle>
+<circle cx="60" cy="60" r="41" fill="none" stroke="#9C6A1C" stroke-width="5" stroke-dasharray="2.68 2.68"></circle>
+<circle cx="60" cy="60" r="35" fill="none" stroke="#9C6A1C" stroke-width="1.5"></circle>
+<g transform="rotate(40 60 60)">
+<path d="M60 26 L69 60 L51 60 Z" fill="#1D1C19"></path>
+<path d="M60 94 L69 60 L51 60 Z" fill="#F3F0E8"></path>
+</g>
+<circle cx="60" cy="60" r="4" fill="#D39A36"></circle>
+</svg>
+</div>
+<p class="hint" style="margin: 0">Une pièce d’or vue de face, le contour crénelé faisant les graduations.</p>
+</div>
+
+<div class="card" style="padding: 32px; display: flex; flex-direction: column; gap: 20px; opacity: 0.6">
+<span class="lbl">B · Cap haussier</span>
+<div style="display: flex; justify-content: center; padding: 12px 0">
+<svg width="176" height="176" viewBox="0 0 120 120" role="img" aria-label="Icône B : cadran de boussole contenant une courbe de croissance terminée par une pointe d’aiguille">
+<rect width="120" height="120" rx="28" fill="#1D1C19"></rect>
+<circle cx="60" cy="60" r="44" fill="none" stroke="#F3F0E8" stroke-opacity="0.25" stroke-width="2.5"></circle>
+<path d="M60 16v8" stroke="#D39A36" stroke-width="3" stroke-linecap="round"></path>
+<path d="M60 96v8M16 60h8M96 60h8" stroke="#F3F0E8" stroke-opacity="0.45" stroke-width="2.5" stroke-linecap="round"></path>
+<polyline points="28,84 44,71 56,77 72,56" fill="none" stroke="#F3F0E8" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></polyline>
+<path d="M92 30 L81.5 61 L63.5 47 Z" fill="#D39A36"></path>
+</svg>
+</div>
+<p class="hint" style="margin: 0">Une courbe qui monte, terminée par une pointe d’aiguille.</p>
+</div>
+
+<div class="card" style="padding: 32px; display: flex; flex-direction: column; gap: 20px; border-color: #1D1C19; box-shadow: 0 0 0 1px #1D1C19">
+<div style="display: flex; justify-content: space-between; align-items: center"><span class="lbl">C · Euro-aiguille</span><span style="font-size: 12px; font-weight: 600; background: #1D1C19; color: #F3F0E8; border-radius: 999px; padding: 3px 10px">Retenue</span></div>
+<div style="display: flex; justify-content: center; padding: 12px 0">
+<svg width="176" height="176" viewBox="0 0 120 120" role="img" aria-label="Icône C : symbole euro dont la barre est une aiguille de boussole">
+<rect width="120" height="120" rx="28" fill="#1D1C19"></rect>
+<path d="M85 37 A30 30 0 1 0 85 83" fill="none" stroke="#F3F0E8" stroke-width="10" stroke-linecap="round"></path>
+<path d="M98 60 L58 51 L58 69 Z" fill="#D39A36"></path>
+<path d="M18 60 L58 51 L58 69 Z" fill="#F3F0E8"></path>
+<circle cx="58" cy="60" r="3.5" fill="#1D1C19"></circle>
+</svg>
+</div>
+<p class="hint" style="margin: 0">Le « € » dont la barre devient une aiguille. On lit « argent » et « cap » en un seul signe.</p>
+</div>
+</section>
+
+<section aria-label="Déclinaisons de la piste C" style="display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px">
+<div style="display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 20px">
+<div class="card" style="padding: 32px 40px; display: flex; align-items: center; gap: 22px">
+<svg width="72" height="72" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="28" fill="#1D1C19"></rect><path d="M85 37 A30 30 0 1 0 85 83" fill="none" stroke="#F3F0E8" stroke-width="10" stroke-linecap="round"></path><path d="M98 60 L58 51 L58 69 Z" fill="#D39A36"></path><path d="M18 60 L58 51 L58 69 Z" fill="#F3F0E8"></path><circle cx="58" cy="60" r="3.5" fill="#1D1C19"></circle></svg>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span class="serif" style="font-size: 52px; line-height: 1; font-weight: 600; letter-spacing: -0.015em">Boussole</span>
+<span style="font-size: 15px; color: #57534B">Le cap de votre argent, mois après mois</span>
+</div>
+</div>
+<div style="background: #1D1C19; border-radius: 20px; padding: 32px 40px; display: flex; align-items: center; gap: 22px">
+<svg width="72" height="72" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="28" fill="#F3F0E8"></rect><path d="M85 37 A30 30 0 1 0 85 83" fill="none" stroke="#1D1C19" stroke-width="10" stroke-linecap="round"></path><path d="M98 60 L58 51 L58 69 Z" fill="#D39A36"></path><path d="M18 60 L58 51 L58 69 Z" fill="#1D1C19"></path><circle cx="58" cy="60" r="3.5" fill="#F3F0E8"></circle></svg>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span class="serif" style="font-size: 52px; line-height: 1; font-weight: 600; letter-spacing: -0.015em; color: #F3F0E8">Boussole</span>
+<span style="font-size: 15px; color: #CFC8B8">Version inversée, sur fond sombre</span>
+</div>
+</div>
+</div>
+
+<div class="card" style="padding: 32px; display: flex; flex-direction: column; gap: 24px">
+<span class="lbl">Tailles</span>
+<div style="display: flex; align-items: flex-end; gap: 28px">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px"><svg width="96" height="96" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="28" fill="#1D1C19"></rect><path d="M85 37 A30 30 0 1 0 85 83" fill="none" stroke="#F3F0E8" stroke-width="10" stroke-linecap="round"></path><path d="M98 60 L58 51 L58 69 Z" fill="#D39A36"></path><path d="M18 60 L58 51 L58 69 Z" fill="#F3F0E8"></path><circle cx="58" cy="60" r="3.5" fill="#1D1C19"></circle></svg><span style="font-size: 12px; color: #57534B">96</span></div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px"><svg width="48" height="48" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="28" fill="#1D1C19"></rect><path d="M85 37 A30 30 0 1 0 85 83" fill="none" stroke="#F3F0E8" stroke-width="11" stroke-linecap="round"></path><path d="M99 60 L58 50 L58 70 Z" fill="#D39A36"></path><path d="M17 60 L58 50 L58 70 Z" fill="#F3F0E8"></path></svg><span style="font-size: 12px; color: #57534B">48</span></div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px"><svg width="32" height="32" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="28" fill="#1D1C19"></rect><path d="M85 37 A30 30 0 1 0 85 83" fill="none" stroke="#F3F0E8" stroke-width="13" stroke-linecap="round"></path><path d="M100 60 L58 49 L58 71 Z" fill="#D39A36"></path><path d="M16 60 L58 49 L58 71 Z" fill="#F3F0E8"></path></svg><span style="font-size: 12px; color: #57534B">32</span></div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 8px"><svg width="16" height="16" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="24" fill="#1D1C19"></rect><path d="M88 33 A33 33 0 1 0 88 87" fill="none" stroke="#F3F0E8" stroke-width="16" stroke-linecap="round"></path><path d="M106 60 L58 46 L58 74 Z" fill="#D39A36"></path><path d="M12 60 L58 46 L58 74 Z" fill="#F3F0E8"></path></svg><span style="font-size: 12px; color: #57534B">16</span></div>
+</div>
+<p class="hint" style="margin: 0">Sous 48 px, le point central disparaît ; le trait du « € » et l’aiguille s’épaississent.</p>
+<div style="display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #ECE7DC; padding-top: 20px">
+<span class="lbl">En contexte</span>
+<div style="display: flex; gap: 16px; align-items: center">
+<div style="display: flex; align-items: center; gap: 8px; background: #E9E6DF; border-radius: 10px 10px 0 0; padding: 9px 14px; width: 200px; font-size: 13px"><svg width="16" height="16" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="24" fill="#1D1C19"></rect><path d="M88 33 A33 33 0 1 0 88 87" fill="none" stroke="#F3F0E8" stroke-width="16" stroke-linecap="round"></path><path d="M106 60 L58 46 L58 74 Z" fill="#D39A36"></path><path d="M12 60 L58 46 L58 74 Z" fill="#F3F0E8"></path></svg><span>Boussole · Tableau de bord</span></div>
+<div style="display: flex; align-items: center; gap: 10px; background: #EAE6DB; border-radius: 12px; padding: 10px 14px"><svg width="30" height="30" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="28" fill="#1D1C19"></rect><path d="M85 37 A30 30 0 1 0 85 83" fill="none" stroke="#F3F0E8" stroke-width="13" stroke-linecap="round"></path><path d="M100 60 L58 49 L58 71 Z" fill="#D39A36"></path><path d="M16 60 L58 49 L58 71 Z" fill="#F3F0E8"></path></svg><span class="serif" style="font-size: 20px; font-weight: 600">Boussole</span></div>
+</div>
+</div>
+</div>
+</section>
+
+<section aria-label="Couleurs" style="display: flex; gap: 16px">
+<div style="display: flex; align-items: center; gap: 12px; background: #FFFFFF; border: 1px solid #DDD7CA; border-radius: 14px; padding: 12px 18px 12px 12px"><span style="width: 40px; height: 40px; border-radius: 10px; background: #1D1C19"></span><span style="display: flex; flex-direction: column"><b style="font-size: 14px">Encre</b><span style="font-size: 13px; color: #57534B">#1D1C19</span></span></div>
+<div style="display: flex; align-items: center; gap: 12px; background: #FFFFFF; border: 1px solid #DDD7CA; border-radius: 14px; padding: 12px 18px 12px 12px"><span style="width: 40px; height: 40px; border-radius: 10px; background: #D39A36"></span><span style="display: flex; flex-direction: column"><b style="font-size: 14px">Ocre</b><span style="font-size: 13px; color: #57534B">#D39A36</span></span></div>
+<div style="display: flex; align-items: center; gap: 12px; background: #FFFFFF; border: 1px solid #DDD7CA; border-radius: 14px; padding: 12px 18px 12px 12px"><span style="width: 40px; height: 40px; border-radius: 10px; background: #F3F0E8; border: 1px solid #DDD7CA; box-sizing: border-box"></span><span style="display: flex; flex-direction: column"><b style="font-size: 14px">Papier</b><span style="font-size: 13px; color: #57534B">#F3F0E8</span></span></div>
+<div style="display: flex; align-items: center; padding: 0 8px"><span style="font-size: 13px; color: #57534B">Wordmark : Newsreader SemiBold · fichiers : app/icon.svg, app/apple-icon.png, app/favicon.ico</span></div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1320}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
