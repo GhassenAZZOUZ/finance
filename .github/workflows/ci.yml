@@ -148,11 +148,114 @@ jobs:
             test-results/
           retention-days: 14
 
-  migrate:
-    name: Apply migrations to hosted Supabase
-    # Only from main, never on pull requests (the secrets exist only in this job). Never the seed.
+  migrations-preview:
+    name: Hosted migrations (dry-run)
+    # Issue #101: what this PR would apply to the hosted database, without applying it. Read-only.
+    # Skipped for PRs from forks (no secrets there) and when the PR adds no migration.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_PROJECT_REF: fayeuqhjbnuvxjiysxls
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Migrations in this PR
+        id: changed
+        run: |
+          git diff --name-only --diff-filter=AM "origin/${{ github.base_ref }}...HEAD" -- 'supabase/migrations/*.sql' > "$RUNNER_TEMP/migrations.txt"
+          if [ -s "$RUNNER_TEMP/migrations.txt" ]; then
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            echo "No migration in this pull request: nothing would change on the hosted database." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: supabase/setup-cli@v3
+        if: steps.changed.outputs.any == 'true'
+        with:
+          version: 2.108.0
+
+      - name: Dry-run against the hosted project
+        if: steps.changed.outputs.any == 'true'
+        run: |
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase db push --linked --dry-run 2>&1 | tee "$RUNNER_TEMP/dry-run.txt"
+          {
+            echo "### Hosted migrations (dry-run)"
+            echo
+            echo "Would apply, once merged to \`main\`:"
+            echo
+            grep -oE '[0-9]{14}_[A-Za-z0-9_.-]+\.sql' "$RUNNER_TEMP/dry-run.txt" | sort -u | sed 's/^/- /' || echo "- nothing (the remote history is up to date)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Destructive statements
+        if: steps.changed.outputs.any == 'true'
+        run: |
+          node scripts/destructive-sql.mjs $(cat "$RUNNER_TEMP/migrations.txt") | tee "$RUNNER_TEMP/scan.txt"
+          if grep -q '^destructive=true' "$RUNNER_TEMP/scan.txt"; then
+            echo "⚠️ Destructive statement found (see the annotations): once merged, the \`migrate\` job waits for the owner's approval." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  migrate-plan:
+    name: Plan hosted migrations
+    # Issue #101: lists the migrations missing from the hosted history and scans them for destructive
+    # statements. Only on main, after every test.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [checks, integration, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      destructive: ${{ steps.scan.outputs.destructive }}
+    env:
+      SUPABASE_PROJECT_REF: fayeuqhjbnuvxjiysxls
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.108.0
+
+      - name: Pending migrations
+        run: |
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase db push --linked --dry-run 2>&1 | tee "$RUNNER_TEMP/dry-run.txt"
+          { grep -oE '[0-9]{14}_[A-Za-z0-9_.-]+\.sql' "$RUNNER_TEMP/dry-run.txt" || true; } | sort -u | sed 's#^#supabase/migrations/#' > "$RUNNER_TEMP/pending.txt"
+          echo "Pending: $(wc -l < "$RUNNER_TEMP/pending.txt") migration(s)"
+
+      - name: Destructive statements
+        id: scan
+        run: |
+          if [ -s "$RUNNER_TEMP/pending.txt" ]; then
+            node scripts/destructive-sql.mjs $(cat "$RUNNER_TEMP/pending.txt")
+          else
+            echo "destructive=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  migrate-approval:
+    name: Approve destructive migrations
+    # Issue #101: waits for the owner's approval (protected environment) before a destructive migration.
+    if: needs.migrate-plan.outputs.destructive == 'true'
+    needs: migrate-plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: hosted-db-destructive
+    steps:
+      - run: echo "Destructive migration approved; see the annotations of « Plan hosted migrations »."
+
+  migrate:
+    name: Apply migrations to hosted Supabase
+    # Only from main, never on pull requests. Never the seed. Waits for the approval when the plan
+    # found a destructive statement (migrate-approval), otherwise runs right after the plan.
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main' && !cancelled() &&
+      needs.migrate-plan.result == 'success' &&
+      (needs.migrate-approval.result == 'success' || needs.migrate-approval.result == 'skipped')
+    needs: [checks, integration, e2e, migrate-plan, migrate-approval]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # One migration run at a time, never cancelled half-way.
@@ -193,7 +296,11 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     # Static export (docs: README "Deploying"); only from main, after the migrations are applied.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Explicit result check: the default success() also looks at migrate-approval, which is skipped
+    # when no migration is destructive, and would then skip the deploy.
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main' && !cancelled() &&
+      needs.migrate.result == 'success'
     needs: [checks, integration, e2e, migrate]
     runs-on: ubuntu-latest
     timeout-minutes: 15
