@@ -18,12 +18,12 @@ export interface ChartSeries {
 }
 
 /** A null value is a gap (e.g. a month without check-in): the line breaks there. */
-type Row = { label: string } & Record<string, number | string | null>;
+export type Row = { label: string } & Record<string, number | string | null | boolean>;
 
-const MUTED = "var(--muted-foreground)";
-const eurosToCents = (euros: number) => Math.round(euros * 100);
+export const MUTED = "var(--muted-foreground)";
+export const eurosToCents = (euros: number) => Math.round(euros * 100);
 
-function MarkerShape({ marker, color, cx, cy, size = 4 }: { marker: Marker; color: string; cx: number; cy: number; size?: number }) {
+export function MarkerShape({ marker, color, cx, cy, size = 4 }: { marker: Marker; color: string; cx: number; cy: number; size?: number }) {
   // 2px ring in the surface colour keeps markers legible where lines cross.
   if (marker === "ring") {
     return <circle cx={cx} cy={cy} r={size} fill="var(--card)" stroke={color} strokeWidth={2} />;
@@ -34,7 +34,7 @@ function MarkerShape({ marker, color, cx, cy, size = 4 }: { marker: Marker; colo
   return <circle cx={cx} cy={cy} r={size} fill={color} stroke="var(--card)" strokeWidth={2} />;
 }
 
-function LegendKey({ series }: { series: ChartSeries }) {
+export function LegendKey({ series }: { series: ChartSeries }) {
   return (
     <svg aria-hidden width={28} height={12} viewBox="0 0 28 12" className="shrink-0">
       <line
@@ -86,6 +86,7 @@ export function PlanLineChart({
   summary,
   tableCaption,
   todayLabel,
+  zeroLine = false,
 }: {
   data: Row[];
   series: ChartSeries[];
@@ -93,6 +94,8 @@ export function PlanLineChart({
   tableCaption: string;
   /** x label of the current month: drawn as a dashed "Aujourd’hui" line. */
   todayLabel?: string;
+  /** Solid baseline at 0 € (e.g. net worth crossing zero). */
+  zeroLine?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -126,6 +129,7 @@ export function PlanLineChart({
               domain={[(dataMin: number) => Math.min(0, dataMin), "auto"]}
               tickFormatter={(v: number) => formatEurosWhole(eurosToCents(v))}
             />
+            {zeroLine ? <ReferenceLine y={0} stroke="var(--muted-foreground)" /> : null}
             {todayLabel ? (
               <ReferenceLine
                 x={todayLabel}
@@ -166,42 +170,61 @@ export function PlanLineChart({
         </ResponsiveContainer>
       </div>
 
-      <details className="text-sm">
-        <summary className="w-fit cursor-pointer rounded-sm text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-          Voir les données
-        </summary>
-        <div className="mt-2 max-h-72 overflow-auto rounded-md border">
-          <table className="w-full text-xs">
-            <caption className="sr-only">{tableCaption}</caption>
-            <thead className="sticky top-0 bg-muted">
-              <tr>
-                <th scope="col" className="px-2 py-1.5 text-left font-medium">
-                  Mois
+      <ChartDataTable data={data} columns={series} caption={tableCaption} />
+    </div>
+  );
+}
+
+/** « Voir les données »: the chart as a table, one row per x value. */
+export function ChartDataTable({
+  data,
+  columns,
+  caption,
+  rowHeader = "Mois",
+  format = (value) => (typeof value === "number" ? formatEuros(eurosToCents(value)) : "—"),
+}: {
+  data: readonly Row[];
+  columns: readonly { key: string; name: string }[];
+  caption: string;
+  rowHeader?: string;
+  format?: (value: Row[string] | undefined, key: string, row: Row) => string;
+}) {
+  return (
+    <details className="text-sm">
+      <summary className="w-fit cursor-pointer rounded-sm text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+        Voir les données
+      </summary>
+      <div className="mt-2 max-h-72 overflow-auto rounded-md border">
+        <table className="w-full text-xs">
+          <caption className="sr-only">{caption}</caption>
+          <thead className="sticky top-0 bg-muted">
+            <tr>
+              <th scope="col" className="px-2 py-1.5 text-left font-medium">
+                {rowHeader}
+              </th>
+              {columns.map((s) => (
+                <th key={s.key} scope="col" className="px-2 py-1.5 text-right font-medium">
+                  {s.name}
                 </th>
-                {series.map((s) => (
-                  <th key={s.key} scope="col" className="px-2 py-1.5 text-right font-medium">
-                    {s.name}
-                  </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row) => (
+              <tr key={row.label} className="border-t">
+                <th scope="row" className="px-2 py-1 text-left font-normal whitespace-nowrap">
+                  {row.label}
+                </th>
+                {columns.map((s) => (
+                  <td key={s.key} className="px-2 py-1 text-right tabular-nums whitespace-nowrap">
+                    {format(row[s.key], s.key, row)}
+                  </td>
                 ))}
               </tr>
-            </thead>
-            <tbody>
-              {data.map((row) => (
-                <tr key={row.label} className="border-t">
-                  <th scope="row" className="px-2 py-1 text-left font-normal whitespace-nowrap">
-                    {row.label}
-                  </th>
-                  {series.map((s) => (
-                    <td key={s.key} className="px-2 py-1 text-right tabular-nums whitespace-nowrap">
-                      {typeof row[s.key] === "number" ? formatEuros(eurosToCents(row[s.key] as number)) : "—"}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </details>
-    </div>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
   );
 }

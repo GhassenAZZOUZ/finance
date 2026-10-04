@@ -93,7 +93,7 @@ export function fundsSummary(
   if (!isNonEmpty(slice)) return "Aucune donnée.";
   return (
     `Évolution sur ${slice.length} mois. ${goals} : ${range(slice, (m) => m.movingCumulative)}, ` +
-    `objectif ${formatEurosWhole(movingGoal)}. Fonds d'urgence : ${range(slice, (m) => m.emergencyCumulative)}, ` +
+    `objectif ${formatEurosWhole(movingGoal)}. Fonds d’urgence : ${range(slice, (m) => m.emergencyCumulative)}, ` +
     `objectif ${formatEurosWhole(emergencyTarget)}.`
   );
 }
