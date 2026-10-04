@@ -56,19 +56,14 @@ export function checkInHref(month: YearMonth): string {
   return `/suivi?mois=${month}`;
 }
 
-/** Logo: a rising line on an ink tile. */
+/** Logo (Boussole): a "€" whose crossbar is a compass needle, ochre tip pointing east. Same as app/icon.svg. */
 export function BrandMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 30 30" aria-hidden className={cn("size-7.5 shrink-0", className)}>
-      <rect width="30" height="30" rx="8" className="fill-brand-tile" />
-      <path
-        d="M8 20 L13 14 L17 17 L22 10"
-        stroke="var(--bucket-moving)"
-        strokeWidth="2.2"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg viewBox="0 0 120 120" aria-hidden className={cn("size-7.5 shrink-0", className)}>
+      <rect width="120" height="120" rx="28" className="fill-brand-tile" />
+      <path d="M85 37 A30 30 0 1 0 85 83" fill="none" stroke="#F3F0E8" strokeWidth="13" strokeLinecap="round" />
+      <path d="M100 60 L58 49 L58 71 Z" fill="var(--bucket-moving)" />
+      <path d="M16 60 L58 49 L58 71 Z" fill="#F3F0E8" />
     </svg>
   );
 }
@@ -101,7 +96,7 @@ export function Sidebar() {
     <aside className="sticky top-0 hidden h-dvh w-62 shrink-0 flex-col gap-8 overflow-y-auto border-r border-sidebar-border bg-sidebar px-4.5 py-7 text-sidebar-foreground md:flex">
       <div className="flex items-center gap-2.5 px-2">
         <BrandMark />
-        <span className="font-heading text-xl leading-tight font-semibold text-foreground">Plan financier</span>
+        <span className="font-heading text-xl leading-tight font-semibold text-foreground">Boussole</span>
       </div>
 
       <nav aria-label="Navigation principale">
@@ -169,7 +164,7 @@ export function MobileHeader() {
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:hidden">
       <Link href="/" className={cn("flex items-center gap-2 rounded-md", FOCUS_RING)}>
         <BrandMark className="size-6.5" />
-        <span className="font-heading text-lg font-semibold">Plan financier</span>
+        <span className="font-heading text-lg font-semibold">Boussole</span>
       </Link>
       <AccountMenu placement="header" />
     </header>

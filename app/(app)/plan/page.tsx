@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PlanView } from "./view";
 
-export const metadata: Metadata = { title: "Plan · Plan financier" };
+export const metadata: Metadata = { title: "Plan · Boussole" };
 
 /** Static shell; the user's data is loaded in the browser (FinanceProvider). */
 export default function Page() {

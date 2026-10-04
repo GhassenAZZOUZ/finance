@@ -23,6 +23,16 @@ computed for September 2026 — never hard-code them; every value comes from `us
 - `npm run verify` must stay green; update component tests where markup/labels change.
 - French copy as in the mockups; `fr-FR` formatting via `lib/format.ts` (SPEC D12).
 
+## 0. Branding: the app is now **Boussole**
+
+- Logo (`Logo.dc.html`, option C "Euro-aiguille"): a "€" whose crossbar is a compass needle, ochre
+  tip pointing east. Icon files are already in `app/` (Next.js file conventions):
+  `app/icon.svg`, `app/apple-icon.png` (180 px, full-bleed), `app/favicon.ico` (16/32/48, simplified
+  shapes for small sizes). Nothing to wire.
+- Rename "Plan financier" → "Boussole" in UI copy: sidebar/header brand, `metadata.title` in
+  `app/layout.tsx` (e.g. template `"%s · Boussole"`), login page. Keep the repo/package name as is.
+- Sidebar brand = 30 px icon (`app/icon.svg` inlined or `<img>`) + "Boussole" in Newsreader SemiBold 20 px.
+
 ## 1. Design tokens (`app/globals.css`)
 
 Replace the neutral shadcn palette in `:root` (light only for now; keep `.dark` working, derive later):

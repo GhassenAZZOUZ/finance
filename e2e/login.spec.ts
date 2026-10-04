@@ -34,7 +34,7 @@ async function requestEmail(page: Page, email: string): Promise<Mail> {
 /** A new user is greeted by the guided tour, then lands on the onboarding of the dashboard. */
 async function expectDashboard(page: Page) {
   await expect(page).toHaveURL(/\/$/);
-  const tour = page.getByRole("dialog", { name: "Bienvenue dans Plan financier" });
+  const tour = page.getByRole("dialog", { name: "Bienvenue dans Boussole" });
   await expect(tour).toBeVisible();
   await tour.getByRole("button", { name: "Passer" }).click();
   await expect(tour).toBeHidden();
