@@ -53,7 +53,7 @@ function comparisonRow(label: string) {
 
 function renderSimulator() {
   render(<Simulator base={BASE} currentMonth="2027-01" />);
-  return userEvent.setup();
+  return userEvent.setup({ delay: null });
 }
 
 async function retype(user: ReturnType<typeof userEvent.setup>, input: HTMLElement, value: string) {
@@ -199,7 +199,7 @@ describe("#97 — IRA on an extra repayment", () => {
 
   async function addExtra(base: SimulationBase, amount: string) {
     render(<Simulator base={base} currentMonth="2027-01" />);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await user.click(screen.getByRole("button", { name: "Ajouter un remboursement" }));
     const group = screen.getByRole("group", { name: "Remboursement 1" });
     await user.click(within(group).getByLabelText("Argent en plus (prime, cadeau…)"));

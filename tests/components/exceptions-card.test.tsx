@@ -15,7 +15,7 @@ vi.mock("@/lib/supabase/client", () => ({ supabaseBrowser: vi.fn() }));
 
 function renderCard() {
   render(<ExceptionsCard exceptions={[]} startMonth="2026-01" defaultMonth="2026-03" hasSettings />);
-  return userEvent.setup();
+  return userEvent.setup({ delay: null });
 }
 
 beforeEach(() => {

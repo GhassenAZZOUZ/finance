@@ -28,7 +28,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 async function openConfirmation() {
-  const user = userEvent.setup();
+  const user = userEvent.setup({ delay: null });
   render(<DeleteAccountCard />);
   await user.click(screen.getByRole("button", { name: "Supprimer mon compte…" }));
   return user;
