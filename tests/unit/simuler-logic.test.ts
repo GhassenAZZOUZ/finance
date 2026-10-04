@@ -88,6 +88,8 @@ describe("initialSimulation (AC-01)", () => {
       riskFreeRate: "3",
       expenseInflationRate: "0",
       incomeGrowthRate: "0",
+      emergencyRate: "0",
+      freeSavingsRate: "0",
       lineAmounts: { salary: "3000,00", rent: "1200,00", food: "400,00" },
       extras: [],
     });
@@ -230,5 +232,67 @@ describe("charts (AC-08)", () => {
       currentFreeSavings: current.months[0]!.freeSavingsCumulative / 100,
       simulatedFreeSavings: simulated.months[0]!.freeSavingsCumulative / 100,
     });
+  });
+});
+
+describe("#36 AC-08 — yearly rates in « Et si… ? »", () => {
+  it("changes the simulation only, from the next January", () => {
+    const state = edit(initialSimulation(BASE), { expenseInflationRate: "3", incomeGrowthRate: "2" });
+    expect(state.errors).toEqual({});
+    expect(state.scenario).toMatchObject({ expenseInflationRate: 0.03, incomeGrowthRate: 0.02 });
+    const { current, simulated } = results(state);
+    // January 2027 is the start: nothing indexed yet; January 2028 is indexed.
+    expect(simulated.months[0]!.expenses).toBe(current.months[0]!.expenses);
+    expect(simulated.months[12]!.expenses).toBeGreaterThan(current.months[12]!.expenses);
+    expect(simulated.months[12]!.income).toBeGreaterThan(current.months[12]!.income);
+    // The saved settings are untouched.
+    expect(BASE.settings.expenseInflationRate ?? 0).toBe(0);
+  });
+
+  it("rejects a rate above 100 % in French and keeps the last valid one", () => {
+    const valid = edit(initialSimulation(BASE), { expenseInflationRate: "3" });
+    const invalid = edit(valid, { expenseInflationRate: "150" });
+    expect(invalid.errors.expenseInflationRate).toBe("Le taux doit être compris entre −100 % et 100 %");
+    expect(invalid.scenario.expenseInflationRate).toBe(0.03);
+  });
+});
+
+describe("#35 AC-08 — savings rates in « Et si… ? »", () => {
+  const SAVER = simulationBase(
+    { ...SNAPSHOT, settings: { ...SNAPSHOT.settings!, freeSavingsExisting: 1_200_000, freeSavingsRate: 0.024, emergencyRate: 0.02 } },
+    CURRENT,
+  ) as SimulationBase;
+  const saverEdit = (state: SimulationState, patch: Partial<SimulationForm>) => updateSimulation(state, { ...state.form, ...patch }, SAVER);
+  const freeAt12 = (state: SimulationState) => simulatePlan(scenarioInput(SAVER, state.scenario)).months[11]!.freeSavingsCumulative;
+
+  it("starts from the saved rates", () => {
+    const initial = initialSimulation(SAVER);
+    expect(initial.form).toMatchObject({ freeSavingsRate: "2,4", emergencyRate: "2" });
+    expect(initial.scenario).toMatchObject({ freeSavingsRate: 0.024, emergencyRate: 0.02 });
+  });
+
+  it("2,4 % → 3 % on free savings raises the simulated free savings at 12 months; the saved plan is untouched", () => {
+    const initial = initialSimulation(SAVER);
+    const state = saverEdit(initial, { freeSavingsRate: "3" });
+    expect(state.errors).toEqual({});
+    expect(state.scenario.freeSavingsRate).toBe(0.03);
+    expect(freeAt12(state)).toBeGreaterThan(freeAt12(initial));
+    expect(SAVER.settings.freeSavingsRate).toBe(0.024);
+  });
+
+  it("a higher emergency-fund rate earns more interest on the fund", () => {
+    const initial = initialSimulation(SAVER);
+    const state = saverEdit(initial, { emergencyRate: "4" });
+    const interest = (s: SimulationState) => simulatePlan(scenarioInput(SAVER, s.scenario)).kpis.savingsInterestAt12;
+    expect(interest(state)).toBeGreaterThan(interest(initial));
+  });
+
+  it("rejects a negative or above-100 % rate in French and keeps the last valid one; empty = 0", () => {
+    const valid = saverEdit(initialSimulation(SAVER), { freeSavingsRate: "3" });
+    const invalid = saverEdit(valid, { freeSavingsRate: "150", emergencyRate: "-1" });
+    expect(invalid.errors.freeSavingsRate).toBe("Le taux doit être inférieur ou égal à 100 %");
+    expect(invalid.errors.emergencyRate).toMatch(/taux/i);
+    expect(invalid.scenario.freeSavingsRate).toBe(0.03);
+    expect(saverEdit(valid, { freeSavingsRate: "" }).scenario.freeSavingsRate).toBe(0);
   });
 });

@@ -169,6 +169,17 @@ describe("validateBudget", () => {
       "lines.0.amount": "Le montant ne peut pas être négatif",
     });
   });
+
+  it("#35 AC-05 — rejects a negative or above-100 % savings rate on its field, in French; empty = 0", () => {
+    const ok = validateBudget({ ...form, emergencyRate: "2,4", freeSavingsRate: "" });
+    expect(ok.ok && ok.value.settings).toMatchObject({ emergencyRate: 0.024, freeSavingsRate: 0 });
+    const bad = validateBudget({ ...form, emergencyRate: "-1", freeSavingsRate: "150" });
+    expect(bad.ok).toBe(false);
+    if (bad.ok) return;
+    expect(Object.keys(bad.errors).sort()).toEqual(["emergencyRate", "freeSavingsRate"]);
+    expect(bad.errors.emergencyRate).toMatch(/taux/i);
+    expect(bad.errors.freeSavingsRate).toBe("Le taux doit être inférieur ou égal à 100 %");
+  });
 });
 
 describe("validateException (SPEC D14)", () => {

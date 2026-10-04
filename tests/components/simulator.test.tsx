@@ -178,4 +178,17 @@ describe("Simulator", () => {
     expect(screen.getAllByText("Voir les données")).toHaveLength(2);
     expect(screen.getByRole("img", { name: /^Dette restante sur \d+ mois\./ })).toBeTruthy();
   });
+
+  it("#35 AC-08 — changes the savings rates in the simulation only, with the saved value as hint", async () => {
+    const user = renderSimulator();
+    const free = screen.getByLabelText("Taux d’intérêt de l’épargne libre, par an (%)");
+    const hints = screen.getAllByText((_, el) => el?.tagName === "P" && /^Plan actuel : 0 ?%\. Intérêts versés chaque 31 décembre\.$/.test(plain(el.textContent)));
+    expect(hints).toHaveLength(2);
+    await retype(user, free, "150");
+    expect(screen.getByText("Le taux doit être inférieur ou égal à 100 %")).toBeTruthy();
+    await retype(user, free, "3");
+    await retype(user, screen.getByLabelText("Taux d’intérêt du fonds d’urgence, par an (%)"), "3");
+    expect(screen.queryByText("Le taux doit être inférieur ou égal à 100 %")).toBeNull();
+    for (const method of Object.values(mocks.repo!)) expect(method).not.toHaveBeenCalled();
+  });
 });

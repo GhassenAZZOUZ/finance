@@ -4,7 +4,7 @@
  */
 import { buildPlanInput, referenceMonth } from "@/lib/domain/plan";
 import type { BudgetException, BudgetLine, BudgetSettings, FinanceSnapshot, Loan, SavingsGoal } from "@/lib/domain/types";
-import { type Errors, parseAmount, parseMonth, parsePercent, parseYearlyRate } from "@/lib/domain/validation";
+import { type Errors, parseAmount, parseMonth, parsePercent, parseSavingsRate, parseYearlyRate } from "@/lib/domain/validation";
 import {
   type Cents,
   type ExtraRepaymentInput,
@@ -45,6 +45,9 @@ export interface SimulationForm {
   /** Yearly indexation in % (SPEC D27). */
   expenseInflationRate: string;
   incomeGrowthRate: string;
+  /** Savings interest rates in % (SPEC D28, issue #35 AC-08). */
+  emergencyRate: string;
+  freeSavingsRate: string;
   /** By budget line id. */
   lineAmounts: Record<string, string>;
   extras: ExtraRow[];
@@ -56,6 +59,8 @@ export interface Scenario {
   riskFreeRate: number;
   expenseInflationRate: number;
   incomeGrowthRate: number;
+  emergencyRate: number;
+  freeSavingsRate: number;
   lineAmounts: Record<string, Cents>;
   extras: (ExtraRepaymentInput & { key: string })[];
 }
@@ -99,6 +104,8 @@ export function initialSimulation(base: SimulationBase): SimulationState {
       riskFreeRate: percentInputValue(base.settings.riskFreeRate),
       expenseInflationRate: percentInputValue(base.settings.expenseInflationRate ?? 0),
       incomeGrowthRate: percentInputValue(base.settings.incomeGrowthRate ?? 0),
+      emergencyRate: percentInputValue(base.settings.emergencyRate ?? 0),
+      freeSavingsRate: percentInputValue(base.settings.freeSavingsRate ?? 0),
       lineAmounts: Object.fromEntries(base.lines.map((l) => [l.id, amountInputValue(l.amount)])),
       extras: [],
     },
@@ -107,6 +114,8 @@ export function initialSimulation(base: SimulationBase): SimulationState {
       riskFreeRate: base.settings.riskFreeRate,
       expenseInflationRate: base.settings.expenseInflationRate ?? 0,
       incomeGrowthRate: base.settings.incomeGrowthRate ?? 0,
+      emergencyRate: base.settings.emergencyRate ?? 0,
+      freeSavingsRate: base.settings.freeSavingsRate ?? 0,
       lineAmounts: Object.fromEntries(base.lines.map((l) => [l.id, l.amount])),
       extras: [],
     },
@@ -122,6 +131,8 @@ export function scenarioInput(base: SimulationBase, scenario: Scenario): PlanInp
     riskFreeRate: scenario.riskFreeRate,
     expenseInflationRate: scenario.expenseInflationRate,
     incomeGrowthRate: scenario.incomeGrowthRate,
+    emergencyRate: scenario.emergencyRate,
+    freeSavingsRate: scenario.freeSavingsRate,
   };
   const lines = base.lines.map((l) => ({ ...l, amount: scenario.lineAmounts[l.id] ?? l.amount }));
   const input = buildPlanInput(settings, lines, base.loans, base.exceptions, base.kpiMonth, base.goals);
@@ -157,6 +168,8 @@ export function updateSimulation(prev: SimulationState, form: SimulationForm, ba
     riskFreeRate: pick("riskFreeRate", parsePercent(form.riskFreeRate), prev.scenario.riskFreeRate),
     expenseInflationRate: pick("expenseInflationRate", parseYearlyRate(form.expenseInflationRate), prev.scenario.expenseInflationRate),
     incomeGrowthRate: pick("incomeGrowthRate", parseYearlyRate(form.incomeGrowthRate), prev.scenario.incomeGrowthRate),
+    emergencyRate: pick("emergencyRate", parseSavingsRate(form.emergencyRate), prev.scenario.emergencyRate),
+    freeSavingsRate: pick("freeSavingsRate", parseSavingsRate(form.freeSavingsRate), prev.scenario.freeSavingsRate),
     lineAmounts,
     extras: [],
   };
