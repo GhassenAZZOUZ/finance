@@ -256,6 +256,9 @@ describe("#98 — « Appliquer au plan »", () => {
     expect(plain(screen.getByRole("alert").textContent)).toBe("Impossible d’appliquer la simulation pour le moment. Votre plan n’a pas changé.");
     expect(mocks.notify).not.toHaveBeenCalled();
     expect(screen.getByRole("region", { name: "Appliquer la simulation à votre plan ?" })).toBeTruthy();
+  });
+});
+
 describe("#97 — IRA on an extra repayment", () => {
   const withIra = (loan: Parameters<typeof makeLoan>[1]) =>
     simulationBase({ ...SNAPSHOT, loans: [makeLoan(1, { name: "Prêt auto", ...loan })] }, "2027-01") as SimulationBase;
