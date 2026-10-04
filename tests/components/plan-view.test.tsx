@@ -82,4 +82,19 @@ describe("Plan page range", () => {
     await user.selectOptions(select, "12");
     expect(mocks.replace).toHaveBeenCalledWith("/plan?mois=12", { scroll: false });
   });
+
+  it.each([
+    ["1", 1, "Le premier mois est affiché ci-dessous."],
+    ["12", 12, "Les 12 premiers mois sont affichés ci-dessous."],
+    [null, 18, "Les 18 premiers mois sont affichés ci-dessous."],
+  ])("AC-05 — ?mois=%s: the overview bracket and its text follow the choice", (mois, count, text) => {
+    renderPlan(mois);
+    const overview = screen.getByRole("region", { name: "Les 300 mois du plan" });
+    const bar = within(overview).getByRole("img");
+    expect(bar.getAttribute("aria-label")?.endsWith(`. ${text}`)).toBe(true);
+    const bracket = bar.querySelector<HTMLElement>("[aria-hidden].border-foreground")!;
+    const width = Number(bracket.style.width.match(/^calc\(([\d.]+)% \+ 4px\)$/)?.[1]);
+    expect(width).toBeCloseTo((count / 300) * 100, 4);
+    expect(table().querySelector("caption")?.textContent).toContain(`${count} mois à partir de octobre 2026`);
+  });
 });

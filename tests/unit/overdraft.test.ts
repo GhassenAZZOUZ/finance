@@ -5,8 +5,11 @@
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { validateLoan } from "@/lib/domain/validation";
+import { computePlan } from "@/lib/domain/plan";
+import type { FinanceSnapshot, MonthlyActual } from "@/lib/domain/types";
+import { validateActual, validateLoan } from "@/lib/domain/validation";
 import { type BudgetParams, type LoanInput, type PlanMonth, eurosToCents, simulatePlan } from "@/lib/engine";
+import { makeLoan, makeSettings, makeSnapshot } from "../components/helpers";
 
 interface RefLoan {
   id: string;
@@ -198,5 +201,54 @@ describe("overdraft form validation (AC-05)", () => {
 
   it("counts in the 6-debt limit", () => {
     expect(validateLoan(form(), 6)).toMatchObject({ ok: false, errors: { form: "6 crédits maximum" } });
+  });
+});
+
+describe("AC-08 — check-ins take the overdraft balance", () => {
+  const snapshot = (overdraftBalance: number): FinanceSnapshot =>
+    makeSnapshot({
+      settings: makeSettings({ startMonth: "2027-01" }),
+      lines: [{ id: "i", category: "income", label: "Salaire", amount: 300_000, position: 0, startMonth: null, endMonth: null }],
+      loans: [makeLoan(1), makeLoan(2, { name: "Découvert", kind: "overdraft", principal: 30_000, monthlyPayment: 0, apr: 0.16, creditLimit: 100_000 })],
+      actuals: [
+        {
+          id: "a",
+          month: "2027-02",
+          income: null,
+          expenses: null,
+          lines: [],
+          emergencySavings: 0,
+          freeSavings: 0,
+          goalBalances: [{ goalId: "goal-primary", balance: 0 }],
+          loanBalances: [
+            { loanId: "loan-1", balance: 400_000 },
+            { loanId: "loan-2", balance: overdraftBalance },
+          ],
+          frozen: null,
+        } as MonthlyActual,
+      ],
+    });
+
+  it("is a balance to enter like any loan, 0 allowed", () => {
+    const form = {
+      month: "2027-02",
+      goalBalances: [{ goalId: "goal-primary", balance: "0" }],
+      emergencySavings: "0",
+      freeSavings: "0",
+      loanBalances: [
+        { loanId: "loan-1", balance: "4 000" },
+        { loanId: "loan-2", balance: "0" },
+      ],
+    };
+    const ctx = { startMonth: "2027-01", currentMonth: "2027-03", activeLoanIds: ["loan-1", "loan-2"], goalIds: ["goal-primary"] };
+    expect(validateActual(form, ctx)).toMatchObject({ ok: true, value: { loanBalances: [{ balance: 400_000 }, { balance: 0 }] } });
+    expect(validateActual({ ...form, loanBalances: [form.loanBalances[0]!] }, ctx)).toMatchObject({ ok: false, errors: { "loan.loan-2": "Montant requis" } });
+  });
+
+  it("counts in the actual debt compared with the plan", () => {
+    const at = (balance: number) => computePlan(snapshot(balance), "2027-03")!.comparisons[0]!;
+    expect(at(0).actualDebt).toBe(400_000);
+    expect(at(25_000).actualDebt).toBe(425_000);
+    expect(at(25_000).debtGap! - at(0).debtGap!).toBe(25_000);
   });
 });
