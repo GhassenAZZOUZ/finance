@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CalendarCheck, CreditCard, Database, FlaskConical, LayoutDashboard, Table2, Wallet } from "lucide-react";
+import { ArrowRight, CalendarCheck, ChevronUp, CreditCard, Database, FlaskConical, LayoutDashboard, Table2, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
@@ -95,7 +95,6 @@ function PendingBadge({ count, className }: { count: number; className?: string 
 /** Desktop sidebar (≥ md): brand, links, "À faire" card, account. */
 export function Sidebar() {
   const pathname = usePathname();
-  const finance = useOptionalFinance();
   const pending = usePendingCheckIns();
   const oldest = pending[0];
   return (
@@ -159,43 +158,39 @@ export function Sidebar() {
         </section>
       ) : null}
 
-      <div className="flex flex-col gap-1">
-        <ThemeToggle className="mb-2" />
-        <TourButton />
-        <Link
-          href={DATA_HREF}
-          data-tour="donnees"
-          aria-current={isDataPage(pathname) ? "page" : undefined}
-          className={cn(
-            "flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-sm font-medium transition-colors",
-            FOCUS_RING,
-            isDataPage(pathname)
-              ? "bg-sidebar-primary text-sidebar-primary-foreground"
-              : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-          )}
-        >
-          <Database aria-hidden className="size-4.5" />
-          Mes données
-        </Link>
-        <div className="flex items-center justify-between gap-2 px-2">
-          <span className="min-w-0 truncate text-[13px] text-muted-foreground" title={finance?.email ?? undefined}>
-            {finance?.email ?? ""}
-          </span>
-          <SignOutButton iconOnly />
-        </div>
-      </div>
+      <AccountMenu placement="sidebar" />
     </aside>
   );
 }
 
 /** Mobile top bar (< md): brand and an account menu (email + sign-out). */
 export function MobileHeader() {
+  return (
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:hidden">
+      <Link href="/" className={cn("flex items-center gap-2 rounded-md", FOCUS_RING)}>
+        <BrandMark className="size-6.5" />
+        <span className="font-heading text-lg font-semibold">Plan financier</span>
+      </Link>
+      <AccountMenu placement="header" />
+    </header>
+  );
+}
+
+/**
+ * Account menu: e-mail, « Mes données », the guide, the theme and sign-out, closed by default.
+ * In the sidebar (≥ md) the button shows the e-mail and the menu opens upwards; in the mobile
+ * top bar it is the initial only and opens downwards. Escape or a click outside closes it.
+ */
+function AccountMenu({ placement }: { placement: "sidebar" | "header" }) {
+  const pathname = usePathname();
   const finance = useOptionalFinance();
   const [open, setOpen] = useState(false);
   const menuId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const initial = finance?.email?.trim().charAt(0).toUpperCase() || "?";
+  const email = finance?.email ?? null;
+  const initial = email?.trim().charAt(0).toUpperCase() || "?";
+  const sidebar = placement === "sidebar";
 
   useEffect(() => {
     if (!open) return;
@@ -217,51 +212,74 @@ export function MobileHeader() {
     };
   }, [open]);
 
+  const avatar = (
+    <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-[13px] font-semibold text-foreground">
+      {initial}
+    </span>
+  );
+
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:hidden">
-      <Link href="/" className={cn("flex items-center gap-2 rounded-md", FOCUS_RING)}>
-        <BrandMark className="size-6.5" />
-        <span className="font-heading text-lg font-semibold">Plan financier</span>
-      </Link>
-      <div className="relative">
-        <button
-          ref={buttonRef}
-          type="button"
-          aria-label="Compte et déconnexion"
-          data-tour="donnees guide"
-          aria-expanded={open}
-          aria-controls={menuId}
-          onClick={() => setOpen((o) => !o)}
-          className={cn("flex size-11 items-center justify-center rounded-full", FOCUS_RING)}
+    <div className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label={sidebar ? undefined : "Compte et déconnexion"}
+        // The tour points at « Mes données » and the guide through this button while the menu is closed.
+        data-tour="donnees guide"
+        aria-expanded={open}
+        aria-controls={menuId}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          sidebar
+            ? "flex min-h-12 w-full items-center gap-2.5 rounded-[12px] px-2 text-left text-sm transition-colors hover:bg-sidebar-accent"
+            : "flex size-11 items-center justify-center rounded-full",
+          sidebar && (open || isDataPage(pathname)) && "bg-sidebar-accent",
+          FOCUS_RING,
+        )}
+      >
+        {avatar}
+        {sidebar ? (
+          <>
+            <span className="min-w-0 grow">
+              <span className="block text-[13px] font-medium text-foreground">Compte</span>
+              <span className="block truncate text-[12px] text-muted-foreground" title={email ?? undefined}>
+                {email ?? ""}
+              </span>
+            </span>
+            <ChevronUp aria-hidden className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "rotate-180")} />
+          </>
+        ) : null}
+      </button>
+      <div
+        ref={menuRef}
+        id={menuId}
+        hidden={!open}
+        className={cn(
+          "absolute z-40 flex flex-col gap-2 rounded-2xl border bg-popover p-3 text-sm text-popover-foreground shadow-lg",
+          // The sidebar is a full-height sticky column that clips its overflow: the menu is pinned to the
+          // window corner above the account button, full width, rather than inside it.
+          sidebar ? "fixed bottom-24 left-4.5 w-64" : "top-12 right-0 w-64",
+        )}
+      >
+        {email && !sidebar ? <p className="truncate px-1 text-muted-foreground">{email}</p> : null}
+        <Link
+          href={DATA_HREF}
+          aria-current={isDataPage(pathname) ? "page" : undefined}
+          onClick={() => setOpen(false)}
+          className={cn(
+            "flex min-h-11 items-center gap-2 rounded-md border border-input px-3 font-medium hover:bg-secondary",
+            isDataPage(pathname) && "bg-secondary",
+            FOCUS_RING,
+          )}
         >
-          <span aria-hidden className="flex size-8 items-center justify-center rounded-full bg-accent text-[13px] font-semibold">
-            {initial}
-          </span>
-        </button>
-        <div
-          ref={menuRef}
-          id={menuId}
-          hidden={!open}
-          className="absolute top-12 right-0 z-40 flex w-64 flex-col gap-2 rounded-2xl border bg-popover p-3 text-sm shadow-lg"
-        >
-          {finance?.email ? <p className="truncate px-1 text-muted-foreground">{finance.email}</p> : null}
-          <Link
-            href={DATA_HREF}
-            onClick={() => setOpen(false)}
-            className={cn(
-              "flex min-h-11 items-center gap-2 rounded-md border border-input px-3 font-medium hover:bg-secondary",
-              FOCUS_RING,
-            )}
-          >
-            <Database aria-hidden className="size-4" />
-            Mes données
-          </Link>
-          <TourButton onStart={() => setOpen(false)} className="border border-input text-foreground hover:bg-secondary" />
-          <ThemeToggle />
-          <SignOutButton />
-        </div>
+          <Database aria-hidden className="size-4" />
+          Mes données
+        </Link>
+        <TourButton onStart={() => setOpen(false)} className="border border-input text-foreground hover:bg-secondary" />
+        <ThemeToggle />
+        <SignOutButton />
       </div>
-    </header>
+    </div>
   );
 }
 
