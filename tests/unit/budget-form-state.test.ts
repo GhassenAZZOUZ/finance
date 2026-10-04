@@ -6,6 +6,9 @@ import {
   initialFormState,
   invalidParams,
   isOutsidePlan,
+  overlapWarnings,
+  periodOverlap,
+  sameNameKey,
   parsePayload,
   parseSettings,
   periodText,
@@ -304,5 +307,50 @@ describe("line periods (SPEC D15)", () => {
     expect(isOutsidePlan({ startMonth: "2051-12", endMonth: null }, "2027-01")).toBe(false);
     expect(isOutsidePlan({ startMonth: "2052-01", endMonth: null }, "2027-01")).toBe(true);
     expect(isOutsidePlan({ startMonth: null, endMonth: "2020-01" }, null)).toBe(false);
+  });
+});
+
+describe("same-name lines that overlap (#99)", () => {
+  const row = (key: string, label: string, startMonth = "", endMonth = "", category: BudgetLine["category"] = "fixed") => ({
+    key,
+    category,
+    label,
+    amount: "850",
+    startMonth,
+    endMonth,
+  });
+
+  it("compares names ignoring case, accents and spaces", () => {
+    expect(sameNameKey("  Loyér   Paris ")).toBe(sameNameKey("loyer paris"));
+    expect(sameNameKey("Loyer")).not.toBe(sameNameKey("Loyers"));
+  });
+
+  it("computes the months two periods share, bounds inclusive", () => {
+    expect(periodOverlap({ startMonth: null, endMonth: null }, { startMonth: "2027-07", endMonth: null })).toEqual({ startMonth: "2027-07", endMonth: null });
+    expect(periodOverlap({ startMonth: null, endMonth: "2027-09" }, { startMonth: "2027-07", endMonth: null })).toEqual({ startMonth: "2027-07", endMonth: "2027-09" });
+    expect(periodOverlap({ startMonth: null, endMonth: "2027-07" }, { startMonth: "2027-07", endMonth: null })).toEqual({ startMonth: "2027-07", endMonth: "2027-07" });
+    expect(periodOverlap({ startMonth: null, endMonth: "2027-06" }, { startMonth: "2027-07", endMonth: null })).toBeNull();
+  });
+
+  it("AC-01 / AC-03 — flags both lines and names the months", () => {
+    const warnings = overlapWarnings([row("a", "Loyer"), row("b", "loyer", "2027-07")]);
+    expect(warnings).toEqual({
+      a: "2 lignes « Loyer » actives à partir de juil. 2027",
+      b: "2 lignes « loyer » actives à partir de juil. 2027",
+    });
+    expect(overlapWarnings([row("a", "Loyer"), row("b", "Loyer")]).a).toBe("2 lignes « Loyer » actives chaque mois");
+  });
+
+  it("AC-02 — periods that follow each other are not flagged", () => {
+    expect(overlapWarnings([row("a", "Loyer", "", "2027-06"), row("b", "Loyer", "2027-07")])).toEqual({});
+  });
+
+  it("compares within the same category only, and ignores empty names", () => {
+    expect(overlapWarnings([row("a", "Prime", "", "", "income"), row("b", "Prime", "", "", "variable")])).toEqual({});
+    expect(overlapWarnings([row("a", " "), row("b", "")])).toEqual({});
+  });
+
+  it("counts three lines active together", () => {
+    expect(overlapWarnings([row("a", "Loyer"), row("b", "Loyer"), row("c", "Loyer")]).a).toBe("3 lignes « Loyer » actives en même temps");
   });
 });

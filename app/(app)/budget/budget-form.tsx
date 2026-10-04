@@ -23,6 +23,7 @@ import {
   invalidParams,
   isOutsidePlan,
   linePeriod,
+  overlapWarnings,
   parseSettings,
   periodText,
   sectionTotal,
@@ -107,6 +108,8 @@ export function BudgetForm({
   const planStart = useMemo(() => parseSettings(form.params)?.startMonth ?? settings?.startMonth ?? null, [form.params, settings]);
   // Plan start for the lines' "outside the plan" notes: the typed month as soon as it is valid.
   const linePlanStart = formPlanStart(form.params, savedStart);
+  // Same-name lines active in the same months (#99): live, before and after saving.
+  const overlaps = overlapWarnings(form.lines);
 
   const errors = actionState.errors;
   const lineErrors: LineErrors = new Map();
@@ -215,6 +218,7 @@ export function BudgetForm({
                         name={`${section.lineName} ${i + 1}`}
                         errors={lineErrors.get(line.key)}
                         planStart={linePlanStart}
+                        overlap={overlaps[line.key]}
                         inputRef={focusNewLine(line.key)}
                         onChange={(patch) => updateLine(line.key, patch)}
                         onRemove={() => removeLine(line)}
@@ -401,6 +405,7 @@ function LineRow({
   name,
   errors,
   planStart,
+  overlap,
   inputRef,
   onChange,
   onRemove,
@@ -410,6 +415,8 @@ function LineRow({
   errors?: LineFieldErrors;
   /** Plan start, to flag a period that never meets the simulated months (null: unknown). */
   planStart: string | null;
+  /** Warning when another line with the same name is active in the same months (#99). */
+  overlap?: string;
   inputRef: (el: HTMLInputElement | null) => void;
   onChange: (patch: LinePatch) => void;
   onRemove: () => void;
@@ -522,6 +529,15 @@ function LineRow({
               hors de la période du plan : sans effet
             </span>
           ) : null}
+        </p>
+      ) : null}
+      {overlap ? (
+        <p className="col-span-full flex items-start gap-1.5 text-sm text-warning">
+          <AlertTriangle aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+          <span>
+            <span className="sr-only">Attention : </span>
+            {overlap}
+          </span>
         </p>
       ) : null}
       <div
