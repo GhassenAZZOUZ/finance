@@ -353,4 +353,11 @@ describe("same-name lines that overlap (#99)", () => {
   it("counts three lines active together", () => {
     expect(overlapWarnings([row("a", "Loyer"), row("b", "Loyer"), row("c", "Loyer")]).a).toBe("3 lignes « Loyer » actives en même temps");
   });
+
+  it("#121 — a line at 0 € (hidden template line, new line not filled in yet) neither counts nor warns", () => {
+    const zero = (key: string, label: string, amount: string) => ({ ...row(key, label), amount });
+    expect(overlapWarnings([zero("tpl", "Abonnements", "0,00"), row("new", "abonnements")])).toEqual({});
+    expect(overlapWarnings([row("a", "Loyer"), zero("b", "loyer", "0")])).toEqual({});
+    expect(overlapWarnings([row("a", "Loyer"), zero("b", "loyer", "")])).toEqual({});
+  });
 });

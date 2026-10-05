@@ -183,7 +183,7 @@ export function History({ entries }: { entries: HistoryEntry[] }) {
 
       {/* lg and up: compact table, fully visible from a 1024 px viewport. */}
       <div className="hidden xl:block">
-        <Table>
+        <Table label="Historique des mois saisis">
           <TableHeader>
             <TableRow>
               <TableHead scope="col">Mois</TableHead>

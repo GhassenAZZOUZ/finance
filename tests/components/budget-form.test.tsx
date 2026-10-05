@@ -220,6 +220,9 @@ describe("BudgetForm", () => {
     await user.click(screen.getByRole("button", { name: "Ajouter une charge" }));
     await user.type(screen.getByLabelText("Libellé (Charge 2)"), "loyer");
     const warnings = () => screen.queryAllByText(/lignes « (L|l)oyer » actives/);
+    // The new line is still at 0 €: it weighs nothing yet, no warning (#121).
+    expect(warnings()).toEqual([]);
+    await user.type(amountInput("loyer"), "950");
     expect(warnings().map((w) => w.textContent)).toEqual([
       "Attention : 2 lignes « Loyer » actives chaque mois",
       "Attention : 2 lignes « loyer » actives chaque mois",
@@ -234,6 +237,40 @@ describe("BudgetForm", () => {
     await user.click(screen.getByRole("button", { name: "Période (loyer)" }));
     fireEvent.change(periodInput("loyer", "Début (inclus)"), { target: { value: "2027-07" } });
     expect(warnings()).toEqual([]);
+  });
+
+  it("#121 — a 0 € line with the same name (e.g. a hidden template line) raises no warning", async () => {
+    render(
+      <BudgetForm
+        settings={SETTINGS}
+        lines={[...LINES, { id: "l-subs", category: "fixed", label: "Abonnements", amount: 0, position: 1, startMonth: null, endMonth: null }]}
+        loans={[]}
+        exceptions={[]}
+        currentMonth="2026-09"
+      />,
+    );
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole("button", { name: "Ajouter une charge" }));
+    const labels = screen.getAllByLabelText(/^Libellé \(Charge \d+\)$/);
+    await user.type(labels[labels.length - 1]!, "abonnements");
+    await user.type(amountInput("abonnements"), "30");
+    expect(screen.queryByText(/lignes « (A|a)bonnements » actives/)).toBeNull();
+  });
+
+  it("#123 — before the first save, exceptions follow « Début du plan »: earlier months flagged, the strip starts there", () => {
+    render(
+      <BudgetForm
+        settings={null}
+        lines={[]}
+        loans={[]}
+        exceptions={[{ id: "e-aug", month: "2026-08", kind: "expense", label: "Avant le plan", amount: 10_000 }]}
+        currentMonth="2026-10"
+      />,
+    );
+    const saved = screen.getByRole("list", { name: "Exceptions enregistrées" });
+    expect(saved.textContent).toContain("(hors de la période du plan : sans effet)");
+    const strip = screen.getByRole("list", { name: "Choisir un mois pour l’exception" });
+    expect(strip.querySelector("button")?.getAttribute("aria-label")).toMatch(/^octobre 2026/);
   });
 
   it("shows an end before the start on the line and does not save", async () => {
