@@ -3,6 +3,7 @@
 import { CalendarClock } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useFinance } from "@/components/app/finance-provider";
+import { useIsMobile } from "@/components/app/use-is-mobile";
 import { Onboarding } from "@/components/app/onboarding";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import { type ActualStatus, addMonths, compareMonths } from "@/lib/engine";
 import { currentDate, currentYearMonth, formatDate, formatMonthLong } from "@/lib/format";
 import { ActualVsPlannedCard } from "./actual-vs-planned";
 import { CheckInForm } from "./check-in-form";
+import { MobileCheckIn } from "./mobile-check-in";
 import { History, HistoryList } from "./history";
 import { IncomePaymentsCard } from "./income-payments-card";
 import { LineActualsCard } from "./line-actuals-card";
@@ -40,6 +42,7 @@ const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1
 export function SuiviView() {
   const { snapshot, plan } = useFinance();
   const monthParam = useSearchParams().get("mois");
+  const isMobile = useIsMobile();
 
   if (!plan || !snapshot.settings) {
     return (
@@ -109,6 +112,29 @@ export function SuiviView() {
   }));
   const loanLabels = Object.fromEntries(loans.map((l) => [l.id, l.label]));
   const history = buildHistory(plan.comparisons, snapshot.actuals);
+
+  // Phones: `?mois=` (Saisir, the home shortcut) opens the full-screen check-in flow (#110).
+  const mobileMonth = isMobile && !notStarted ? parseMonthParam(monthParam, months) : null;
+
+  // The flow alone: the page below cannot be used meanwhile (and two forms would repeat the fields).
+  if (mobileMonth) {
+    return (
+      <MobileCheckIn
+        key={`${startMonth}-${mobileMonth}`}
+        month={mobileMonth}
+        values={values}
+        existing={entered}
+        earlyMonth={earlyMonth}
+        budgetLines={snapshot.lines}
+        rows={rows}
+        bankCsvMapping={snapshot.bankCsvMapping ?? null}
+        bankRules={snapshot.bankRules ?? []}
+        planned={planned}
+        loans={loans}
+        goals={goals.map((g) => ({ id: g.id, label: g.name }))}
+      />
+    );
+  }
 
   return (
     <>

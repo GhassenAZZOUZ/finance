@@ -59,7 +59,7 @@ type SavingsField = "emergencySavings" | "freeSavings";
 /** « Épargne voyage », « Épargne voiture »… */
 export const goalFieldLabel = (name: string) => `Épargne ${name.toLocaleLowerCase("fr")}`;
 
-const SAVINGS_FIELDS: { name: SavingsField; label: string }[] = [
+export const SAVINGS_FIELDS: { name: SavingsField; label: string }[] = [
   { name: "emergencySavings", label: "Fonds d’urgence" },
   { name: "freeSavings", label: "Épargne libre" },
 ];
@@ -458,7 +458,7 @@ function ColumnHeads() {
  * The verdict of the month as typed (SPEC D34): undefined when the month has no rows or no planned
  * deposits (no verdict to show), null while a row or a deposit is still empty or invalid.
  */
-function liveVerdict(
+export function liveVerdict(
   form: ActualForm,
   monthRows: readonly CheckInRow[],
   plan: PlannedValues | null,
@@ -492,7 +492,7 @@ function liveVerdict(
 }
 
 /** A deposit as typed in the form: « -200,00 » for a withdrawal. */
-const depositInputValue = (cents: Cents) => (cents < 0 ? `-${amountInputValue(-cents)}` : amountInputValue(cents));
+export const depositInputValue = (cents: Cents) => (cents < 0 ? `-${amountInputValue(-cents)}` : amountInputValue(cents));
 
 /**
  * « Épargne versée ce mois » (SPEC D33): what was put into (or taken out of) each pot, against the

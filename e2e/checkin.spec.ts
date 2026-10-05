@@ -14,18 +14,34 @@ test("saves a check-in and shows its status", async ({ page, user }) => {
   if (loan.error) throw loan.error;
 
   await page.goto(`/suivi/?mois=${month}`);
-  // Income and expenses line by line (#72): the budget, then more spent on groceries.
-  for (const group of ["Revenus", "Charges fixes", "Dépenses variables"]) {
-    await page.getByRole("button", { name: `Tout comme prévu : ${group}` }).click();
+  if (test.info().project.name === "mobile") {
+    // Phones: the full-screen flow in 4 steps (#110), same values, one save at the end.
+    await page.getByRole("button", { name: "Tout est comme prévu" }).click();
+    await page.getByRole("textbox", { name: "Courses" }).fill("520");
+    await page.getByRole("button", { name: "Suivant : épargne" }).click();
+    await page.getByRole("textbox", { name: "Épargne déménagement" }).fill("0");
+    await page.getByRole("textbox", { name: "Fonds d’urgence" }).fill("0");
+    await page.getByRole("textbox", { name: "Épargne libre" }).fill("0");
+    await page.getByRole("button", { name: "Suivant : crédits" }).click();
+    await page.getByRole("textbox", { name: "Prêt test" }).fill("5000");
+    await page.getByRole("button", { name: "Suivant : vérifier" }).click();
+    await page.getByRole("button", { name: `Enregistrer ${formatMonthLong(month)}` }).click();
+    await expect(page.getByText(`Mois de ${formatMonthLong(month)} enregistré.`)).toBeVisible();
+    await page.getByRole("button", { name: "Terminer" }).click();
+  } else {
+    // Income and expenses line by line (#72): the budget, then more spent on groceries.
+    for (const group of ["Revenus", "Charges fixes", "Dépenses variables"]) {
+      await page.getByRole("button", { name: `Tout comme prévu : ${group}` }).click();
+    }
+    await page.getByRole("textbox", { name: "Courses" }).fill("520");
+    // Savings are this month's deposits (#73): nothing put aside, so savings fall below the plan.
+    await expect(page.getByText("Épargne versée ce mois")).toBeVisible();
+    await page.getByRole("textbox", { name: "Épargne déménagement" }).fill("0");
+    await page.getByRole("textbox", { name: "Fonds d’urgence" }).fill("0");
+    await page.getByRole("textbox", { name: "Épargne libre" }).fill("0");
+    await page.getByRole("textbox", { name: "Prêt test" }).fill("5000");
+    await page.getByRole("button", { name: `Enregistrer ${formatMonthLong(month)}` }).click();
   }
-  await page.getByRole("textbox", { name: "Courses" }).fill("520");
-  // Savings are this month's deposits (#73): nothing put aside, so savings fall below the plan.
-  await expect(page.getByText("Épargne versée ce mois")).toBeVisible();
-  await page.getByRole("textbox", { name: "Épargne déménagement" }).fill("0");
-  await page.getByRole("textbox", { name: "Fonds d’urgence" }).fill("0");
-  await page.getByRole("textbox", { name: "Épargne libre" }).fill("0");
-  await page.getByRole("textbox", { name: "Prêt test" }).fill("5000");
-  await page.getByRole("button", { name: `Enregistrer ${formatMonthLong(month)}` }).click();
 
   const history = page.getByRole("region", { name: "Historique" });
   const entry = history.getByRole("listitem").filter({ hasText: formatMonthLong(month) });
