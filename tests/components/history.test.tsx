@@ -162,7 +162,7 @@ describe("History", () => {
 
   it("deletes a month after an inline confirmation", async () => {
     render(<History entries={[MARCH]} />);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await user.click(within(card(/mars 2027/)).getByRole("button", { name: "Supprimer la saisie de mars 2027" }));
     expect(mocks.repo!.deleteActual).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Confirmer la suppression" }));

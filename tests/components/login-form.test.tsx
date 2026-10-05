@@ -34,7 +34,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 async function requestCode(email = "someone@example.com") {
-  const user = userEvent.setup();
+  const user = userEvent.setup({ delay: null });
   render(<LoginForm />);
   await user.type(screen.getByLabelText("Adresse e-mail"), email);
   await user.click(screen.getByRole("button", { name: "Recevoir un code de connexion" }));

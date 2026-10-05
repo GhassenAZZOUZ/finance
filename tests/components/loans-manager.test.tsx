@@ -45,7 +45,7 @@ describe("LoansManager", () => {
 
   it("still allows editing an existing loan at the limit, inline under its row", async () => {
     const section = renderManager(6);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const edit = screen.getByRole("button", { name: "Modifier « Prêt 1 »" });
     expect(edit.getAttribute("aria-expanded")).toBe("false");
     await user.click(edit);

@@ -47,7 +47,7 @@ describe("FinanceGate", () => {
     expect(alert.textContent).toContain("Impossible de charger vos données. Vérifiez votre connexion.");
     expect(screen.queryByText(/Tableau de bord/)).toBeNull();
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "Réessayer" }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: "Réessayer" }));
     expect(await screen.findByText("Tableau de bord de someone@example.com")).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(mocks.load).toHaveBeenCalledTimes(2);

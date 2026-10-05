@@ -34,7 +34,7 @@ function renderDashboard(snapshot: FinanceSnapshot, patch: Partial<ComputedPlan>
   const plan = { ...computePlan(snapshot, "2026-10")!, ...patch };
   mocks.value = { snapshot, plan };
   render(<DashboardView />);
-  return userEvent.setup();
+  return userEvent.setup({ delay: null });
 }
 
 afterEach(cleanup);

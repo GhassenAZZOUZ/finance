@@ -17,7 +17,7 @@ const LINES: BudgetLine[] = [
 
 function renderCard(payments: IncomePayment[] = [], today = "2026-09-26") {
   render(<IncomePaymentsCard months={["2026-10", "2026-09"]} lines={LINES} payments={payments} today={today} />);
-  return userEvent.setup();
+  return userEvent.setup({ delay: null });
 }
 const row = (label: string) => screen.getByText(label).closest("li")!;
 

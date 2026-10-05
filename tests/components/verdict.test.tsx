@@ -55,7 +55,7 @@ function renderForm() {
       goals={[{ id: "voyage", label: "Voyage" }]}
     />,
   );
-  return userEvent.setup();
+  return userEvent.setup({ delay: null });
 }
 const field = (label: string) => screen.getByLabelText((text) => text === label || text === `${label}*`);
 
