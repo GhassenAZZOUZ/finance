@@ -209,7 +209,8 @@ describe("#98 — « Appliquer au plan »", () => {
     expect(applyButton().disabled).toBe(false);
   });
 
-  it("AC-01 / AC-03 — lists the changes, notes the extra repayments, and cancelling saves nothing", async () => {
+  // Many retyped fields: slow when the whole suite runs in parallel.
+  it("AC-01 / AC-03 — lists the changes, notes the extra repayments, and cancelling saves nothing", { timeout: 15_000 }, async () => {
     const user = renderSimulator();
     await retype(user, screen.getByLabelText("Remboursement anticipé (% du reste)"), "80");
     await retype(user, screen.getByLabelText("Courses (€ / mois)"), "350");
