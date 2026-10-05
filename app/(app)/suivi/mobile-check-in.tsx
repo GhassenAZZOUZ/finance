@@ -379,12 +379,13 @@ export function MobileCheckIn({
               <ArrowLeft aria-hidden />
             </Button>
           ) : null}
+          {/* Distinct keys: reusing the "Suivant" node as the submit button would submit the form on that click. */}
           {step === "review" ? (
-            <Button type="submit" disabled={pending || saved} className="min-h-13 grow text-[15px]">
+            <Button key="save" type="submit" disabled={pending || saved} className="min-h-13 grow text-[15px]">
               {pending ? "Enregistrement…" : `Enregistrer ${formatMonthLong(month)}`}
             </Button>
           ) : (
-            <Button type="button" className="min-h-13 grow text-[15px]" onClick={() => (validateStep() ? go(index + 1) : undefined)}>
+            <Button key="next" type="button" className="min-h-13 grow text-[15px]" onClick={() => (validateStep() ? go(index + 1) : undefined)}>
               Suivant : {STEPS[index]!.next}
               <ArrowRight aria-hidden />
             </Button>
