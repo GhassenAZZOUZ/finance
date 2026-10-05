@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useFinance } from "@/components/app/finance-provider";
 import { Onboarding } from "@/components/app/onboarding";
 import { PageHeader } from "@/components/app/page-header";
+import { useIsMobile } from "@/components/app/use-is-mobile";
 import { PHASE_STYLE } from "@/components/app/tones";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { ComputedPlan } from "@/lib/domain/plan";
@@ -15,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { type PlanPhase, goalsName, goalsPhrase, phaseLabel, planPhases, primaryGoalName } from "../_dashboard/logic";
 import { exceptionsByPlanIndex } from "./exceptions";
 import { ROW_COUNTS, findMilestones, parseRowCount } from "./milestones";
+import { MobilePlan } from "./mobile-plan";
 import { PlanTable } from "./plan-table";
 
 const TITLE = "Plan mois par mois";
@@ -22,6 +24,7 @@ const TITLE = "Plan mois par mois";
 export function PlanView() {
   const { snapshot, plan } = useFinance();
   const rowCount = parseRowCount(useSearchParams().get("mois"));
+  const isMobile = useIsMobile();
   if (!plan) {
     return (
       <>
@@ -37,6 +40,26 @@ export function PlanView() {
   const phases = planPhases(plan.result.months);
   const todayIndex = monthsBetween(plan.input.budget.startMonth, plan.referenceMonth) + 1;
   const next = ROW_COUNTS.find((r) => r.count > rowCount);
+  const negativeAlert =
+    milestones.negativeCount > 0 && milestones.firstNegativeMonth ? (
+      <Alert variant="destructive" className="rounded-2xl border-bad-border bg-bad-bg text-bad">
+        <TriangleAlert aria-hidden />
+        <AlertTitle>
+          {milestones.negativeCount} mois en budget négatif (premier : {formatMonthLong(milestones.firstNegativeMonth)})
+        </AlertTitle>
+        <AlertDescription className="text-bad">Vos dépenses dépassent vos revenus : ces mois-là rien n’est épargné.</AlertDescription>
+      </Alert>
+    ) : null;
+
+  // Phones get month cards instead of the wide table (#113).
+  if (isMobile) {
+    return (
+      <>
+        {negativeAlert}
+        <MobilePlan plan={plan} months={months} rowCount={rowCount} milestones={milestones} phases={phases} todayIndex={todayIndex} />
+      </>
+    );
+  }
 
   return (
     <>
@@ -46,17 +69,7 @@ export function PlanView() {
         actions={<RangeControl rowCount={rowCount} />}
       />
 
-      {milestones.negativeCount > 0 && milestones.firstNegativeMonth ? (
-        <Alert variant="destructive" className="rounded-2xl border-bad-border bg-bad-bg text-bad">
-          <TriangleAlert aria-hidden />
-          <AlertTitle>
-            {milestones.negativeCount} mois en budget négatif (premier : {formatMonthLong(milestones.firstNegativeMonth)})
-          </AlertTitle>
-          <AlertDescription className="text-bad">
-            Vos dépenses dépassent vos revenus : ces mois-là rien n’est épargné.
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      {negativeAlert}
 
       <Overview plan={plan} phases={phases} rowCount={rowCount} negativeCount={milestones.negativeCount} />
 
