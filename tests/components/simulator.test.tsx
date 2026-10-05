@@ -53,7 +53,7 @@ function comparisonRow(label: string) {
 
 function renderSimulator() {
   render(<Simulator base={BASE} currentMonth="2027-01" />);
-  return userEvent.setup();
+  return userEvent.setup({ delay: null });
 }
 
 async function retype(user: ReturnType<typeof userEvent.setup>, input: HTMLElement, value: string) {
@@ -193,13 +193,79 @@ describe("Simulator", () => {
   });
 });
 
+describe("#98 — « Appliquer au plan »", () => {
+  const applyButton = () => screen.getByRole("button", { name: "Appliquer au plan" }) as HTMLButtonElement;
+  const changes = () =>
+    within(screen.getByRole("list", { name: "Changements enregistrés" }))
+      .getAllByRole("listitem")
+      .map((li) => plain(li.textContent));
+
+  it("AC-05 — is disabled while the simulation equals the plan, or a field is invalid", async () => {
+    const user = renderSimulator();
+    expect(applyButton().disabled).toBe(true);
+    await retype(user, screen.getByLabelText("Remboursement anticipé (% du reste)"), "150");
+    expect(applyButton().disabled).toBe(true);
+    await retype(user, screen.getByLabelText("Remboursement anticipé (% du reste)"), "80");
+    expect(applyButton().disabled).toBe(false);
+  });
+
+  it("AC-01 / AC-03 — lists the changes, notes the extra repayments, and cancelling saves nothing", async () => {
+    const user = renderSimulator();
+    await retype(user, screen.getByLabelText("Remboursement anticipé (% du reste)"), "80");
+    await retype(user, screen.getByLabelText("Courses (€ / mois)"), "350");
+    await user.click(screen.getByRole("button", { name: "Ajouter un remboursement" }));
+    await retype(user, screen.getByLabelText("Montant (€)"), "1000");
+    await user.click(applyButton());
+
+    expect(changes()).toEqual(["Remboursement anticipé : 50 % → 80 %", "Courses : 400,00 € → 350,00 €"]);
+    expect(screen.getByText("Les remboursements exceptionnels ne sont pas enregistrés dans le plan.")).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Annuler" }));
+
+    await user.click(screen.getByRole("button", { name: "Annuler" }));
+    expect(screen.queryByRole("region", { name: "Appliquer la simulation à votre plan ?" })).toBeNull();
+    expect(comparisonRow("Sans dette en").difference).not.toBe("Identique");
+    for (const method of Object.values(mocks.repo!)) expect(method).not.toHaveBeenCalled();
+  });
+
+  it("AC-02 — confirming saves the simulated values in one call and reloads the plan", async () => {
+    const onApplied = vi.fn();
+    render(<Simulator base={BASE} currentMonth="2027-01" onApplied={onApplied} />);
+    const user = userEvent.setup();
+    await retype(user, screen.getByLabelText("Remboursement anticipé (% du reste)"), "80");
+    await retype(user, screen.getByLabelText("Courses (€ / mois)"), "350");
+    await user.click(applyButton());
+    await user.click(screen.getByRole("button", { name: "Confirmer" }));
+
+    expect(mocks.repo!.saveBudget).toHaveBeenCalledTimes(1);
+    const [settings, lines] = mocks.repo!.saveBudget.mock.calls[0]!;
+    expect(settings).toMatchObject({ earlyRepaymentPct: 0.8, riskFreeRate: 0.03 });
+    expect(lines.find((l) => l.label === "Courses")?.amount).toBe(35_000);
+    expect(lines.find((l) => l.label === "Loyer")?.amount).toBe(120_000);
+    expect(mocks.notify).toHaveBeenCalledTimes(1);
+    expect(onApplied).toHaveBeenCalledTimes(1);
+  });
+
+  it("AC-04 — a failed save shows a French error and keeps the plan", async () => {
+    mocks.repo!.saveBudget.mockRejectedValueOnce(new Error("boom"));
+    const user = renderSimulator();
+    await retype(user, screen.getByLabelText("Remboursement anticipé (% du reste)"), "80");
+    await user.click(applyButton());
+    await user.click(screen.getByRole("button", { name: "Confirmer" }));
+
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(plain(screen.getByRole("alert").textContent)).toBe("Impossible d’appliquer la simulation pour le moment. Votre plan n’a pas changé.");
+    expect(mocks.notify).not.toHaveBeenCalled();
+    expect(screen.getByRole("region", { name: "Appliquer la simulation à votre plan ?" })).toBeTruthy();
+  });
+});
+
 describe("#97 — IRA on an extra repayment", () => {
   const withIra = (loan: Parameters<typeof makeLoan>[1]) =>
     simulationBase({ ...SNAPSHOT, loans: [makeLoan(1, { name: "Prêt auto", ...loan })] }, "2027-01") as SimulationBase;
 
   async function addExtra(base: SimulationBase, amount: string) {
     render(<Simulator base={base} currentMonth="2027-01" />);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await user.click(screen.getByRole("button", { name: "Ajouter un remboursement" }));
     const group = screen.getByRole("group", { name: "Remboursement 1" });
     await user.click(within(group).getByLabelText("Argent en plus (prime, cadeau…)"));

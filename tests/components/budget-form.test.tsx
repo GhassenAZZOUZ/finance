@@ -29,7 +29,7 @@ const LINES: BudgetLine[] = [
 
 function renderForm() {
   render(<BudgetForm settings={SETTINGS} lines={LINES} loans={[]} exceptions={[]} currentMonth="2026-09" />);
-  return userEvent.setup();
+  return userEvent.setup({ delay: null });
 }
 
 const amountInput = (label: string) => screen.getByLabelText(`Montant mensuel en euros (${label})`);
@@ -176,7 +176,7 @@ describe("BudgetForm", () => {
 
   it("saves the yearly rates and a « non indexé » line, and states the indexed amounts (SPEC D27)", async () => {
     render(<BudgetForm settings={SETTINGS} lines={LINES} loans={[]} exceptions={[]} currentMonth="2028-03" />);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await user.clear(screen.getByLabelText(/Inflation des charges, par an/));
     await user.type(screen.getByLabelText(/Inflation des charges, par an/), "2");
     await user.clear(screen.getByLabelText(/Évolution des revenus, par an/));

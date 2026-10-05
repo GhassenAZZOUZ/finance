@@ -14,7 +14,7 @@ vi.mock("@/lib/data/client-store", () => ({
 function renderForm() {
   const onSaved = vi.fn();
   render(<LoanFormPanel editing={null} defaultPaidThroughMonth="2026-09" onSaved={onSaved} onCancel={vi.fn()} />);
-  return { onSaved, user: userEvent.setup() };
+  return { onSaved, user: userEvent.setup({ delay: null }) };
 }
 
 beforeEach(() => {

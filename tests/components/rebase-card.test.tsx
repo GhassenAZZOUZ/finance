@@ -60,7 +60,7 @@ const SNAPSHOT = makeSnapshot({
 function renderCard() {
   const preview = planRebase(SNAPSHOT, computePlan(SNAPSHOT)!);
   const view = render(<RebaseCard preview={preview} startMonth="2026-01" loanLabels={LABELS} />);
-  return { user: userEvent.setup(), container: view.container };
+  return { user: userEvent.setup({ delay: null }), container: view.container };
 }
 
 /** Text with the non-breaking spaces of the French number format normalised. */
@@ -151,7 +151,7 @@ describe("RebaseCard", () => {
     // The page stays mounted and recomputes the preview, which becomes null once re-based.
     const preview = planRebase(SNAPSHOT, computePlan(SNAPSHOT)!);
     const view = render(<RebaseCard preview={preview} startMonth="2026-01" loanLabels={LABELS} />);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await user.click(screen.getByRole("button", { name: "Recaler le plan…" }));
     await user.click(screen.getByRole("button", { name: "Confirmer le recalage" }));
     await screen.findByRole("status");
@@ -170,5 +170,72 @@ describe("RebaseCard", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("Recalage impossible pour le moment.");
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmer le recalage" })).toHaveProperty("disabled", false));
     expect(mocks.notify).not.toHaveBeenCalled();
+  });
+});
+
+describe("#100 — correct the values, then undo", () => {
+  function renderWith(props: Partial<Parameters<typeof RebaseCard>[0]> = {}) {
+    const preview = planRebase(SNAPSHOT, computePlan(SNAPSHOT)!);
+    render(<RebaseCard preview={preview} startMonth="2026-01" loanLabels={LABELS} loans={LOANS} {...props} />);
+    return userEvent.setup({ delay: null });
+  }
+
+  it("AC-01 — the starting values are pre-filled and can be corrected before confirming", async () => {
+    const user = renderWith();
+    await user.click(screen.getByRole("button", { name: "Recaler le plan…" }));
+    const emergency = screen.getByLabelText("Fonds d’urgence") as HTMLInputElement;
+    expect(emergency.value).toBe("2000,00");
+    expect((screen.getByLabelText("Travaux") as HTMLInputElement).value).toBe("0,00");
+    await user.clear(emergency);
+    await user.type(emergency, "2 100");
+    await user.click(screen.getByRole("button", { name: "Confirmer le recalage" }));
+
+    await screen.findByRole("status");
+    const changes = mocks.repo!.rebasePlan.mock.calls[0]![0];
+    expect(changes.settings.emergencyExisting).toBe(210_000);
+    expect(changes.corrections).toEqual([{ label: "Fonds d’urgence", read: 200_000, used: 210_000 }]);
+    expect(changes.fromMonth).toBe("2026-03");
+  });
+
+  it("AC-02 — an invalid value is reported on its field and nothing is saved", async () => {
+    const user = renderWith();
+    await user.click(screen.getByRole("button", { name: "Recaler le plan…" }));
+    const auto = screen.getByLabelText("Auto");
+    await user.clear(auto);
+    await user.type(auto, "-5");
+    await user.click(screen.getByRole("button", { name: "Confirmer le recalage" }));
+
+    expect(await screen.findByText("Le montant ne peut pas être négatif")).toBeTruthy();
+    expect(auto.getAttribute("aria-invalid")).toBe("true");
+    expect(auto.getAttribute("aria-describedby")).toBe("rebase-loan-loan-1-error");
+    expect(mocks.repo!.rebasePlan).not.toHaveBeenCalled();
+  });
+
+  it("AC-03 — « Annuler le recalage » asks for a confirmation, then puts the plan back", async () => {
+    const user = renderWith({ preview: null, undo: { fromMonth: "2026-03", newStartMonth: "2026-04" } });
+    expect(plain(screen.getByText(/Le plan a été recalé/).textContent)).toContain("recalé sur vos soldes de mars 2026 : il démarre en avril 2026");
+    await user.click(screen.getByRole("button", { name: "Annuler le recalage…" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Garder le recalage" }));
+    await user.click(screen.getByRole("button", { name: "Confirmer l’annulation" }));
+
+    expect((await screen.findByRole("status")).textContent).toContain("Recalage annulé : le plan est revenu à son état d’avant.");
+    expect(mocks.repo!.undoRebase).toHaveBeenCalledTimes(1);
+    expect(mocks.notify).toHaveBeenCalledTimes(1);
+  });
+
+  it("AC-04 / AC-05 — an expired or failed undo says so and changes nothing", async () => {
+    const { RepositoryError } = await import("@/lib/data/repository");
+    mocks.repo!.undoRebase.mockRejectedValueOnce(new RepositoryError("undo_rebase: nothing to undo", "P0002"));
+    const user = renderWith({ preview: null, undo: { fromMonth: "2026-03", newStartMonth: "2026-04" } });
+    await user.click(screen.getByRole("button", { name: "Annuler le recalage…" }));
+    await user.click(screen.getByRole("button", { name: "Confirmer l’annulation" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Ce recalage ne peut plus être annulé : un mois a été saisi ou le budget modifié depuis.");
+    expect(mocks.notify).not.toHaveBeenCalled();
+  });
+
+  it("offers no undo when there is none", () => {
+    renderWith({ undo: null });
+    expect(screen.queryByRole("button", { name: "Annuler le recalage…" })).toBeNull();
   });
 });

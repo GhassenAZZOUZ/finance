@@ -54,7 +54,7 @@ function renderForm(savingsInterest = 0) {
       goals={[{ id: "voyage", label: "Voyage" }]}
     />,
   );
-  return userEvent.setup();
+  return userEvent.setup({ delay: null });
 }
 const field = (label: string) => screen.getByLabelText((text) => text === label || text === `${label}*`);
 const plain = (text: string | null | undefined) => (text ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();

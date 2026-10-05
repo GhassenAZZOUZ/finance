@@ -1,13 +1,17 @@
 "use client";
 
-import { CheckCircle2, RefreshCw, TriangleAlert } from "lucide-react";
+import { CheckCircle2, RefreshCw, RotateCcw, TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { RebasePlan } from "@/lib/domain/rebase";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { type RebasePlan, rebaseFields } from "@/lib/domain/rebase";
+import type { Loan, RebaseUndo } from "@/lib/domain/types";
+import type { Errors } from "@/lib/domain/validation";
 import type { YearMonth } from "@/lib/engine";
-import { formatEuros, formatMonthLong } from "@/lib/format";
-import { rebasePlanAction } from "./actions";
+import { amountInputValue, formatEuros, formatMonthLong } from "@/lib/format";
+import { rebasePlanAction, undoRebaseAction } from "./actions";
 
 export interface RebaseCardProps {
   /** What "Recaler le plan" would change; null when there is nothing to re-base. */
@@ -16,43 +20,77 @@ export interface RebaseCardProps {
   startMonth: YearMonth;
   /** Display name of each active loan, by id. */
   loanLabels: Record<string, string>;
+  /** Active loans, to correct a loan's principal in the preview (#100). */
+  loans?: readonly Loan[];
+  /** The latest re-base while it can still be undone (#100). */
+  undo?: RebaseUndo | null;
 }
 
-type Outcome = { ok: true; newStartMonth: YearMonth } | { ok: false; message: string };
+type Outcome =
+  | { ok: true; kind: "rebase"; newStartMonth: YearMonth }
+  | { ok: true; kind: "undo" }
+  | { ok: false; message: string };
 
 /**
  * "Recaler le plan" (issue #5): previews the new start month and balances taken from the latest
- * check-in, then applies them after an inline confirmation step (no window.confirm).
+ * check-in, lets them be corrected by hand, then applies them after an inline confirmation step (no
+ * window.confirm). « Annuler le recalage » (#100) puts the plan back while the re-base can be undone.
  * Stays mounted after success (the preview becomes null) so the confirmation message remains visible.
  */
-export function RebaseCard({ preview, startMonth, loanLabels }: RebaseCardProps) {
+export function RebaseCard({ preview, startMonth, loanLabels, loans = [], undo = null }: RebaseCardProps) {
   const [confirming, setConfirming] = useState(false);
+  const [undoing, setUndoing] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Errors>({});
   const [pending, startTransition] = useTransition();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const successRef = useRef<HTMLParagraphElement>(null);
-  const wasConfirming = useRef(false);
+  const wasOpen = useRef(false);
 
   // Focus the confirmation when it opens; back to the trigger when cancelled; on the message after success.
+  const open = confirming || undoing;
   useEffect(() => {
-    if (confirming) cancelRef.current?.focus();
-    else if (wasConfirming.current) (outcome?.ok ? successRef.current : triggerRef.current)?.focus();
-    wasConfirming.current = confirming;
-  }, [confirming, outcome]);
+    if (open) cancelRef.current?.focus();
+    else if (wasOpen.current) (outcome?.ok ? successRef.current : triggerRef.current)?.focus();
+    wasOpen.current = open;
+  }, [open, outcome]);
 
-  if (!preview && !outcome?.ok) return null;
+  if (!preview && !undo && !outcome?.ok) return null;
+
+  const loanName = (id: string) => loanLabels[id] ?? "Crédit";
+  const fields = preview ? rebaseFields(preview, loans, loanName) : [];
+
+  function startConfirm() {
+    setOutcome(null);
+    setErrors({});
+    setTyped(Object.fromEntries(fields.map((f) => [f.key, amountInputValue(f.read)])));
+    setConfirming(true);
+  }
 
   function confirm() {
     setOutcome(null);
     startTransition(async () => {
-      const result = await rebasePlanAction();
-      setOutcome(result);
-      if (result.ok) setConfirming(false);
+      const result = await rebasePlanAction(typed);
+      if (result.ok) {
+        setOutcome({ ok: true, kind: "rebase", newStartMonth: result.newStartMonth });
+        setConfirming(false);
+      } else {
+        setErrors(result.errors ?? {});
+        setOutcome(result);
+      }
     });
   }
 
-  const loanName = (id: string) => loanLabels[id] ?? "Crédit";
+  function confirmUndo() {
+    setOutcome(null);
+    startTransition(async () => {
+      const result = await undoRebaseAction();
+      setOutcome(result.ok ? { ok: true, kind: "undo" } : result);
+      if (result.ok) setUndoing(false);
+    });
+  }
 
   return (
     <Card className="w-full max-w-xl">
@@ -117,7 +155,7 @@ export function RebaseCard({ preview, startMonth, loanLabels }: RebaseCardProps)
                   </li>
                   <li>
                     Les montants déjà épargnés et le capital restant dû des crédits sont remplacés par vos soldes de{" "}
-                    {formatMonthLong(preview.fromMonth)}.
+                    {formatMonthLong(preview.fromMonth)}, corrigeables ci-dessous.
                   </li>
                   {preview.loansToArchive.length > 0 ? (
                     <li>
@@ -126,6 +164,36 @@ export function RebaseCard({ preview, startMonth, loanLabels }: RebaseCardProps)
                   ) : null}
                   <li>Les mois déjà saisis restent comparés à l’ancien plan.</li>
                 </ul>
+                <fieldset className="flex flex-col gap-2 text-foreground">
+                  <legend className="mb-1 text-sm font-medium text-warning">Valeurs de départ (en euros)</legend>
+                  {fields.map((f) => {
+                    const id = `rebase-${f.key.replace(":", "-")}`;
+                    const error = errors[f.key];
+                    return (
+                      <div key={f.key} className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_9rem] sm:items-center sm:gap-3">
+                        <Label htmlFor={id} className="break-words">
+                          {f.label}
+                        </Label>
+                        <Input
+                          id={id}
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          className="h-10 bg-background tabular-nums"
+                          value={typed[f.key] ?? ""}
+                          onChange={(e) => setTyped((t) => ({ ...t, [f.key]: e.target.value }))}
+                          aria-invalid={error ? true : undefined}
+                          aria-describedby={error ? `${id}-error` : undefined}
+                        />
+                        {error ? (
+                          <p id={`${id}-error`} className="text-bad sm:col-span-2">
+                            {error}
+                          </p>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </fieldset>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" className="min-h-11 md:min-h-9" disabled={pending} onClick={confirm}>
                     {pending ? "Recalage…" : "Confirmer le recalage"}
@@ -147,16 +215,64 @@ export function RebaseCard({ preview, startMonth, loanLabels }: RebaseCardProps)
               </div>
             ) : (
               <div>
-                <Button ref={triggerRef} type="button" variant="outline" className="min-h-11 md:min-h-9" onClick={() => {
-                    setOutcome(null);
-                    setConfirming(true);
-                  }}
-                >
+                <Button ref={triggerRef} type="button" variant="outline" className="min-h-11 md:min-h-9" onClick={startConfirm}>
                   Recaler le plan…
                 </Button>
               </div>
             )}
           </>
+        ) : null}
+
+        {undo && !preview ? (
+          <div className="flex flex-col gap-3">
+            <p>
+              Le plan a été recalé sur vos soldes de <strong>{formatMonthLong(undo.fromMonth)}</strong> : il démarre en{" "}
+              <strong>{formatMonthLong(undo.newStartMonth)}</strong>. Vous pouvez revenir en arrière tant que vous n’avez ni saisi
+              de mois ni modifié le budget.
+            </p>
+            {undoing ? (
+              <div role="group" aria-label="Confirmer l’annulation du recalage" className="flex flex-col gap-3 rounded-md border border-warning-border bg-warning-bg p-3 text-warning">
+                <p className="font-medium">Annuler le recalage ?</p>
+                <p>
+                  Le plan, les crédits, les objectifs et les mois figés reviennent exactement à leur état d’avant le recalage.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" className="min-h-11 md:min-h-9" disabled={pending} onClick={confirmUndo}>
+                    {pending ? "Annulation…" : "Confirmer l’annulation"}
+                  </Button>
+                  <Button
+                    ref={cancelRef}
+                    type="button"
+                    variant="outline"
+                    className="min-h-11 md:min-h-9"
+                    disabled={pending}
+                    onClick={() => {
+                      setOutcome(null);
+                      setUndoing(false);
+                    }}
+                  >
+                    Garder le recalage
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <Button
+                  ref={triggerRef}
+                  type="button"
+                  variant="outline"
+                  className="min-h-11 md:min-h-9"
+                  onClick={() => {
+                    setOutcome(null);
+                    setUndoing(true);
+                  }}
+                >
+                  <RotateCcw aria-hidden />
+                  Annuler le recalage…
+                </Button>
+              </div>
+            )}
+          </div>
         ) : null}
 
         <div aria-live="polite" className="empty:hidden">
@@ -168,7 +284,9 @@ export function RebaseCard({ preview, startMonth, loanLabels }: RebaseCardProps)
               className="flex items-center gap-2 rounded-md border border-good-border bg-good-bg px-3 py-2 font-medium text-good outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <CheckCircle2 aria-hidden className="size-4 shrink-0" />
-              Plan recalé : il démarre en {formatMonthLong(outcome.newStartMonth)}.
+              {outcome.kind === "rebase"
+                ? `Plan recalé : il démarre en ${formatMonthLong(outcome.newStartMonth)}.`
+                : "Recalage annulé : le plan est revenu à son état d’avant."}
             </p>
           ) : null}
           {outcome && !outcome.ok ? (

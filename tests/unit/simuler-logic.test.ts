@@ -6,6 +6,8 @@ import {
   type SimulationBase,
   type SimulationForm,
   type SimulationState,
+  appliedChanges,
+  appliedPlan,
   chartMonthCount,
   compareScenarios,
   firstNegativeFreeSavings,
@@ -294,5 +296,50 @@ describe("#35 AC-08 — savings rates in « Et si… ? »", () => {
     expect(invalid.errors.emergencyRate).toMatch(/taux/i);
     expect(invalid.scenario.freeSavingsRate).toBe(0.03);
     expect(saverEdit(valid, { freeSavingsRate: "" }).scenario.freeSavingsRate).toBe(0);
+  });
+});
+
+describe("#98 « Appliquer au plan »", () => {
+  it("lists nothing when the simulation equals the plan", () => {
+    expect(appliedChanges(BASE, initialSimulation(BASE).scenario)).toEqual([]);
+  });
+
+  it("lists every changed parameter and line amount, old → new", () => {
+    const state = edit(initialSimulation(BASE), {
+      earlyRepaymentPct: "80",
+      freeSavingsRate: "3",
+      lineAmounts: { ...initialSimulation(BASE).form.lineAmounts, food: "350" },
+    });
+    const changes = appliedChanges(BASE, state.scenario).map((c) => `${c.label} : ${c.from} → ${c.to}`.replace(/[  ]/g, " "));
+    expect(changes).toEqual([
+      "Remboursement anticipé : 50 % → 80 %",
+      "Taux d’intérêt de l’épargne libre : 0 % → 3 %",
+      "Courses : 400,00 € → 350,00 €",
+    ]);
+  });
+
+  it("saves every editable value, keeps the rest of the plan, leaves extra repayments out", () => {
+    const state = edit(initialSimulation(BASE), {
+      riskFreeRate: "2",
+      expenseInflationRate: "2",
+      incomeGrowthRate: "1",
+      emergencyRate: "3",
+      lineAmounts: { ...initialSimulation(BASE).form.lineAmounts, rent: "1150" },
+      extras: [row()],
+    });
+    const { settings, lines } = appliedPlan(BASE, state.scenario);
+    expect(settings).toEqual({
+      ...BASE.settings,
+      earlyRepaymentPct: 0.5,
+      riskFreeRate: 0.02,
+      expenseInflationRate: 0.02,
+      incomeGrowthRate: 0.01,
+      emergencyRate: 0.03,
+      freeSavingsRate: 0,
+    });
+    expect(lines).toEqual(BASE.lines.map((l) => (l.id === "rent" ? { ...l, amount: 115_000 } : l)));
+    // Applying gives a plan whose simulation is identical: nothing left to apply.
+    const applied = { ...BASE, settings, lines: lines.map((l, i) => ({ ...BASE.lines[i]!, ...l })) };
+    expect(appliedChanges(applied, initialSimulation(applied).scenario)).toEqual([]);
   });
 });

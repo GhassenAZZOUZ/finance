@@ -32,7 +32,7 @@ vi.mock("@/components/app/finance-provider", () => ({ useFinance: () => ({ snaps
 function renderPlan(mois: string | null) {
   mocks.mois = mois;
   render(<PlanView />);
-  return userEvent.setup();
+  return userEvent.setup({ delay: null });
 }
 const table = () => screen.getByRole("table");
 /** Month rows (the year separator rows are row headers too). */

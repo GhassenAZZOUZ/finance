@@ -1,9 +1,17 @@
 /**
- * Pure view-model of the "Et si…" simulator (issue #2, SPEC D17). It starts from the saved plan,
- * keeps every change in memory and never writes anything.
+ * Pure view-model of the "Et si…" simulator (issue #2, SPEC D17). It starts from the saved plan and
+ * keeps every change in memory; only « Appliquer au plan » (#98) writes, after a confirmation.
  */
 import { buildPlanInput, referenceMonth } from "@/lib/domain/plan";
-import type { BudgetException, BudgetLine, BudgetSettings, FinanceSnapshot, Loan, SavingsGoal } from "@/lib/domain/types";
+import type {
+  BudgetException,
+  BudgetLine,
+  BudgetLineDraft,
+  BudgetSettings,
+  FinanceSnapshot,
+  Loan,
+  SavingsGoal,
+} from "@/lib/domain/types";
 import { type Errors, parseAmount, parseMonth, parsePercent, parseSavingsRate, parseYearlyRate } from "@/lib/domain/validation";
 import {
   type Cents,
@@ -21,7 +29,7 @@ import {
   simulatePlan,
   worthRepaying,
 } from "@/lib/engine";
-import { amountInputValue, formatEuros, formatEurosWhole, formatMonthLong, formatMonthShort, percentInputValue } from "@/lib/format";
+import { amountInputValue, formatEuros, formatEurosWhole, formatMonthLong, formatMonthShort, formatPercent, percentInputValue } from "@/lib/format";
 import { formatSignedEuros, goalsName } from "../_dashboard/logic";
 
 export type ExtraSource = ExtraRepaymentInput["source"];
@@ -394,4 +402,49 @@ export function scenarioSummary(current: PlanResult, simulated: PlanResult, coun
   if (!lastMonth) return "Aucune donnée.";
   const noun = what === "debt" ? "Dette restante" : "Épargne libre cumulée";
   return `${noun} sur ${count} mois. En ${formatMonthLong(lastMonth)} : plan actuel ${formatEurosWhole(pick(current))}, simulation ${formatEurosWhole(pick(simulated))}.`;
+}
+
+/* ------------------------------------------ #98 Appliquer au plan ------------------------------------------ */
+
+export interface PlanChange {
+  label: string;
+  from: string;
+  to: string;
+}
+
+/** The simulated parameters « Appliquer » copies into the saved plan, with their labels. */
+const APPLIED_RATES = [
+  ["earlyRepaymentPct", "Remboursement anticipé"],
+  ["riskFreeRate", "Taux seuil"],
+  ["expenseInflationRate", "Inflation des charges, par an"],
+  ["incomeGrowthRate", "Évolution des revenus, par an"],
+  ["emergencyRate", "Taux d’intérêt du fonds d’urgence"],
+  ["freeSavingsRate", "Taux d’intérêt de l’épargne libre"],
+] as const;
+
+/** What « Appliquer au plan » changes in the saved plan, old → new: the parameters, then the budget lines. */
+export function appliedChanges(base: SimulationBase, scenario: Scenario): PlanChange[] {
+  const changes: PlanChange[] = [];
+  for (const [key, label] of APPLIED_RATES) {
+    const from = base.settings[key] ?? 0;
+    const to = scenario[key];
+    if (from !== to) changes.push({ label, from: formatPercent(from, 4), to: formatPercent(to, 4) });
+  }
+  for (const line of base.lines) {
+    const to = scenario.lineAmounts[line.id] ?? line.amount;
+    if (to !== line.amount) changes.push({ label: line.label, from: formatEuros(line.amount), to: formatEuros(to) });
+  }
+  return changes;
+}
+
+/**
+ * The saved plan with the simulated values (#98): every editable parameter and the budget line
+ * amounts. Lines keep everything else (period, indexation, payday). Extra repayments are not part
+ * of the plan and are left out.
+ */
+export function appliedPlan(base: SimulationBase, scenario: Scenario): { settings: BudgetSettings; lines: BudgetLineDraft[] } {
+  const settings: BudgetSettings = { ...base.settings };
+  for (const [key] of APPLIED_RATES) settings[key] = scenario[key];
+  const lines = base.lines.map((line) => ({ ...line, amount: scenario.lineAmounts[line.id] ?? line.amount }));
+  return { settings, lines };
 }

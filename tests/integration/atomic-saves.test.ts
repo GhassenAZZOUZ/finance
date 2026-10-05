@@ -149,6 +149,8 @@ describe("rebasePlan / freezeActuals", () => {
   afterAll(() => deleteTestUser(user));
 
   const changes = (): RebaseChanges => ({
+    fromMonth: "2027-02",
+    corrections: [],
     freezes: [
       { month: "2027-01", frozen: frozen("2027-01") },
       { month: "2027-02", frozen: frozen("2027-01") },

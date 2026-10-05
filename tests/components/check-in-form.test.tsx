@@ -56,7 +56,8 @@ function renderForm() {
       goals={SNAPSHOT.goals.map((g) => ({ id: g.id, label: g.name }))}
     />,
   );
-  return userEvent.setup();
+  // No timer between keystrokes: these tests type a whole month, which timed out under load (5 s).
+  return userEvent.setup({ delay: null });
 }
 
 /** Labels end with an aria-hidden "*" on required fields. */

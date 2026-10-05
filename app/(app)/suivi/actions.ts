@@ -6,8 +6,8 @@ import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
 import { checkInRows } from "@/lib/domain/actual-lines";
 import { plannedDeposits, withComputedBalances } from "@/lib/domain/deposits";
 import { toActualInput, withPlan } from "@/lib/domain/plan";
-import { frozenFor, planRebase } from "@/lib/domain/rebase";
-import { type ActualForm, type Errors, parseMonth, validateActual } from "@/lib/domain/validation";
+import { applyRebaseCorrections, frozenFor, planRebase } from "@/lib/domain/rebase";
+import { type ActualForm, type Errors, parseAmount, parseMonth, validateActual } from "@/lib/domain/validation";
 import { type ActualStatus, type YearMonth, compareActual } from "@/lib/engine";
 import { errorMessage, reportError } from "@/lib/errors";
 import { lastOpenMonth } from "@/lib/domain/payday";
@@ -115,24 +115,56 @@ export async function deleteActualAction(month: string): Promise<DeleteActualRes
   return { ok: true };
 }
 
-export type RebaseResult = { ok: true; newStartMonth: YearMonth } | { ok: false; message: string };
+export type RebaseResult =
+  | { ok: true; newStartMonth: YearMonth }
+  | { ok: false; message: string; errors?: Errors };
 
 /**
  * "Recaler le plan" (SPEC D16): freezes the history, then restarts the plan the month after the
- * latest check-in with its real balances. Everything is recomputed from the saved data.
+ * latest check-in with its real balances. Everything is recomputed from the saved data. `typed`
+ * holds the starting values corrected by hand in the preview (#100), by field key, as typed.
  */
-export async function rebasePlanAction(): Promise<RebaseResult> {
+export async function rebasePlanAction(typed: Readonly<Record<string, string>> = {}): Promise<RebaseResult> {
+  const values: Record<string, number> = {};
+  const errors: Errors = {};
+  for (const [key, raw] of Object.entries(typed)) {
+    const parsed = parseAmount(raw);
+    if (parsed.ok) values[key] = parsed.value ?? 0;
+    else errors[key] = parsed.error;
+  }
+  if (Object.keys(errors).length > 0) return { ok: false, message: "Corrigez les montants en erreur.", errors };
   try {
     const repo = getRepository();
     // The re-base starts from the computed balances (SPEC D33).
     const { snapshot, plan } = withPlan(await repo.load());
     const rebase = plan ? planRebase(snapshot, plan) : null;
-    if (!rebase) return { ok: false, message: "Aucun mois de suivi après le début du plan : rien à recaler." };
-    await repo.rebasePlan(rebase);
+    if (!plan || !rebase) return { ok: false, message: "Aucun mois de suivi après le début du plan : rien à recaler." };
+    const loanLabel = (id: string) => {
+      const j = snapshot.loans.findIndex((l) => l.id === id);
+      return plan.result.loans[j]?.displayName ?? "Crédit";
+    };
+    await repo.rebasePlan(applyRebaseCorrections(rebase, snapshot.loans, values, loanLabel));
     notifyDataChanged();
     return { ok: true, newStartMonth: rebase.newStartMonth };
   } catch (error) {
     reportError(error, "suivi.rebase");
     return { ok: false, message: errorMessage(error, "Recalage impossible pour le moment. Réessayez dans un instant.") };
   }
+}
+
+/** « Annuler le recalage » (#100): the plan as it was just before the latest re-base, all or nothing. */
+export async function undoRebaseAction(): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    await getRepository().undoRebase();
+  } catch (error) {
+    reportError(error, "suivi.undo-rebase");
+    return {
+      ok: false,
+      message: errorMessage(error, "Annulation impossible : le recalage a peut-être déjà expiré. Votre plan n’a pas changé.", {
+        P0002: "Ce recalage ne peut plus être annulé : un mois a été saisi ou le budget modifié depuis.",
+      }),
+    };
+  }
+  notifyDataChanged();
+  return { ok: true };
 }
