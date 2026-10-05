@@ -79,7 +79,7 @@ export function useTour(): { start: () => void } {
   return value;
 }
 
-/** « Guide » button that replays the tour (sidebar and mobile account menu). */
+/** « Guide » button that replays the tour (sidebar account menu; « Plus » on mobile has its own row). */
 export function TourButton({ className, onStart }: { className?: string; onStart?: () => void }) {
   const { start } = useTour();
   return (

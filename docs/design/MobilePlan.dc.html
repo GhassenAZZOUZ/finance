@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Mobile · Plan</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;display=swap">
+<style>
+body{margin:0;font-family:"IBM Plex Sans",system-ui,sans-serif;background:#F3F0E8;color:#1D1C19}
+a{color:#1F4B3B}
+.serif{font-family:Newsreader,Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.hint{font-size:13px;color:#57534B;line-height:1.45}
+.ib{width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:#1D1C19;display:flex;align-items:center;justify-content:center;text-decoration:none}
+.yr{position:sticky;top:0;background:#F3F0E8;padding:10px 0 6px;font-size:13px;font-weight:600;display:flex;justify-content:space-between}
+.yr span{font-weight:400;color:#57534B}
+.mo{background:#FFFFFF;border:1px solid #DDD7CA;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.mh{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.mh b{font-size:15px}
+.al{display:flex;height:8px;border-radius:999px;overflow:hidden;gap:2px;background:#EFEBE2}
+.ml{display:flex;justify-content:space-between;font-size:13px;color:#57534B;font-variant-numeric:tabular-nums}
+.chip{font-size:11.5px;font-weight:600;border-radius:6px;padding:2px 7px;white-space:nowrap}
+.f{min-height:38px;padding:0 14px;border-radius:999px;border:1px solid #CFC8B8;background:#FFFFFF;font:500 14px "IBM Plex Sans",sans-serif;color:#1D1C19}
+.f[aria-pressed=true]{background:#1D1C19;color:#F3F0E8;border-color:#1D1C19}
+</style>
+</helmet>
+<div style="width: 390px; height: 1500px; position: relative; background: #F3F0E8; overflow: hidden">
+
+<header style="padding: 8px 8px 0 4px; display: flex; align-items: center; gap: 4px">
+<a class="ib" href="MobilePlus.dc.html" aria-label="Retour"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></a>
+<h1 class="serif" style="margin: 0; font-size: 28px; font-weight: 500">Plan mois par mois</h1>
+</header>
+
+<main style="padding: 8px 16px 40px; display: flex; flex-direction: column; gap: 10px">
+<div role="group" aria-label="Période" style="display: flex; gap: 8px"><button type="button" class="f" aria-pressed="true">18 mois</button><button type="button" class="f" aria-pressed="false">5 ans</button><button type="button" class="f" aria-pressed="false">25 ans</button></div>
+
+<div style="background: #FFFFFF; border: 1px solid #DDD7CA; border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
+<div class="hint" style="display: flex; flex-wrap: wrap; gap: 6px 14px">
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #D39A36"></span>Déménagement</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #24503F"></span>Urgence</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #B04A32"></span>Remb. anticipé</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #8C86C9"></span>Épargne libre</span>
+</div>
+<p class="hint" style="margin: 0">Chaque barre montre où va le disponible du mois. Touchez un mois pour le détail.</p>
+</div>
+
+<div class="yr">2026 <span>① Déménagement</span></div>
+<div class="mo"><div class="mh"><b>Juillet</b><span class="num" style="font-weight: 600">443,55 €</span></div><div class="al"><span style="width: 100%; background: #D39A36"></span></div><div class="ml"><span>Déménag. 943,55 €</span><span>Dettes 15 750,70 €</span></div></div>
+<div class="mo"><div class="mh"><b>Août</b><span class="num" style="font-weight: 600">443,55 €</span></div><div class="al"><span style="width: 100%; background: #D39A36"></span></div><div class="ml"><span>Déménag. 1 387,10 €</span><span>Dettes 15 099,25 €</span></div></div>
+<div class="mo" style="border-color: #1D1C19; box-shadow: 0 0 0 1px #1D1C19"><div class="mh"><span style="display: flex; align-items: center; gap: 8px"><b>Septembre</b><span class="chip" style="background: #1D1C19; color: #F3F0E8">Aujourd’hui</span></span><span class="num" style="font-weight: 600">443,55 €</span></div><div class="al"><span style="width: 100%; background: #D39A36"></span></div><div class="ml"><span>Déménag. 1 830,65 €</span><span>Dettes 14 445,60 €</span></div>
+<dl class="num" style="margin: 4px 0 0; padding-top: 10px; border-top: 1px solid #EFEBE2; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; font-size: 14px">
+<dt style="color: #57534B">Revenus</dt><dd style="margin: 0">2 900,00 €</dd>
+<dt style="color: #57534B">Dépenses</dt><dd style="margin: 0">− 1 725,00 €</dd>
+<dt style="color: #57534B">Mensualités</dt><dd style="margin: 0">− 731,45 €</dd>
+<dt style="font-weight: 600">Disponible</dt><dd style="margin: 0; font-weight: 600">443,55 €</dd>
+<dt style="color: #8A5A12">→ Déménagement</dt><dd style="margin: 0; color: #8A5A12; font-weight: 500">443,55 €</dd>
+</dl></div>
+<div class="mo"><div class="mh"><span style="display: flex; align-items: center; gap: 8px"><b>Octobre</b><span class="chip" style="background: #F6E1DA; color: #7E2B1B">Dette A soldée</span></span><span class="num" style="font-weight: 600">443,55 €</span></div><div class="al"><span style="width: 100%; background: #D39A36"></span></div><div class="ml"><span>Déménag. 2 274,20 €</span><span>Dettes 13 789,77 €</span></div></div>
+<div class="mo"><div class="mh"><span style="display: flex; align-items: center; gap: 8px"><b>Novembre</b><span class="chip" style="background: #F6E1DA; color: #7E2B1B">Dette B soldée</span></span><span class="num" style="font-weight: 600">593,55 €</span></div><div class="al"><span style="width: 100%; background: #D39A36"></span></div><div class="ml"><span>Déménag. 2 867,75 €</span><span>Dettes 13 281,73 €</span></div></div>
+<div class="mo" style="background: #FFFBF2; border-color: #E8CF9C"><div class="mh"><span style="display: flex; align-items: center; gap: 8px"><b>Décembre</b><span class="chip" style="background: #FBF1DD; color: #6B4A15">Date limite</span></span><span class="num" style="font-weight: 600">643,55 €</span></div><div class="al"><span style="width: 100%; background: #D39A36"></span></div><div class="ml"><span style="color: #8A5A12; font-weight: 600">Déménag. 3 511,30 / 4 000 €</span><span>12 821,45 €</span></div></div>
+
+<div class="yr">2027 <span>② Urgence, puis ③ remboursement</span></div>
+<div class="mo"><div class="mh"><b>Janvier</b><span class="num" style="font-weight: 600">643,55 €</span></div><div class="al"><span style="width: 100%; background: #24503F"></span></div><div class="ml"><span>Urgence 1 443,55 €</span><span>Dettes 12 358,93 €</span></div></div>
+<div class="mo"><div class="mh"><span style="display: flex; align-items: center; gap: 8px"><b>Mai</b><span class="chip" style="background: #24503F; color: #FFFFFF">Fonds complet</span></span><span class="num" style="font-weight: 600">643,55 €</span></div><div class="al"><span style="width: 97.2%; background: #24503F"></span><span style="width: 1.7%; background: #B04A32"></span><span style="width: 1.1%; background: #8C86C9"></span></div><div class="ml"><span>Urgence 4 000,00 €</span><span>Dettes 10 475,39 €</span></div></div>
+<div class="mo"><div class="mh"><b>Juin</b><span class="num" style="font-weight: 600">643,55 €</span></div><div class="al"><span style="width: 60%; background: #B04A32"></span><span style="width: 40%; background: #8C86C9"></span></div><div class="ml"><span>Libre 264,52 €</span><span>Dettes 9 615,07 €</span></div></div>
+<p class="hint" style="margin: 0; text-align: center">Février à avril 2027 : identiques à janvier · <a href="#">afficher</a></p>
+<button type="button" style="min-height: 48px; border-radius: 14px; border: 1px solid #CFC8B8; background: #FFFFFF; font: 500 15px 'IBM Plex Sans', sans-serif; color: #1D1C19">Afficher les mois suivants</button>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1500}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

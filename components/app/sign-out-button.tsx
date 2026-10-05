@@ -5,13 +5,18 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-/** `iconOnly`: 44px icon button (sidebar); otherwise a full-width labelled button (mobile menu). */
-export function SignOutButton({ iconOnly = false }: { iconOnly?: boolean }) {
+/** Signs out and goes to the login page (the buttons below, the « Plus » page row). */
+export function useSignOut(): () => Promise<void> {
   const router = useRouter();
-  const signOut = async () => {
+  return async () => {
     await supabaseBrowser().auth.signOut();
     router.replace("/login/");
   };
+}
+
+/** `iconOnly`: 44px icon button; otherwise a full-width labelled button (sidebar account menu). */
+export function SignOutButton({ iconOnly = false }: { iconOnly?: boolean }) {
+  const signOut = useSignOut();
   if (iconOnly) {
     return (
       <Button
