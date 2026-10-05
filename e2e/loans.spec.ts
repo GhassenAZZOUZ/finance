@@ -5,12 +5,17 @@ import { expect, seedPlan, test } from "./fixtures";
 
 const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 
-/** "Sans dettes en novembre 2026" → months since year 0, for comparisons. */
+/**
+ * "Sans dettes en novembre 2026" (desktop tile) or "fin en novembre 2026" (mobile home's Dettes card,
+ * #109) → months since year 0, for comparisons.
+ */
 async function debtFreeIndex(page: import("@playwright/test").Page): Promise<number> {
   await page.goto("/");
-  const kpis = page.getByRole("region", { name: "Chiffres clés" });
-  await expect(kpis).toContainText("Sans dettes en");
-  const match = /Sans dettes en\s+(\S+)\s+(\d{4})/.exec(await kpis.innerText());
+  const mobile = test.info().project.name === "mobile";
+  const kpis = mobile ? page.getByRole("list", { name: "Chiffres clés" }) : page.getByRole("region", { name: "Chiffres clés" });
+  const prefix = mobile ? "fin en" : "Sans dettes en";
+  await expect(kpis).toContainText(prefix);
+  const match = new RegExp(`${prefix}\\s+(\\S+)\\s+(\\d{4})`).exec(await kpis.innerText());
   if (!match) throw new Error("debt-free month not found");
   return Number(match[2]) * 12 + MONTHS.indexOf(match[1]!);
 }
