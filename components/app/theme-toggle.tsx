@@ -104,3 +104,40 @@ export function ThemeToggle({ className }: { className?: string }) {
     </fieldset>
   );
 }
+
+/** Same choices, worded and ordered as on the mobile « Plus » page (issue #108). */
+const COMPACT_OPTIONS: { value: ThemeChoice; label: string }[] = [
+  { value: "light", label: "Clair" },
+  { value: "dark", label: "Sombre" },
+  { value: "system", label: "Auto" },
+];
+
+/** Clair / Sombre / Auto segmented control for a settings row; the row's label names it. */
+export function CompactThemeToggle({ labelledBy }: { labelledBy: string }) {
+  const choice = useThemeChoice();
+  const name = useId();
+  return (
+    <div role="radiogroup" aria-labelledby={labelledBy} className="inline-grid shrink-0 grid-cols-3 rounded-[10px] bg-accent/60 p-[3px] text-[13px]">
+      {COMPACT_OPTIONS.map(({ value, label }) => (
+        <label
+          key={value}
+          className={cn(
+            "flex min-h-11 cursor-pointer items-center justify-center rounded-lg px-2.5",
+            "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-ring",
+            choice === value ? "bg-card font-semibold text-foreground shadow-sm" : "text-muted-foreground",
+          )}
+        >
+          <input
+            type="radio"
+            name={name}
+            value={value}
+            checked={choice === value}
+            onChange={() => setThemeChoice(value)}
+            className="sr-only"
+          />
+          {label}
+        </label>
+      ))}
+    </div>
+  );
+}

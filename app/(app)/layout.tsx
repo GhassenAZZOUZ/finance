@@ -3,7 +3,7 @@ import { MobileHeader, MobileNav, Sidebar } from "@/components/app/nav";
 import { TourProvider } from "@/components/app/tour";
 
 /**
- * Signed-in shell: fixed sidebar on desktop, top bar + bottom tab bar on mobile.
+ * Signed-in shell: fixed sidebar on desktop; on mobile a 5-tab bottom bar (and a small header on the home).
  * FinanceProvider guards access and feeds the shell (pending check-ins); FinanceGate holds the page
  * until the data is loaded. TourProvider opens the guided tour on a user's first visit.
  */

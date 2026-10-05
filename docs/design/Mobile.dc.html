@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Tableau de bord mobile</title>
+<title>Mobile · Accueil</title>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -11,91 +11,87 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;display=swap">
 <style>
 body{margin:0;font-family:"IBM Plex Sans",system-ui,sans-serif;background:#F3F0E8;color:#1D1C19}
-a{color:#1F4B3B}a:hover{color:#123126}
+a{color:#1F4B3B}
 .serif{font-family:Newsreader,Georgia,serif}
 .num{font-variant-numeric:tabular-nums}
-.card{background:#FFFFFF;border:1px solid #DDD7CA;border-radius:16px}
+.card{background:#FFFFFF;border:1px solid #DDD7CA;border-radius:18px}
 .lbl{font-size:13px;font-weight:500;color:#57534B}
 .hint{font-size:13px;color:#57534B;line-height:1.45}
-.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:56px;font-size:11px;font-weight:500;color:#57534B;text-decoration:none;position:relative}
-.tab[aria-current=page]{color:#1D1C19}
-.tab[aria-current=page]::before{content:"";position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 3px 3px;background:#1D1C19}
+.tb{position:absolute;left:0;right:0;bottom:0;background:#FFFFFF;border-top:1px solid #DDD7CA;padding:6px 4px 24px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));list-style:none;margin:0}
+.ti{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:50px;font-size:11px;font-weight:500;color:#57534B;text-decoration:none}
+.ti[aria-current=page]{color:#1D1C19;font-weight:600}
+.fab{width:56px;height:56px;border-radius:18px;background:#1D1C19;color:#F3F0E8;display:flex;align-items:center;justify-content:center;margin-top:-26px;box-shadow:0 6px 16px rgba(29,28,25,.28)}
+.snap{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px;padding:0 16px}
+.snap>*{scroll-snap-align:start;flex:0 0 156px}
+.act{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:0 16px;border-radius:14px;background:#FFFFFF;border:1px solid #E8CF9C;color:#1D1C19;text-decoration:none;font-size:15px}
 </style>
 </helmet>
-<div style="width: 390px; height: 1760px; position: relative; background: #F3F0E8; overflow: hidden">
-<header style="height: 56px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #DDD7CA; background: #F3F0E8">
-<div style="display: flex; align-items: center; gap: 8px"><svg width="26" height="26" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="28" fill="#1D1C19"></rect><path d="M85 37 A30 30 0 1 0 85 83" fill="none" stroke="#F3F0E8" stroke-width="13" stroke-linecap="round"></path><path d="M100 60 L58 49 L58 71 Z" fill="#D39A36"></path><path d="M16 60 L58 49 L58 71 Z" fill="#F3F0E8"></path></svg><span class="serif" style="font-size: 18px; font-weight: 600">Boussole</span></div>
-<button type="button" aria-label="Compte et déconnexion" style="width: 44px; height: 44px; border: 0; background: transparent; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer"><span style="width: 32px; height: 32px; border-radius: 50%; background: #E0DBCE; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center">D</span></button>
+<div style="width: 390px; height: 1640px; position: relative; background: #F3F0E8; overflow: hidden">
+
+<header style="height: 60px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 10px"><svg width="30" height="30" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="28" fill="#1D1C19"></rect><path d="M85 37 A30 30 0 1 0 85 83" fill="none" stroke="#F3F0E8" stroke-width="13" stroke-linecap="round"></path><path d="M100 60 L58 49 L58 71 Z" fill="#D39A36"></path><path d="M16 60 L58 49 L58 71 Z" fill="#F3F0E8"></path></svg><span class="serif" style="font-size: 20px; font-weight: 600">Boussole</span></div>
+<span class="num" style="font-size: 13px; font-weight: 500; background: #EAE6DB; border-radius: 999px; padding: 6px 12px">Sept. 2026 · mois 3</span>
 </header>
 
-<main style="padding: 20px 16px 96px; display: flex; flex-direction: column; gap: 14px">
-<div style="display: flex; flex-direction: column; gap: 6px">
-<div class="lbl" style="text-transform: uppercase; letter-spacing: .08em; font-size: 11px">Septembre 2026 · mois 3 sur 300</div>
-<h1 class="serif" style="margin: 0; font-size: 28px; line-height: 1.15; font-weight: 500">Plus de dettes en juin 2028. Le déménagement demande un ajustement.</h1>
-</div>
+<main style="padding: 4px 16px 120px; display: flex; flex-direction: column; gap: 16px">
+<h1 class="serif" style="margin: 4px 0 0; font-size: 27px; line-height: 1.15; font-weight: 500">Plus de dettes en juin 2028.<span style="color: #8A5A12"> Le déménagement demande un ajustement.</span></h1>
 
-<a href="Suivi.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #1D1C19; color: #F3F0E8; border-radius: 14px; padding: 14px 16px; text-decoration: none; min-height: 44px">
-<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">Saisir août 2026</span><span style="font-size: 13px; color: #CFC8B8">2 mois de suivi en attente</span></span>
-<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"></path></svg>
-</a>
-
-<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
-<div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 6px"><span class="lbl">Marge / mois</span><span class="serif num" style="font-size: 28px; line-height: 1.05">443,55 €</span><span class="hint num" style="color: #2F6B4F">endettement 25,2 %</span></div>
-<div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 6px"><span class="lbl">Dettes</span><span class="serif num" style="font-size: 28px; line-height: 1.05">14 445 €</span><span class="hint">fin : juin 2028</span></div>
-<div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 6px; grid-column: span 2">
-<div style="display: flex; justify-content: space-between; align-items: baseline"><span class="lbl">Épargne constituée</span><span class="serif num" style="font-size: 24px">2 630,65 €</span></div>
-<div style="display: flex; height: 8px; border-radius: 999px; overflow: hidden; gap: 2px; background: #EFEBE2" aria-hidden="true"><div style="width: 23.5%; background: #D39A36"></div><div style="width: 10.3%; background: #24503F"></div></div>
-<span class="hint num">Déménagement 1 830,65 · Urgence 800,00 · Libre 0,00</span>
+<section aria-label="Marge du mois" style="background: #1D1C19; color: #F3F0E8; border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 13px; color: #CFC8B8">Marge de septembre</span><span style="font-size: 12px; font-weight: 600; color: #9FD3B4">Endettement 25,2 % · OK</span></div>
+<span class="serif num" style="font-size: 46px; line-height: 1; font-weight: 500">443,55 €</span>
+<div style="display: flex; height: 10px; border-radius: 999px; overflow: hidden; gap: 2px" aria-hidden="true"><div style="width: 59.5%; background: #6B665C"></div><div style="width: 25.2%; background: #A69D8B"></div><div style="width: 15.3%; background: #D39A36"></div></div>
+<div class="num" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; font-size: 12px; color: #CFC8B8">
+<span style="display: flex; flex-direction: column"><b style="color: #F3F0E8; font-size: 14px; font-weight: 600">2 900 €</b>revenus</span>
+<span style="display: flex; flex-direction: column"><b style="color: #F3F0E8; font-size: 14px; font-weight: 600">1 725 €</b>dépenses</span>
+<span style="display: flex; flex-direction: column"><b style="color: #F3F0E8; font-size: 14px; font-weight: 600">731,45 €</b>crédits</span>
 </div>
-</div>
-
-<section aria-labelledby="m-alert" style="background: #FBF1DD; border: 1px solid #E8CF9C; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
-<h2 id="m-alert" style="margin: 0; font-size: 16px; font-weight: 600; color: #5E3C0A">Déménagement : −488,70 € au 31 déc.</h2>
-<p class="num" style="margin: 0; font-size: 14px; color: #6B4A15; line-height: 1.5">3 511,30 € prévus pour un objectif de 4 000,00 €.</p>
-<a href="Budget.dc.html" style="display: flex; justify-content: space-between; align-items: center; background: #FFFFFF; border: 1px solid #E8CF9C; border-radius: 12px; padding: 12px 14px; text-decoration: none; color: #1D1C19; min-height: 44px"><span class="num" style="font-size: 14px"><b>+122,18 € / mois</b> jusqu’en décembre</span><span aria-hidden="true">→</span></a>
-<a href="Budget.dc.html" style="display: flex; justify-content: space-between; align-items: center; background: #FFFFFF; border: 1px solid #E8CF9C; border-radius: 12px; padding: 12px 14px; text-decoration: none; color: #1D1C19; min-height: 44px"><span style="font-size: 14px"><b>Date limite en janvier 2027</b></span><span aria-hidden="true">→</span></a>
 </section>
 
-<section class="card" aria-labelledby="m-road" style="padding: 18px 16px; display: flex; flex-direction: column; gap: 14px">
-<h2 id="m-road" class="serif" style="margin: 0; font-size: 22px; font-weight: 500">Feuille de route</h2>
-<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
-<li style="display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding-bottom: 14px; position: relative"><span style="width: 14px; height: 14px; border-radius: 4px; background: #D39A36; margin-top: 3px"></span><span style="display: flex; flex-direction: column"><b style="font-size: 14px">① Déménagement</b><span class="hint">en cours · jusqu’en déc. 2026</span></span><span style="font-size: 12px; font-weight: 600; background: #1D1C19; color: #F3F0E8; border-radius: 6px; padding: 2px 7px">Maintenant</span></li>
-<li style="display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding-bottom: 14px"><span style="width: 14px; height: 14px; border-radius: 4px; background: #24503F; margin-top: 3px"></span><span style="display: flex; flex-direction: column"><b style="font-size: 14px">② Fonds d’urgence</b><span class="hint">complet en mai 2027</span></span><span class="hint num">janv. 2027</span></li>
-<li style="display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding-bottom: 14px"><span style="width: 14px; height: 14px; border-radius: 4px; background: #B04A32; margin-top: 3px"></span><span style="display: flex; flex-direction: column"><b style="font-size: 14px">③ Remboursement anticipé</b><span class="hint">revolving, travaux, puis auto</span></span><span class="hint num">juin 2027</span></li>
-<li style="display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 12px; align-items: start"><span style="width: 14px; height: 14px; border-radius: 4px; background: #8C86C9; margin-top: 3px"></span><span style="display: flex; flex-direction: column"><b style="font-size: 14px">④ Plus de dettes</b><span class="hint">1 175 € / mois en épargne libre</span></span><span class="num" style="font-size: 13px; font-weight: 600; color: #A2362A">juin 2028</span></li>
+<a href="MobileSaisie.dc.html" style="display: flex; align-items: center; gap: 14px; background: #FFFFFF; border: 1px solid #DDD7CA; border-radius: 18px; padding: 14px 16px; text-decoration: none; color: #1D1C19; min-height: 44px">
+<span style="width: 42px; height: 42px; border-radius: 12px; background: #FBF1DD; color: #8A5A12; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1"><b style="font-size: 15px">Saisir août 2026</b><span class="hint">2 mois de suivi en attente · 2 min</span></span>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#57534B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+</a>
+
+<div class="snap" aria-label="Chiffres clés">
+<a href="MobileCredits.dc.html" class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: #1D1C19"><span class="lbl">Dettes</span><span class="serif num" style="font-size: 26px; line-height: 1.05">14 445,60 €</span><span class="hint">fin en juin 2028</span><span style="height: 6px; border-radius: 999px; background: #F1D9D1; margin-top: 4px"><span style="display: block; width: 11.9%; height: 100%; border-radius: 999px; background: #B04A32"></span></span></a>
+<div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 6px"><span class="lbl">Épargne</span><span class="serif num" style="font-size: 26px; line-height: 1.05">2 630,65 €</span><span class="hint num">7 775,82 € dans 12 mois</span><span style="display: flex; height: 6px; border-radius: 999px; overflow: hidden; gap: 2px; background: #EFEBE2; margin-top: 4px"><span style="width: 23.5%; background: #D39A36"></span><span style="width: 10.3%; background: #24503F"></span></span></div>
+<div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 6px"><span class="lbl">Intérêts évités</span><span class="serif num" style="font-size: 26px; line-height: 1.05; color: #1F4B3B">394,37 €</span><span class="hint">grâce au plan</span></div>
+</div>
+
+<section aria-labelledby="al" style="background: #FBF1DD; border: 1px solid #E8CF9C; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 4px"><h2 id="al" style="margin: 0; font-size: 16px; font-weight: 600; color: #5E3C0A">Déménagement : il manquera 488,70 €</h2><p class="num" style="margin: 0; font-size: 14px; color: #6B4A15; line-height: 1.45">3 511,30 € prévus au 31 déc. pour 4 000,00 €.</p></div>
+<a href="MobileBudget.dc.html" class="act"><span class="num"><b>+122,18 € / mois</b> d’ici déc.</span><span aria-hidden="true">›</span></a>
+<a href="MobileBudget.dc.html" class="act"><span><b>Date limite en janv. 2027</b></span><span aria-hidden="true">›</span></a>
+</section>
+
+<section class="card" aria-labelledby="rd" style="padding: 18px 16px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><h2 id="rd" class="serif" style="margin: 0; font-size: 22px; font-weight: 500">Prochaines étapes</h2><a href="MobilePlan.dc.html" style="font-size: 14px; font-weight: 500">Plan</a></div>
+<ol style="list-style: none; margin: 0; padding: 0; position: relative">
+<li style="display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 12px; padding-bottom: 16px"><span style="width: 12px; height: 12px; border-radius: 50%; background: #B04A32; margin: 4px 4px 0"></span><span><b style="font-size: 14px; font-weight: 600">Dette perso A soldée</b></span><span class="hint num">oct. 2026</span></li>
+<li style="display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 12px; padding-bottom: 16px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #D39A36; margin: 4px 4px 0; transform: rotate(45deg)"></span><span style="display: flex; flex-direction: column"><b style="font-size: 14px; font-weight: 600">Date limite déménagement</b><span class="hint">objectif non tenu</span></span><span class="hint num">déc. 2026</span></li>
+<li style="display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 12px; padding-bottom: 16px"><span style="width: 12px; height: 12px; border-radius: 50%; background: #24503F; margin: 4px 4px 0"></span><span><b style="font-size: 14px; font-weight: 600">Fonds d’urgence complet</b></span><span class="hint num">mai 2027</span></li>
+<li style="display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 12px"><span style="width: 16px; height: 16px; border-radius: 50%; background: #B04A32; border: 3px solid #FFFFFF; box-shadow: 0 0 0 1px #B04A32; margin: 1px 0 0; box-sizing: border-box"></span><span><b style="font-size: 14px; font-weight: 600">Plus aucune dette</b></span><span class="num" style="font-size: 13px; font-weight: 600; color: #A2362A">juin 2028</span></li>
 </ol>
 </section>
 
-<section class="card" aria-labelledby="m-chart" style="padding: 18px 16px; display: flex; flex-direction: column; gap: 12px">
-<h2 id="m-chart" style="margin: 0; font-size: 16px; font-weight: 600">Dettes et épargne libre, 24 mois</h2>
-<div style="display: flex; gap: 14px; font-size: 12px; color: #57534B"><span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 12px; height: 3px; background: #B04A32"></span>Dettes</span><span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 12px; height: 3px; background: #6D67B3"></span>Épargne libre</span></div>
-<svg width="326" height="140" viewBox="0 0 326 140" role="img" aria-label="Dettes de 15 750 € à 0 € entre juillet 2026 et juin 2028 ; épargne libre de 0 € à 4 502 €.">
-<g stroke="#ECE7DC"><line x1="0" y1="0" x2="326" y2="0"></line><line x1="0" y1="70" x2="326" y2="70"></line><line x1="0" y1="140" x2="326" y2="140"></line></g>
-<polyline fill="none" stroke="#B04A32" stroke-width="2.5" stroke-linejoin="round" points="0.0,2.2 14.2,7.9 28.3,13.6 42.5,19.3 56.7,23.8 70.9,27.8 85.0,31.9 99.2,35.9 113.4,40.0 127.6,44.1 141.7,48.3 155.9,55.9 170.1,63.5 184.3,71.1 198.4,78.6 212.6,86.2 226.8,93.7 241.0,101.3 255.1,108.6 269.3,115.8 283.5,123.1 297.7,130.4 311.8,137.5 326.0,140.0"></polyline>
-<polyline fill="none" stroke="#6D67B3" stroke-width="2.5" stroke-linejoin="round" points="0.0,140.0 14.2,140.0 28.3,140.0 42.5,140.0 56.7,140.0 70.9,140.0 85.0,140.0 99.2,140.0 113.4,140.0 127.6,140.0 141.7,139.9 155.9,137.7 170.1,135.4 184.3,133.2 198.4,130.7 212.6,128.2 226.8,125.7 241.0,123.2 255.1,120.2 269.3,117.3 283.5,114.4 297.7,111.5 311.8,108.3 326.0,100.6"></polyline>
-</svg>
-<div class="num" style="display: flex; justify-content: space-between; font-size: 11px; color: #57534B"><span>juil. 26</span><span>juil. 27</span><span>juin 28</span></div>
-</section>
-
-<section class="card" aria-labelledby="m-goals" style="padding: 18px 16px; display: flex; flex-direction: column; gap: 16px">
-<h2 id="m-goals" style="margin: 0; font-size: 16px; font-weight: 600">Objectifs</h2>
-<div style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; justify-content: space-between; font-size: 14px"><span>Déménagement</span><span class="num"><b>1 830,65</b> / 4 000 €</span></div><div style="position: relative; height: 10px; border-radius: 999px; background: #F3ECDD"><div style="position: absolute; inset: 0 12.2% 0 0; border-radius: 999px; background: repeating-linear-gradient(135deg, #EBCB8E 0 4px, #F3ECDD 4px 8px)"></div><div style="position: absolute; left: 0; top: 0; bottom: 0; width: 45.8%; border-radius: 999px; background: #D39A36"></div></div></div>
+<section class="card" aria-labelledby="gl" style="padding: 18px 16px; display: flex; flex-direction: column; gap: 14px">
+<h2 id="gl" style="margin: 0; font-size: 16px; font-weight: 600">Objectifs</h2>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; justify-content: space-between; font-size: 14px"><span>Déménagement</span><span class="num"><b>1 830,65</b> / 4 000 €</span></div><div style="position: relative; height: 10px; border-radius: 999px; background: #F3ECDD"><div style="position: absolute; left: 0; top: 0; bottom: 0; width: 87.8%; border-radius: 999px; background: repeating-linear-gradient(135deg, #EBCB8E 0 4px, #F3ECDD 4px 8px)"></div><div style="position: absolute; left: 0; top: 0; bottom: 0; width: 45.8%; border-radius: 999px; background: #D39A36"></div></div></div>
 <div style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; justify-content: space-between; font-size: 14px"><span>Fonds d’urgence</span><span class="num"><b>800,00</b> / 4 000 €</span></div><div style="height: 10px; border-radius: 999px; background: #E3ECE7"><div style="width: 20%; height: 100%; border-radius: 999px; background: #24503F"></div></div></div>
 </section>
 </main>
 
-<nav aria-label="Navigation principale" style="position: absolute; left: 0; right: 0; bottom: 0; background: #FFFFFF; border-top: 1px solid #DDD7CA; padding-bottom: 20px">
-<ul style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr))">
-<li><a class="tab" href="Main.dc.html" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>Accueil</a></li>
-<li><a class="tab" href="Budget.dc.html"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>Budget</a></li>
-<li><a class="tab" href="Credits.dc.html"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>Crédits</a></li>
-<li><a class="tab" href="Plan.dc.html"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18"></path></svg>Plan</a></li>
-<li><a class="tab" href="Suivi.dc.html"><span style="position: relative; display: flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"></path></svg><span class="num" style="position: absolute; top: -5px; right: -10px; background: #D39A36; color: #1D1C19; font-size: 10px; font-weight: 700; border-radius: 999px; padding: 0 5px; line-height: 16px">2</span></span>Suivi</a></li>
-</ul>
-</nav>
+<nav aria-label="Navigation principale"><ul class="tb">
+<li><a class="ti" href="Mobile.dc.html" aria-current="page"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"></path></svg>Accueil</a></li>
+<li><a class="ti" href="MobileBudget.dc.html"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>Budget</a></li>
+<li><a class="ti" href="MobileSaisie.dc.html" aria-label="Saisir le suivi du mois, 2 mois en attente"><span class="fab" style="position: relative"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span class="num" style="position: absolute; top: -6px; right: -6px; background: #D39A36; color: #1D1C19; font-size: 11px; font-weight: 700; border-radius: 999px; min-width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF">2</span></span>Saisir</a></li>
+<li><a class="ti" href="MobileCredits.dc.html"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>Crédits</a></li>
+<li><a class="ti" href="MobilePlus.dc.html"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg>Plus</a></li>
+</ul></nav>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1760}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1640}}'>
 class Component extends DCLogic {
 renderVals() {
 return {};

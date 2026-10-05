@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Mobile · Budget</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;display=swap">
+<style>
+body{margin:0;font-family:"IBM Plex Sans",system-ui,sans-serif;background:#F3F0E8;color:#1D1C19}
+a{color:#1F4B3B}
+.serif{font-family:Newsreader,Georgia,serif}
+.num{font-variant-numeric:tabular-nums}
+.hint{font-size:13px;color:#57534B;line-height:1.45}
+.tb{position:absolute;left:0;right:0;bottom:0;background:#FFFFFF;border-top:1px solid #DDD7CA;padding:6px 4px 24px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));list-style:none;margin:0}
+.ti{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:50px;font-size:11px;font-weight:500;color:#57534B;text-decoration:none}
+.ti[aria-current=page]{color:#1D1C19;font-weight:600}
+.fab{width:56px;height:56px;border-radius:18px;background:#1D1C19;color:#F3F0E8;display:flex;align-items:center;justify-content:center;margin-top:-26px;box-shadow:0 6px 16px rgba(29,28,25,.28)}
+.grp{background:#FFFFFF;border:1px solid #DDD7CA;border-radius:18px;overflow:hidden}
+.gh{display:flex;justify-content:space-between;align-items:baseline;padding:14px 16px 6px}
+.gh h2{margin:0;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#57534B;display:flex;align-items:center;gap:8px}
+.r{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 12px 0 16px;border-top:1px solid #EFEBE2;text-decoration:none;color:#1D1C19;font-size:15px}
+.r .l{flex-grow:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r .a{font-variant-numeric:tabular-nums;font-weight:500}
+.r .z{color:#9A9384}
+.add{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 16px;border-top:1px solid #EFEBE2;color:#1F4B3B;font-weight:500;font-size:15px;text-decoration:none}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:#EAE6DB;border-radius:12px;padding:3px}
+.seg a{min-height:38px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:14px;font-weight:500;color:#3A3832;text-decoration:none}
+.seg a[aria-current=page]{background:#FFFFFF;color:#1D1C19;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+</style>
+</helmet>
+<div style="width: 390px; height: 1500px; position: relative; background: #F3F0E8; overflow: hidden">
+
+<header style="padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 0; background: #F3F0E8; z-index: 2">
+<div style="display: flex; justify-content: space-between; align-items: center"><h1 class="serif" style="margin: 0; font-size: 32px; line-height: 1; font-weight: 500">Budget</h1><span class="hint">mois type</span></div>
+<div style="background: #FFFFFF; border: 1px solid #DDD7CA; border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 14px; color: #57534B">Marge mensuelle</span><span class="serif num" style="font-size: 24px; font-weight: 500">443,55 €</span></div>
+<div style="display: flex; height: 8px; border-radius: 999px; overflow: hidden; gap: 2px" aria-hidden="true"><div style="width: 37.1%; background: #A69D8B"></div><div style="width: 22.4%; background: #C9C1B1"></div><div style="width: 25.2%; background: #6B665C"></div><div style="width: 15.3%; background: #D39A36"></div></div>
+</div>
+<nav class="seg" aria-label="Sections du budget"><a href="MobileBudget.dc.html" aria-current="page">Mois type</a><a href="#">Ponctuel</a><a href="#">Objectifs</a></nav>
+</header>
+
+<main style="padding: 6px 16px 120px; display: flex; flex-direction: column; gap: 14px">
+<section class="grp" aria-labelledby="g1">
+<div class="gh"><h2 id="g1"><span style="width: 8px; height: 8px; border-radius: 2px; background: #2F6B4F"></span>Revenus</h2><span class="num" style="font-weight: 600">2 900,00 €</span></div>
+<a class="r" href="MobileBudgetSheet.dc.html"><span class="l">Salaire net</span><span class="a">2 800,00 €</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9384" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+<a class="r" href="MobileBudgetSheet.dc.html"><span class="l">Autres revenus</span><span class="a">100,00 €</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9384" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+<a class="r" href="MobileBudgetSheet.dc.html"><span class="l" style="color: #6B665C">Primes / 13e mois</span><span class="a z">0,00 €</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9384" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+<a class="add" href="MobileBudgetSheet.dc.html">+ Ajouter un revenu</a>
+</section>
+
+<section class="grp" aria-labelledby="g2">
+<div class="gh"><h2 id="g2"><span style="width: 8px; height: 8px; border-radius: 2px; background: #A69D8B"></span>Charges fixes</h2><span class="num" style="font-weight: 600">1 075,00 €</span></div>
+<a class="r" href="MobileBudgetSheet.dc.html"><span class="l">Loyer</span><span class="a">850,00 €</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9384" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+<a class="r" href="MobileBudgetSheet.dc.html"><span class="l">Transport</span><span class="a">75,00 €</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9384" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+<a class="r" href="MobileBudgetSheet.dc.html"><span class="l">Charges / énergie</span><span class="a">60,00 €</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9384" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+<a class="r" href="MobileBudgetSheet.dc.html"><span class="l">Assurances</span><span class="a">35,00 €</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9384" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+<a class="r" href="MobileBudgetSheet.dc.html"><span class="l" style="display: flex; flex-direction: column; white-space: normal"><span>Internet / mobile</span><span style="font-size: 12px; color: #1F4B3B; font-weight: 500">jusqu’en déc. 2026</span></span><span class="a">30,00 €</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9384" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+<a class="r" href="MobileBudgetSheet.dc.html"><span class="l">Abonnements</span><span class="a">25,00 €</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9384" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+<a class="r" href="#" style="color: #57534B; font-size: 14px; min-height: 44px"><span class="l">2 lignes à 0 € masquées</span><span style="font-weight: 500; color: #1F4B3B">Afficher</span></a>
+<a class="add" href="MobileBudgetSheet.dc.html">+ Ajouter une charge</a>
+</section>
+
+<section class="grp" aria-labelledby="g3">
+<div class="gh"><h2 id="g3"><span style="width: 8px; height: 8px; border-radius: 2px; background: #C9C1B1"></span>Dépenses variables</h2><span class="num" style="font-weight: 600">650,00 €</span></div>
+<a class="r" href="MobileBudgetSheet.dc.html"><span class="l">Courses</span><span class="a">350,00 €</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9384" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+<a class="r" href="MobileBudgetSheet.dc.html"><span class="l">Loisirs / sorties</span><span class="a">150,00 €</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9384" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+<a class="r" href="MobileBudgetSheet.dc.html"><span class="l">Shopping</span><span class="a">100,00 €</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9384" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+<a class="r" href="MobileBudgetSheet.dc.html"><span class="l">Divers</span><span class="a">50,00 €</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9384" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+<a class="add" href="MobileBudgetSheet.dc.html">+ Ajouter une dépense</a>
+</section>
+
+<section class="grp" aria-labelledby="g4">
+<div class="gh"><h2 id="g4"><span style="width: 8px; height: 8px; border-radius: 2px; background: #6B665C"></span>Mensualités de crédit</h2><span class="num" style="font-weight: 600">731,45 €</span></div>
+<a class="r" href="MobileCredits.dc.html"><span class="l" style="color: #57534B; font-size: 14px">6 crédits, gérés dans Crédits</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9384" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+</section>
+<p class="hint" style="margin: 0; text-align: center">Chaque modification est enregistrée aussitôt.</p>
+</main>
+
+<nav aria-label="Navigation principale"><ul class="tb">
+<li><a class="ti" href="Mobile.dc.html"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"></path></svg>Accueil</a></li>
+<li><a class="ti" href="MobileBudget.dc.html" aria-current="page"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>Budget</a></li>
+<li><a class="ti" href="MobileSaisie.dc.html" aria-label="Saisir le suivi du mois, 2 mois en attente"><span class="fab" style="position: relative"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span class="num" style="position: absolute; top: -6px; right: -6px; background: #D39A36; color: #1D1C19; font-size: 11px; font-weight: 700; border-radius: 999px; min-width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF">2</span></span>Saisir</a></li>
+<li><a class="ti" href="MobileCredits.dc.html"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>Crédits</a></li>
+<li><a class="ti" href="MobilePlus.dc.html"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg>Plus</a></li>
+</ul></nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1500}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

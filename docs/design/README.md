@@ -13,6 +13,8 @@ computed for September 2026 — never hard-code them; every value comes from `us
 | `Plan.dc.html` | `/plan` | `app/(app)/plan/view.tsx`, `plan-table.tsx` |
 | `Suivi.dc.html` | `/suivi` | `app/(app)/suivi/view.tsx`, `check-in-form.tsx`, `history.tsx`, `rebase-card.tsx` |
 
+> **Mobile (< 768 px):** see [MOBILE.md](MOBILE.md) and the `Mobile*.dc.html` mockups. It replaces the mobile notes below.
+
 ## Scope and constraints
 
 - **Do not touch** `lib/engine/`, `lib/domain/`, `lib/data/`, `supabase/`. UI layer only, except §5.

@@ -51,7 +51,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     target: "guide",
     title: "À vous de jouer",
-    body: "Relancez ce guide à tout moment avec « Guide de l’application » (dans le menu du compte). Pour bien démarrer, renseignez d’abord votre budget.",
+    body: "Relancez ce guide à tout moment depuis le menu du compte (« Plus » sur mobile). Pour bien démarrer, renseignez d’abord votre budget.",
   },
 ];
 
