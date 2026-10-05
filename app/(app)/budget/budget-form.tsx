@@ -104,10 +104,11 @@ export function BudgetForm({
   );
   const missingParams = useMemo(() => invalidParams(form.params), [form.params]);
   const goalsTitle = goals.length === 1 ? goals[0]!.name : "Objectifs d’épargne";
-  // Plan start for the exceptions' "outside the plan" notes: the live value when valid, else the saved one.
-  const planStart = useMemo(() => parseSettings(form.params)?.startMonth ?? settings?.startMonth ?? null, [form.params, settings]);
-  // Plan start for the lines' "outside the plan" notes: the typed month as soon as it is valid.
+  // Plan start for the lines' and the exceptions' "outside the plan" notes: the typed month as soon as
+  // it is valid, else the saved one. Before the first save the other parameters may still be empty:
+  // the « Début du plan » field alone decides (#123).
   const linePlanStart = formPlanStart(form.params, savedStart);
+  const planStart = linePlanStart;
   // Same-name lines active in the same months (#99): live, before and after saving.
   const overlaps = overlapWarnings(form.lines);
 
@@ -362,7 +363,7 @@ export function BudgetForm({
         <ExceptionsCard
           exceptions={exceptions}
           startMonth={planStart}
-          defaultMonth={defaultExceptionMonth(settings?.startMonth ?? null, currentMonth)}
+          defaultMonth={defaultExceptionMonth(planStart, currentMonth)}
           hasSettings={settings !== null}
           currentMonth={currentMonth}
         />

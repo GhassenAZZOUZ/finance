@@ -64,21 +64,32 @@ describe("LoginForm", () => {
     expect(screen.getByText("E-mail envoyé à someone@example.com.")).toBeTruthy();
   });
 
-  it("rejects a malformed code without calling Supabase", async () => {
+  it("#119 — keeps digits only, 6 at most, and enables « Se connecter » at exactly 6 digits", async () => {
     const user = await requestCode();
-    await user.type(await screen.findByLabelText("Code de connexion"), "12ab");
-    await user.click(screen.getByRole("button", { name: "Se connecter" }));
-    expect(await screen.findByText("Saisissez le code à chiffres reçu par e-mail.")).toBeTruthy();
-    expect(screen.getByLabelText("Code de connexion").getAttribute("aria-invalid")).toBe("true");
+    const field = (await screen.findByLabelText("Code de connexion")) as HTMLInputElement;
+    const submit = () => screen.getByRole("button", { name: "Se connecter" }) as HTMLButtonElement;
+    expect(submit().disabled).toBe(true);
+    await user.type(field, "12ab");
+    expect(field.value).toBe("12");
+    await user.type(field, "345");
+    expect(field.value).toBe("12345");
+    expect(submit().disabled).toBe(true);
+    await user.type(field, "67");
+    expect(field.value).toBe("123456");
+    expect(submit().disabled).toBe(false);
     expect(mocks.verifyOtp).not.toHaveBeenCalled();
   });
 
-  it("shows a clear error for a wrong or expired code and stays on the page", async () => {
+  it("#120 — a wrong or expired code: French error, field cleared and focused, still on the page", async () => {
     mocks.verifyOtp.mockResolvedValue({ error: { message: "Token has expired or is invalid" } });
     const user = await requestCode();
-    await user.type(await screen.findByLabelText("Code de connexion"), "000000");
+    const field = (await screen.findByLabelText("Code de connexion")) as HTMLInputElement;
+    await user.type(field, "000000");
     await user.click(screen.getByRole("button", { name: "Se connecter" }));
     expect(await screen.findByText("Code invalide ou expiré. Vérifiez-le, ou demandez un nouveau code.")).toBeTruthy();
+    expect(field.value).toBe("");
+    expect(document.activeElement).toBe(field);
+    expect(field.getAttribute("aria-invalid")).toBe("true");
     expect(mocks.replace).not.toHaveBeenCalled();
   });
 
@@ -106,7 +117,8 @@ describe("LoginForm", () => {
     expect(document.activeElement).toBe(field);
     // 44 px tap target for the submit button.
     expect(screen.getByRole("button", { name: "Se connecter" }).className).toContain("min-h-11");
-    await user.type(field, "12");
+    mocks.verifyOtp.mockResolvedValue({ error: { message: "Token has expired or is invalid" } });
+    await user.type(field, "000000");
     await user.click(screen.getByRole("button", { name: "Se connecter" }));
     const error = await screen.findByRole("alert");
     expect(field.getAttribute("aria-describedby")).toBe(error.id);

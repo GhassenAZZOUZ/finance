@@ -280,15 +280,21 @@ export function periodOverlap(a: LinePeriod, b: LinePeriod): LinePeriod | null {
 /**
  * Issue #99: a warning per line key when other lines of the same category with the same name are
  * active in the same months (« 2 lignes « Loyer » actives à partir de juil. 2027 »). A warning only:
- * same-name lines whose periods follow each other are legitimate.
+ * same-name lines whose periods follow each other are legitimate. A line at 0 € (a hidden template
+ * line, a line not filled in yet) weighs nothing: it neither counts nor warns (#121).
  */
 export function overlapWarnings(lines: readonly LineState[]): Record<string, string> {
   const warnings: Record<string, string> = {};
+  const weighs = (line: LineState) => {
+    const parsed = parseAmount(line.amount, { required: false });
+    return parsed.ok && (parsed.value ?? 0) > 0;
+  };
   for (const line of lines) {
     const key = sameNameKey(line.label);
-    if (!key) continue;
+    // A line at 0 € has no effect: no warning on it either (a new line warns once it has an amount).
+    if (!key || !weighs(line)) continue;
     const overlaps = lines
-      .filter((other) => other !== line && other.category === line.category && sameNameKey(other.label) === key)
+      .filter((other) => other !== line && weighs(other) && other.category === line.category && sameNameKey(other.label) === key)
       .map((other) => periodOverlap(linePeriod(line), linePeriod(other)))
       .filter((overlap): overlap is LinePeriod => overlap !== null);
     if (overlaps.length === 0) continue;

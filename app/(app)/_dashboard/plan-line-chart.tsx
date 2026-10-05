@@ -194,7 +194,13 @@ export function ChartDataTable({
       <summary className="w-fit cursor-pointer rounded-sm text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
         Voir les données
       </summary>
-      <div className="mt-2 max-h-72 overflow-auto rounded-md border">
+      {/* A focusable, named scroll region: keyboard users can scroll the table (WCAG 2.1.1, #122). */}
+      <div
+        tabIndex={0}
+        role="region"
+        aria-label={caption}
+        className="mt-2 max-h-72 overflow-auto rounded-md border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
         <table className="w-full text-xs">
           <caption className="sr-only">{caption}</caption>
           <thead className="sticky top-0 bg-muted">

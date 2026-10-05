@@ -3,11 +3,16 @@
 import * as React from "react"
 import { cn } from "cn"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+/**
+ * `label` names the horizontal scroll container and makes it focusable, so keyboard users can scroll
+ * a table wider than the screen (WCAG 2.1.1, issue #122). Give one to every table that can overflow.
+ */
+function Table({ className, label, ...props }: React.ComponentProps<"table"> & { label?: string }) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className="relative w-full overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      {...(label ? { tabIndex: 0, role: "region", "aria-label": label } : {})}
     >
       <table
         data-slot="table"

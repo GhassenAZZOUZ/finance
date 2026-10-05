@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,8 +19,9 @@ interface CodeState {
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-/** Supabase one-time codes are 6 digits here (configurable up to 10 on the project). */
-const CODE = /^\d{6,10}$/;
+/** Supabase one-time codes: `otp_length = 6`, locally and on the hosted project (#3). */
+const CODE_LENGTH = 6;
+const CODE = new RegExp(`^\\d{${CODE_LENGTH}}$`);
 
 /** Sends the login email: a magic link (same browser, PKCE) and a one-time code (any device). */
 async function sendLoginEmail(_prev: LoginState, formData: FormData): Promise<LoginState> {
@@ -123,14 +124,24 @@ function CodeStep({
   onSignedIn: () => void;
   onChangeAddress: () => void;
 }) {
+  // Digits only, at most 6 (#119): a pasted « 123 456 » or « 123-456 » becomes « 123456 ».
+  const [code, setCode] = useState("");
+  const codeRef = useRef<HTMLInputElement>(null);
   const [state, verify, pending] = useActionState<CodeState, FormData>(async (_prev, formData) => {
-    const token = String(formData.get("code") ?? "").replace(/\s/g, "");
-    if (!CODE.test(token)) return { status: "error", message: "Saisissez le code à chiffres reçu par e-mail." };
+    const token = String(formData.get("code") ?? "").replace(/\D/g, "");
+    if (!CODE.test(token)) return { status: "error", message: `Saisissez les ${CODE_LENGTH} chiffres du code reçu par e-mail.` };
     const { error } = await supabaseBrowser().auth.verifyOtp({ email, token, type: "email" });
-    if (error) return { status: "error", message: "Code invalide ou expiré. Vérifiez-le, ou demandez un nouveau code." };
+    if (error) {
+      // Cleared and focused again (#120, #3 AC-04), ready for another try.
+      setCode("");
+      return { status: "error", message: "Code invalide ou expiré. Vérifiez-le, ou demandez un nouveau code." };
+    }
     onSignedIn();
     return { status: "idle" };
   }, { status: "idle" });
+  useEffect(() => {
+    if (state.status === "error") codeRef.current?.focus();
+  }, [state]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -144,12 +155,14 @@ function CodeStep({
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="code">Code de connexion</Label>
           <Input
+            ref={codeRef}
             id="code"
             name="code"
             inputMode="numeric"
             autoComplete="one-time-code"
             pattern="[0-9]*"
-            maxLength={12}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH))}
             required
             autoFocus
             className="font-mono text-lg tracking-[0.3em]"
@@ -162,7 +175,7 @@ function CodeStep({
             </p>
           ) : null}
         </div>
-        <Button type="submit" disabled={pending} className="min-h-11">
+        <Button type="submit" disabled={pending || !CODE.test(code)} className="min-h-11">
           {pending ? "Vérification…" : "Se connecter"}
         </Button>
       </form>

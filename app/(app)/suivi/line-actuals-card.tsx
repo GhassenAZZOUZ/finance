@@ -48,7 +48,7 @@ export function LineActualsCard({ actuals }: { actuals: MonthlyActual[] }) {
           </select>
         </div>
       </div>
-      <Table>
+      <Table label="Réel et budget par ligne">
         <TableHeader>
           <TableRow>
             <TableHead scope="col">Ligne</TableHead>

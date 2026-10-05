@@ -440,7 +440,12 @@ export function Simulator({
                 </li>
               ))}
             </ul>
-            <div className="hidden overflow-x-auto sm:block">
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Comparaison entre le plan actuel et la simulation"
+              className="hidden overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:block"
+            >
               <table className="w-full text-sm">
                 <caption className="sr-only">Comparaison entre le plan actuel et la simulation</caption>
                 <thead>
