@@ -20,6 +20,7 @@ import {
 import { PlanCharts } from "./_dashboard/plan-charts";
 import { IncomeUses } from "./_dashboard/income-uses";
 import { CheckInCharts } from "./_dashboard/check-in-charts";
+import { MobileHome } from "./_dashboard/mobile-home";
 import { NegativeBudgetNotice, MovingAlert } from "./_dashboard/notices";
 import { MarginTile, DebtTile, SavingsTile } from "./_dashboard/tiles";
 import { Roadmap } from "./_dashboard/roadmap";
@@ -55,58 +56,64 @@ function Dashboard({ plan, pending }: { plan: ComputedPlan; pending: YearMonth[]
 
   return (
     <>
-      <PageHeader
-        eyebrow={`${formatMonthLong(plan.referenceMonth)} · mois ${refIndex} sur ${HORIZON_MONTHS}`}
-        title={dashboardHeadline(kpis)}
-        actions={
-          <>
-            <Button asChild variant="outline" className="min-h-11 px-4.5 text-[15px]">
-              <Link href="/plan">Voir le plan</Link>
-            </Button>
-            {oldestPending ? (
-              <Button asChild className="min-h-11 px-4.5 text-[15px]">
-                <Link href={checkInHref(oldestPending)}>Saisir {formatMonthLong(oldestPending)}</Link>
+      {/* Phones: a home built for a small screen (#109); the desktop dashboard below is hidden there. */}
+      <div className="md:hidden">
+        <MobileHome plan={plan} pending={pending} />
+      </div>
+      <div className="hidden md:contents">
+        <PageHeader
+          eyebrow={`${formatMonthLong(plan.referenceMonth)} · mois ${refIndex} sur ${HORIZON_MONTHS}`}
+          title={dashboardHeadline(kpis)}
+          actions={
+            <>
+              <Button asChild variant="outline" className="min-h-11 px-4.5 text-[15px]">
+                <Link href="/plan">Voir le plan</Link>
               </Button>
-            ) : null}
-          </>
-        }
-      />
-
-      <NegativeBudgetNotice count={kpis.negativeBudgetMonths} />
-
-      <section aria-label="Chiffres clés" className="grid grid-cols-2 gap-2.5 md:gap-4 xl:grid-cols-3">
-        <MarginTile kpis={kpis} month={plan.referenceMonth} />
-        <DebtTile plan={plan} current={ref} />
-        <SavingsTile
-          current={ref}
-          in12={months[refIndex - 1 + 12]}
-          goalsLabel={goalsName(kpis)}
-          interest={kpis.savingsInterest > 0 ? { at12: kpis.savingsInterestAt12, total: kpis.savingsInterest } : undefined}
-          className="col-span-2 xl:col-span-1"
+              {oldestPending ? (
+                <Button asChild className="min-h-11 px-4.5 text-[15px]">
+                  <Link href={checkInHref(oldestPending)}>Saisir {formatMonthLong(oldestPending)}</Link>
+                </Button>
+              ) : null}
+            </>
+          }
         />
-      </section>
 
-      {shortfall ? <MovingAlert shortfall={shortfall} referenceMonth={plan.referenceMonth} goalName={primaryGoalName(kpis)} /> : null}
+        <NegativeBudgetNotice count={kpis.negativeBudgetMonths} />
 
-      <Roadmap plan={plan} refIndex={refIndex} />
+        <section aria-label="Chiffres clés" className="grid grid-cols-2 gap-2.5 md:gap-4 xl:grid-cols-3">
+          <MarginTile kpis={kpis} month={plan.referenceMonth} />
+          <DebtTile plan={plan} current={ref} />
+          <SavingsTile
+            current={ref}
+            in12={months[refIndex - 1 + 12]}
+            goalsLabel={goalsName(kpis)}
+            interest={kpis.savingsInterest > 0 ? { at12: kpis.savingsInterestAt12, total: kpis.savingsInterest } : undefined}
+            className="col-span-2 xl:col-span-1"
+          />
+        </section>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
-        <PlanCharts plan={plan} refIndex={refIndex} />
-        <Goals plan={plan} current={ref} in12={months[refIndex - 1 + 12]} />
+        {shortfall ? <MovingAlert shortfall={shortfall} referenceMonth={plan.referenceMonth} goalName={primaryGoalName(kpis)} /> : null}
+
+        <Roadmap plan={plan} refIndex={refIndex} />
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+          <PlanCharts plan={plan} refIndex={refIndex} />
+          <Goals plan={plan} current={ref} in12={months[refIndex - 1 + 12]} />
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <CheckInStripCard
+            slots={checkInStrip(budget.startMonth, currentYearMonth(), plan.comparisons)}
+            startMonth={budget.startMonth}
+            verdicts={Object.fromEntries(plan.actuals.map((a) => [a.month, verdictOf(a)]))}
+          />
+          <RepaymentOrder plan={plan} />
+        </div>
+
+        <IncomeUses plan={plan} refIndex={refIndex} />
+
+        <CheckInCharts plan={plan} firstCheckInHref={oldestPending ? checkInHref(oldestPending) : "/suivi"} />
       </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <CheckInStripCard
-          slots={checkInStrip(budget.startMonth, currentYearMonth(), plan.comparisons)}
-          startMonth={budget.startMonth}
-          verdicts={Object.fromEntries(plan.actuals.map((a) => [a.month, verdictOf(a)]))}
-        />
-        <RepaymentOrder plan={plan} />
-      </div>
-
-      <IncomeUses plan={plan} refIndex={refIndex} />
-
-      <CheckInCharts plan={plan} firstCheckInHref={oldestPending ? checkInHref(oldestPending) : "/suivi"} />
     </>
   );
 }

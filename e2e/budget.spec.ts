@@ -38,6 +38,15 @@ test("adds and edits budget lines, then the dashboard margin reflects them", asy
   await expect(fixed).toContainText(euros("Total : 1 000,00 €"));
 
   await page.goto("/");
+  if (test.info().project.name === "mobile") {
+    // Phones get the mobile home (#109): the dark margin card, and no sideways page scroll.
+    const margin = page.getByRole("region", { name: "Marge du mois" });
+    await expect(margin).toContainText(euros("2 000,00 €"));
+    await expect(margin).toContainText(euros("3 000 €revenus"));
+    await expect(margin).toContainText(euros("1 000 €dépenses"));
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+    return;
+  }
   const kpis = page.getByRole("region", { name: "Chiffres clés" });
   await expect(kpis.getByRole("heading", { name: /^Marge mensuelle/ })).toBeVisible();
   await expect(kpis).toContainText(euros("2 000,00 €"));

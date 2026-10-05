@@ -174,25 +174,45 @@ export function planMonthAt(result: PlanResult, startMonth: YearMonth, month: Ye
   return offset >= 0 ? result.months[offset] : undefined;
 }
 
-/** One sentence per fact: debt-free month, then whether the moving fund holds (docs/design §3). */
-export function dashboardHeadline(k: PlanKpis): string {
-  const parts: string[] = [];
-  if (!k.hasDebt) parts.push("Aucune dette en cours.");
-  else if (k.debtFreeMonth) parts.push(`Plus de dettes en ${formatMonthLong(k.debtFreeMonth)}.`);
-  else parts.push("Dettes remboursées au-delà de 25 ans.");
+export interface HeadlinePart {
+  text: string;
+  /** A sentence that calls for an action (the mobile home shows it in the warning tone, #109). */
+  warning: boolean;
+}
+
+/** The headline's sentences: debt-free month, then whether the moving fund holds (docs/design §3). */
+export function headlineParts(k: PlanKpis): HeadlinePart[] {
+  const parts: HeadlinePart[] = [];
+  if (!k.hasDebt) parts.push({ text: "Aucune dette en cours.", warning: false });
+  else if (k.debtFreeMonth) parts.push({ text: `Plus de dettes en ${formatMonthLong(k.debtFreeMonth)}.`, warning: false });
+  else parts.push({ text: "Dettes remboursées au-delà de 25 ans.", warning: false });
   if (k.movingGoal > 0) {
     const several = k.goals.length > 1;
     const subject = several ? "Les objectifs d’épargne" : `« ${goalsName(k)} »`;
     parts.push(
       k.movingGoalMet
-        ? `${subject} ${several ? "sont financés" : "est financé"}.`
-        : `${subject} ${several ? "demandent" : "demande"} un ajustement.`,
+        ? { text: `${subject} ${several ? "sont financés" : "est financé"}.`, warning: false }
+        : { text: `${subject} ${several ? "demandent" : "demande"} un ajustement.`, warning: true },
     );
   }
   if (k.negativeBudgetMonths > 0) {
-    parts.push(`${k.negativeBudgetMonths} mois en budget négatif à corriger.`);
+    parts.push({ text: `${k.negativeBudgetMonths} mois en budget négatif à corriger.`, warning: true });
   }
-  return parts.join(" ");
+  return parts;
+}
+
+/** One sentence per fact (docs/design §3). */
+export function dashboardHeadline(k: PlanKpis): string {
+  return headlineParts(k)
+    .map((p) => p.text)
+    .join(" ");
+}
+
+/** The next milestones from the reference month on, for the mobile home's « Prochaines étapes » (#109). */
+export function nextSteps(input: PlanInput, result: PlanResult, referenceMonth: YearMonth, count = 4): RoadmapEvent[] {
+  return roadmapEvents(input, result)
+    .filter((e) => compareMonths(e.month, referenceMonth) >= 0)
+    .slice(0, count);
 }
 
 /**
