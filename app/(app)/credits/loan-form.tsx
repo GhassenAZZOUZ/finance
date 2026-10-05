@@ -66,10 +66,13 @@ export function LoanFormPanel({
   onSaved,
   onCancel,
   idPrefix = "credit",
+  titleHidden = false,
 }: {
   editing: LoanRow | null;
   /** Prefix of the field ids: the add form and an inline edit form can be on the page together. */
   idPrefix?: string;
+  /** The title is shown by a surrounding sheet (#112): keep it for screen readers only. */
+  titleHidden?: boolean;
   /** Pre-filled "last payment already made" month for a new loan (the current month). */
   defaultPaidThroughMonth: string;
   onSaved: (message: string) => void;
@@ -96,7 +99,7 @@ export function LoanFormPanel({
 
   return (
     <form action={formAction} noValidate aria-labelledby={`${idPrefix}-form-title`} className="flex flex-col gap-4">
-      <h2 id={`${idPrefix}-form-title`} className={editing ? "sr-only" : "text-[17px] font-semibold"}>
+      <h2 id={`${idPrefix}-form-title`} className={editing || titleHidden ? "sr-only" : "text-[17px] font-semibold"}>
         {title}
       </h2>
       {editing ? <input type="hidden" name="id" value={editing.id} /> : null}

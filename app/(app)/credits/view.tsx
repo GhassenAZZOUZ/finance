@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useFinance } from "@/components/app/finance-provider";
 import { PageHeader } from "@/components/app/page-header";
+import { useIsMobile } from "@/components/app/use-is-mobile";
 import { Button } from "@/components/ui/button";
 import { MAX_ACTIVE_LOANS } from "@/lib/domain/types";
 import { type Cents, monthsBetween } from "@/lib/engine";
@@ -12,9 +13,11 @@ import { currentYearMonth, formatEuros, formatMonthLong, formatPercent } from "@
 import { cn } from "@/lib/utils";
 import { LoansManager } from "./loans-manager";
 import { buildLoanRows, computeLoanTotals, timelineScale } from "./loan-view";
+import { MobileCredits } from "./mobile-credits";
 
 export function CreditsView() {
   const { snapshot, plan } = useFinance();
+  const isMobile = useIsMobile();
   const rows = buildLoanRows(snapshot.loans, plan);
   const totals = computeLoanTotals(snapshot.loans, plan);
   const archived = snapshot.archivedLoans;
@@ -26,6 +29,25 @@ export function CreditsView() {
     plan && refRow ? plan.input.loans.map((l, j) => [l.id, refRow.loans[j]?.endBalance ?? l.principal]) : [],
   );
   const k = plan?.result.kpis;
+
+  // Phones get their own layout (#112); only one of the two is mounted, so the form ids stay unique.
+  if (isMobile) {
+    return (
+      <MobileCredits
+        rows={rows}
+        archived={archived}
+        balances={balances}
+        totals={{
+          remainingDebt: refRow ? refRow.remainingDebt : totals.totalPrincipal,
+          monthlyPayments: totals.monthlyPayments,
+          weightedApr: totals.weightedApr,
+          interestSaved: k ? k.interestSaved : null,
+        }}
+        riskFreeRate={plan ? plan.input.budget.riskFreeRate : null}
+        currentMonth={currentYearMonth()}
+      />
+    );
+  }
 
   return (
     <>

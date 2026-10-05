@@ -24,6 +24,8 @@ test("adding a loan and raising its principal moves the debt-free month", async 
   await seedPlan(user.client, user.id, addMonths(currentYearMonth(), -1));
 
   await page.goto("/credits/");
+  // Phones add and edit in a bottom sheet (#112).
+  if (test.info().project.name === "mobile") await page.getByRole("button", { name: "Ajouter", exact: true }).click();
   await page.getByLabel("Nom (facultatif)").fill("Prêt test");
   await page.getByLabel("Capital restant dû (€)").fill("5000");
   await page.getByLabel("TAEG (%)").fill("5");
