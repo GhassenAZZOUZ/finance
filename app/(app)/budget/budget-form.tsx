@@ -75,6 +75,7 @@ export function BudgetForm({
   exceptions,
   goals = [],
   currentMonth,
+  paramsOnly = false,
 }: {
   settings: BudgetSettings | null;
   lines: BudgetLine[];
@@ -84,6 +85,11 @@ export function BudgetForm({
   /** Savings goals (SPEC D23): managed by their own card, included in the preview. */
   goals?: SavingsGoal[];
   currentMonth: YearMonth;
+  /**
+   * Phone « Objectifs » tab (#111): the goals card and the plan parameters only, with their own save
+   * button. The lines are edited one by one in sheets there; the payload still carries all of them.
+   */
+  paramsOnly?: boolean;
 }) {
   const saved = useMemo(() => initialFormState(settings, lines, currentMonth), [settings, lines, currentMonth]);
   const savedSignature = formSignature(saved);
@@ -163,6 +169,28 @@ export function BudgetForm({
     }
   };
 
+  const saveFooter = (
+    <div className="flex flex-col gap-2 border-t border-divider pt-4">
+      <Button type="submit" form={FORM_ID} disabled={pending} className="min-h-11 w-full text-[15px]">
+        {pending ? "Enregistrement…" : "Enregistrer"}
+      </Button>
+      <div aria-live="polite" className="text-center text-[13px]">
+        {actionState.status === "idle" && !pending ? (
+          <p className="text-muted-foreground">{dirty ? "Modifications non enregistrées" : "Tout est enregistré"}</p>
+        ) : null}
+        {actionState.status === "error" ? (
+          <p className="text-bad">
+            {actionState.message}
+            {errorCount > 0 ? ` (${errorCount} erreur${errorCount > 1 ? "s" : ""})` : null}
+          </p>
+        ) : null}
+        {actionState.status === "success" && !dirty && !pending ? (
+          <p className="text-good">✓ {actionState.message}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+
   const paramProps = (field: ParamField) => ({
     field,
     value: form.params[field],
@@ -178,7 +206,7 @@ export function BudgetForm({
         <form id={FORM_ID} action={formAction} noValidate className="flex flex-col gap-6">
           <input type="hidden" name="payload" value={JSON.stringify(toPayload(form))} />
 
-          {SECTIONS.map((section) => {
+          {paramsOnly ? null : SECTIONS.map((section) => {
             const sectionLines = form.lines.filter((l) => l.category === section.category);
             const headingId = `section-${section.category}`;
             // With dated lines the total depends on the month: say which one it describes.
@@ -360,43 +388,24 @@ export function BudgetForm({
           currentMonth={currentMonth}
         />
 
-        <ExceptionsCard
-          exceptions={exceptions}
-          startMonth={planStart}
-          defaultMonth={defaultExceptionMonth(planStart, currentMonth)}
-          hasSettings={settings !== null}
-          currentMonth={currentMonth}
-        />
+        {paramsOnly ? (
+          saveFooter
+        ) : (
+          <ExceptionsCard
+            exceptions={exceptions}
+            startMonth={planStart}
+            defaultMonth={defaultExceptionMonth(planStart, currentMonth)}
+            hasSettings={settings !== null}
+            currentMonth={currentMonth}
+          />
+        )}
       </div>
 
-      <aside aria-labelledby="apercu-titre" className="lg:sticky lg:top-6">
-        <BudgetSummary
-          preview={preview}
-          dirty={dirty}
-          missingParams={missingParams}
-          footer={
-            <div className="flex flex-col gap-2 border-t border-divider pt-4">
-              <Button type="submit" form={FORM_ID} disabled={pending} className="min-h-11 w-full text-[15px]">
-                {pending ? "Enregistrement…" : "Enregistrer"}
-              </Button>
-              <div aria-live="polite" className="text-center text-[13px]">
-                {actionState.status === "idle" && !pending ? (
-                  <p className="text-muted-foreground">{dirty ? "Modifications non enregistrées" : "Tout est enregistré"}</p>
-                ) : null}
-                {actionState.status === "error" ? (
-                  <p className="text-bad">
-                    {actionState.message}
-                    {errorCount > 0 ? ` (${errorCount} erreur${errorCount > 1 ? "s" : ""})` : null}
-                  </p>
-                ) : null}
-                {actionState.status === "success" && !dirty && !pending ? (
-                  <p className="text-good">✓ {actionState.message}</p>
-                ) : null}
-              </div>
-            </div>
-          }
-        />
-      </aside>
+      {paramsOnly ? null : (
+        <aside aria-labelledby="apercu-titre" className="lg:sticky lg:top-6">
+          <BudgetSummary preview={preview} dirty={dirty} missingParams={missingParams} footer={saveFooter} />
+        </aside>
+      )}
     </div>
   );
 }

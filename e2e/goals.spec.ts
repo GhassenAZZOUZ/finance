@@ -7,6 +7,8 @@ test("adds a savings goal and uses it on the dashboard and in the check-in", asy
   await seedPlan(user.client, user.id, addMonths(currentYearMonth(), -1));
 
   await page.goto("/budget/");
+  // Phones (#111): the goals card is in the « Objectifs » tab.
+  if (test.info().project.name === "mobile") await page.getByRole("tab", { name: "Objectifs" }).click();
   const card = page.getByRole("group", { name: "Objectifs d’épargne" });
   const form = card.getByRole("form", { name: "Ajouter un objectif" });
   await form.getByLabel("Nom de l’objectif").fill("Voiture");
