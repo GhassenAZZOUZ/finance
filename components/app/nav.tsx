@@ -18,8 +18,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { pendingCheckIns, pendingMonthsText } from "@/app/(app)/suivi/logic";
-import type { YearMonth } from "@/lib/engine";
-import { currentDate, currentYearMonth, formatMonthLong } from "@/lib/format";
+import { type YearMonth, monthsBetween } from "@/lib/engine";
+import type { ComputedPlan } from "@/lib/domain/plan";
+import { currentDate, currentYearMonth, formatMonthLong, formatMonthShort } from "@/lib/format";
 import { lastOpenMonth } from "@/lib/domain/payday";
 import { cn } from "@/lib/utils";
 import { useOptionalFinance } from "./finance-provider";
@@ -184,17 +185,28 @@ export function Sidebar() {
   );
 }
 
+/** « Sept. 2026 · mois 3 »: the reference month and its rank in the plan (mobile home pill, #109). */
+export function monthPill(plan: Pick<ComputedPlan, "referenceMonth" | "input">): string {
+  const short = formatMonthShort(plan.referenceMonth);
+  return `${short.charAt(0).toUpperCase()}${short.slice(1)} · mois ${monthsBetween(plan.input.budget.startMonth, plan.referenceMonth) + 1}`;
+}
+
 /**
  * Small brand header of the mobile home (< md). Other pages have no global header: they start
  * with their own title, and the account lives in « Plus ».
  */
 export function MobileHeader() {
   const pathname = usePathname();
+  const plan = useOptionalFinance()?.plan;
   if (pathname !== "/") return null;
   return (
     <header className="flex h-15 items-center gap-2.5 px-4 md:hidden">
       <BrandMark />
       <span className="font-heading text-xl font-semibold">Boussole</span>
+      {/* The reference month and its rank in the plan (#109). */}
+      {plan ? (
+        <span className="ml-auto rounded-full bg-secondary px-3 py-1.5 text-[13px] font-medium tabular-nums">{monthPill(plan)}</span>
+      ) : null}
     </header>
   );
 }
