@@ -16,6 +16,7 @@ import type {
   Loan,
   LoanDraft,
   MonthlyActual,
+  RebaseCorrection,
   MonthlyActualDraft,
   SavingsGoal,
   SavingsGoalDraft,
@@ -117,6 +118,8 @@ interface ActualRow {
   planned_income: number | null;
   planned_expenses: number | null;
   plan_start_month: string | null;
+  /** Hand corrections of a re-base (#100), in cents. */
+  rebase_corrections: RebaseCorrection[] | null;
   monthly_actual_loan_balances: { loan_id: string; balance: number }[];
   monthly_actual_goal_balances: { goal_id: string; balance: number }[];
   monthly_actual_lines: LineRowOfActual[];
@@ -255,7 +258,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   async load(): Promise<FinanceSnapshot> {
-    const [settings, lines, loans, actuals, exceptions, goals, profile, incomePayments, bankRules] = await Promise.all([
+    const [settings, lines, loans, actuals, exceptions, goals, profile, incomePayments, bankRules, rebaseUndo] = await Promise.all([
       this.db.from("budget_settings").select(SETTINGS_COLUMNS).maybeSingle<SettingsRow>(),
       this.db
         .from("budget_lines")
@@ -271,7 +274,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       this.db
         .from("monthly_actuals")
         .select(
-          `id, month, income, expenses, emergency_savings, free_savings, planned_debt, planned_savings, planned_income, planned_expenses, plan_start_month, monthly_actual_loan_balances(loan_id, balance), monthly_actual_goal_balances(goal_id, balance), monthly_actual_lines(${ACTUAL_LINE_COLUMNS}), monthly_actual_deposits(pot, goal_id, goal_name, planned, amount, position)`,
+          `id, month, income, expenses, emergency_savings, free_savings, planned_debt, planned_savings, planned_income, planned_expenses, plan_start_month, rebase_corrections, monthly_actual_loan_balances(loan_id, balance), monthly_actual_goal_balances(goal_id, balance), monthly_actual_lines(${ACTUAL_LINE_COLUMNS}), monthly_actual_deposits(pot, goal_id, goal_name, planned, amount, position)`,
         )
         .order("month")
         .returns<ActualRow[]>(),
@@ -292,7 +295,9 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         .order("month")
         .returns<{ month: string; budget_line_id: string; paid_on: string }[]>(),
       this.db.from("bank_csv_rules").select("id, keyword, budget_line_id").order("keyword").returns<{ id: string; keyword: string; budget_line_id: string | null }[]>(),
+      this.db.from("plan_rebase_undo").select("from_month, new_start_month").maybeSingle<{ from_month: string; new_start_month: string }>(),
     ]);
+    const undo = checkMaybe(rebaseUndo);
     const s = checkMaybe(settings);
     const allLoans = check(loans).map(toLoan);
     return {
@@ -329,6 +334,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       archivedLoans: allLoans.filter((l) => l.archivedAt !== null),
       reminderEnabled: checkMaybe(profile)?.reminder_enabled ?? true,
       bankCsvMapping: checkMaybe(profile)?.bank_csv_mapping ?? null,
+      rebaseUndo: undo ? { fromMonth: undo.from_month, newStartMonth: undo.new_start_month } : null,
       bankRules: check(bankRules).map((b): BankRule => ({ id: b.id, keyword: b.keyword, budgetLineId: b.budget_line_id })),
       incomePayments: check(incomePayments).map((p) => ({ month: p.month, budgetLineId: p.budget_line_id, paidOn: p.paid_on })),
       goals: check(goals).map(toGoal),
@@ -342,6 +348,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
           freeSavings: cents(a.free_savings),
           loanBalances: a.monthly_actual_loan_balances.map((b) => ({ loanId: b.loan_id, balance: cents(b.balance) })),
           goalBalances: a.monthly_actual_goal_balances.map((b) => ({ goalId: b.goal_id, balance: cents(b.balance) })),
+          ...(a.rebase_corrections?.length ? { rebaseCorrections: a.rebase_corrections } : {}),
           // SPEC D33: with deposits, the balances above are recomputed by withComputedBalances.
           ...(a.monthly_actual_deposits.length > 0
             ? {
@@ -386,10 +393,12 @@ export class SupabaseFinanceRepository implements FinanceRepository {
     checkMaybe(await this.db.rpc("freeze_actuals", { p_freezes: freezeRows(items) }));
   }
 
-  /** One transaction (Postgres function `rebase_plan`). */
+  /** One transaction (Postgres function `rebase_plan_with_undo`): keeps what it changes for an undo (#100). */
   async rebasePlan(changes: RebaseChanges): Promise<void> {
     checkMaybe(
-      await this.db.rpc("rebase_plan", {
+      await this.db.rpc("rebase_plan_with_undo", {
+        p_from_month: changes.fromMonth,
+        p_corrections: changes.corrections,
         p_settings: settingsColumns(changes.settings),
         p_freezes: freezeRows(changes.freezes),
         p_loan_updates: changes.loanUpdates.map(({ id, draft }) => ({ id, ...loanColumns(draft) })),
@@ -397,6 +406,11 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         p_goal_updates: changes.goalUpdates.map(({ id, draft }) => ({ id, ...goalColumns(draft) })),
       }),
     );
+  }
+
+  /** One transaction (Postgres function `undo_rebase`). */
+  async undoRebase(): Promise<void> {
+    checkMaybe(await this.db.rpc("undo_rebase"));
   }
 
   /** One transaction (Postgres function `save_budget`): settings and lines, or nothing. */

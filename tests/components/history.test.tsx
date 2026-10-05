@@ -118,6 +118,15 @@ describe("History", () => {
     expect(within(card(/février 2027/)).queryByText(/Comparé au plan/)).toBeNull();
   });
 
+  it("#100 — notes the starting values corrected by hand when the plan was re-based from a month", () => {
+    const corrected = { ...MARCH, actual: { ...MARCH.actual!, rebaseCorrections: [{ label: "Fonds d’urgence", read: 200_000, used: 210_000 }] } };
+    render(<History entries={[corrected, FEBRUARY]} />);
+    expect(plain(within(card(/mars 2027/)).getByText(/Recalage corrigé à la main/).textContent)).toBe(
+      "Recalage corrigé à la main : Fonds d’urgence 2 000,00 € → 2 100,00 €",
+    );
+    expect(within(card(/février 2027/)).queryByText(/corrigé à la main/)).toBeNull();
+  });
+
   it("shows the progress meters, named, with their percentage for everyone", () => {
     render(<History entries={[MARCH]} />);
     const march = within(card(/mars 2027/));

@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { primaryGoal } from "../components/helpers";
 import { computePlan } from "@/lib/domain/plan";
-import { frozenFor, planRebase } from "@/lib/domain/rebase";
+import { applyRebaseCorrections, frozenFor, planRebase, rebaseFields } from "@/lib/domain/rebase";
 import { latestActual } from "@/lib/engine";
 import type { FinanceSnapshot, Loan, MonthlyActual } from "@/lib/domain/types";
 
@@ -66,5 +66,46 @@ describe("#61 AC-08 — an early check-in for next month", () => {
     const plan = computePlan(snap, "2027-03")!;
     expect(latestActual(plan.comparisons)?.month).toBe("2027-04");
     expect(planRebase(snap, plan)).toMatchObject({ fromMonth: "2027-04", newStartMonth: "2027-05" });
+  });
+});
+
+describe("#100 — starting values corrected by hand", () => {
+  const snap = snapshot([actual("2027-03", [["car", 470_000], ["debt", 0]])]);
+  const rebase = () => planRebase(snap, computePlan(snap, "2027-03")!)!;
+  const label = (id: string) => (id === "car" ? "Auto" : "Dette");
+
+  it("lists the editable values with what the check-in read", () => {
+    expect(rebaseFields(rebase(), snap.loans, label)).toEqual([
+      { key: "goal:goal-primary", label: "Épargne Déménagement", read: 30_000 },
+      { key: "emergency", label: "Fonds d’urgence", read: 40_000 },
+      { key: "free", label: "Épargne libre", read: 5_000 },
+      { key: "loan:car", label: "Auto", read: 470_000 },
+      { key: "loan:debt", label: "Dette", read: 0 },
+    ]);
+  });
+
+  it("AC-01 — uses the corrected values and lists only the corrections", () => {
+    const r = applyRebaseCorrections(rebase(), snap.loans, { emergency: 32_000, free: 5_000, "goal:goal-primary": 31_000 }, label);
+    expect(r.settings).toMatchObject({ emergencyExisting: 32_000, freeSavingsExisting: 5_000 });
+    expect(r.goalUpdates[0]!.draft.alreadySaved).toBe(31_000);
+    expect(r.corrections).toEqual([
+      { label: "Épargne Déménagement", read: 30_000, used: 31_000 },
+      { label: "Fonds d’urgence", read: 40_000, used: 32_000 },
+    ]);
+  });
+
+  it("nothing corrected: the same re-base, no correction", () => {
+    const r = applyRebaseCorrections(rebase(), snap.loans, {}, label);
+    expect(r).toEqual({ ...rebase(), corrections: [] });
+  });
+
+  it("a loan corrected to 0 is archived; a repaid one corrected above 0 is updated instead", () => {
+    const r = applyRebaseCorrections(rebase(), snap.loans, { "loan:car": 0, "loan:debt": 1_500 }, label);
+    expect(r.loansToArchive).toEqual(["car"]);
+    expect(r.loanUpdates).toEqual([{ id: "debt", draft: expect.objectContaining({ principal: 1_500, principalPaidThroughMonth: "2027-03" }) }]);
+    expect(r.corrections).toEqual([
+      { label: "Auto", read: 470_000, used: 0 },
+      { label: "Dette", read: 0, used: 1_500 },
+    ]);
   });
 });

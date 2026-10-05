@@ -2,9 +2,18 @@
  * Re-basing the plan without breaking the history (SPEC D16, issue #5). Pure functions: the
  * form actions apply their result through the repository.
  */
-import { type YearMonth, addMonths, compareMonths, plannedSnapshot } from "@/lib/engine";
+import { type Cents, type YearMonth, addMonths, compareMonths, plannedSnapshot } from "@/lib/engine";
 import type { ComputedPlan } from "./plan";
-import type { BudgetSettings, FinanceSnapshot, FrozenPlan, Loan, LoanDraft, MonthlyActual, SavingsGoalDraft } from "./types";
+import type {
+  BudgetSettings,
+  FinanceSnapshot,
+  FrozenPlan,
+  Loan,
+  LoanDraft,
+  MonthlyActual,
+  RebaseCorrection,
+  SavingsGoalDraft,
+} from "./types";
 
 /** Planned values to store with a check-in of `month`: the existing frozen ones win (history is stable). */
 export function frozenFor(month: YearMonth, plan: ComputedPlan, existing: MonthlyActual | undefined): FrozenPlan | null {
@@ -107,4 +116,63 @@ function loanDraft(loan: Loan, principal: number, paidThrough: YearMonth): LoanD
     kind: loan.kind,
     creditLimit: loan.creditLimit,
   };
+}
+
+/* --------------------------------- #100 Starting values corrected by hand --------------------------------- */
+
+/** A starting value of the re-base, editable in its preview: `key` is `emergency`, `free`, `goal:<id>` or `loan:<id>`. */
+export interface RebaseField {
+  key: string;
+  label: string;
+  /** What the check-in read. */
+  read: Cents;
+}
+
+/** The editable starting values of a re-base, in the preview's order: goals, emergency fund, free savings, loans. */
+export function rebaseFields(rebase: RebasePlan, loans: readonly Loan[], loanLabel: (id: string) => string): RebaseField[] {
+  const loanIds = new Set(loans.map((l) => l.id));
+  return [
+    ...rebase.goalUpdates.map(({ id, draft }) => ({ key: `goal:${id}`, label: `Épargne ${draft.name}`, read: draft.alreadySaved })),
+    { key: "emergency", label: "Fonds d’urgence", read: rebase.settings.emergencyExisting },
+    { key: "free", label: "Épargne libre", read: rebase.settings.freeSavingsExisting ?? 0 },
+    ...rebase.loanUpdates.map(({ id, draft }) => ({ key: `loan:${id}`, label: loanLabel(id), read: draft.principal })),
+    ...rebase.loansToArchive.filter((id) => loanIds.has(id)).map((id) => ({ key: `loan:${id}`, label: loanLabel(id), read: 0 })),
+  ];
+}
+
+/**
+ * The re-base with the values corrected by hand (#100), and the list of corrections to record on the
+ * check-in. A loan corrected to 0 € is archived like a repaid one (an overdraft stays); a loan the
+ * check-in read at 0 € but corrected above it is updated instead of archived.
+ */
+export function applyRebaseCorrections(
+  rebase: RebasePlan,
+  loans: readonly Loan[],
+  values: Readonly<Record<string, Cents>>,
+  loanLabel: (id: string) => string,
+): RebasePlan & { corrections: RebaseCorrection[] } {
+  const fields = rebaseFields(rebase, loans, loanLabel);
+  const used = (key: string, read: Cents) => values[key] ?? read;
+  const corrections = fields.flatMap((f) => (used(f.key, f.read) !== f.read ? [{ label: f.label, read: f.read, used: used(f.key, f.read) }] : []));
+
+  const settings = {
+    ...rebase.settings,
+    emergencyExisting: used("emergency", rebase.settings.emergencyExisting),
+    freeSavingsExisting: used("free", rebase.settings.freeSavingsExisting ?? 0),
+  };
+  const goalUpdates = rebase.goalUpdates.map(({ id, draft }) => ({ id, draft: { ...draft, alreadySaved: used(`goal:${id}`, draft.alreadySaved) } }));
+
+  const byId = new Map(loans.map((l) => [l.id, l]));
+  const loanUpdates: RebasePlan["loanUpdates"] = [];
+  const loansToArchive: string[] = [];
+  const place = (id: string, principal: Cents, draft: LoanDraft | null) => {
+    const loan = byId.get(id);
+    if (principal === 0 && loan?.kind !== "overdraft") loansToArchive.push(id);
+    else if (draft) loanUpdates.push({ id, draft: { ...draft, principal } });
+    else if (loan) loanUpdates.push({ id, draft: loanDraft(loan, principal, rebase.fromMonth) });
+  };
+  for (const { id, draft } of rebase.loanUpdates) place(id, used(`loan:${id}`, draft.principal), draft);
+  for (const id of rebase.loansToArchive) place(id, used(`loan:${id}`, 0), null);
+
+  return { ...rebase, settings, goalUpdates, loanUpdates, loansToArchive, corrections };
 }
