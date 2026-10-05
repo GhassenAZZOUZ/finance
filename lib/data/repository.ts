@@ -10,14 +10,17 @@ import type {
   Loan,
   LoanDraft,
   MonthlyActualDraft,
+  RebaseCorrection,
   SavingsGoal,
   SavingsGoalDraft,
 } from "@/lib/domain/types";
 import type { RebasePlan } from "@/lib/domain/rebase";
 import type { ImportPlan } from "@/lib/import/apply";
 
-/** The writes of a re-base (`planRebase`), without its preview-only fields. */
-export type RebaseChanges = Pick<RebasePlan, "freezes" | "settings" | "loanUpdates" | "loansToArchive" | "goalUpdates">;
+/** The writes of a re-base (`planRebase`), with the values corrected by hand in its preview (#100). */
+export type RebaseChanges = Pick<RebasePlan, "fromMonth" | "freezes" | "settings" | "loanUpdates" | "loansToArchive" | "goalUpdates"> & {
+  corrections: RebaseCorrection[];
+};
 
 /**
  * Data access for the signed-in user. Pages and server actions only talk to this interface,
@@ -37,6 +40,11 @@ export interface FinanceRepository {
    * updates / archives the loans and updates the goals.
    */
   rebasePlan(changes: RebaseChanges): Promise<void>;
+  /**
+   * Undoes the latest re-base (#100), all-or-nothing: settings, loans, goals and frozen check-ins as
+   * they were just before it. Fails when it has expired (a check-in or the budget changed since).
+   */
+  undoRebase(): Promise<void>;
   /** Template import (SPEC D20), all-or-nothing: budget replaced, then loan removals, updates, creations. */
   applyImport(plan: ImportPlan): Promise<void>;
   addException(draft: BudgetExceptionDraft): Promise<BudgetException>;

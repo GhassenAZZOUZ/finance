@@ -99,11 +99,27 @@ function BudgetInfo({ actual, comparison, stacked = false }: HistoryEntry & { st
   );
 }
 
-/** Plan version a frozen check-in was compared with (SPEC D16); nothing for entries saved before D16. */
+/**
+ * Plan version a frozen check-in was compared with (SPEC D16; nothing for entries saved before D16),
+ * and the starting values corrected by hand when the plan was re-based from it (#100).
+ */
 function PlanVersion({ entry, className }: { entry: HistoryEntry; className: string }) {
   const planStart = entry.actual?.frozen?.planStartMonth;
-  if (!planStart) return null;
-  return <span className={`text-xs font-normal text-muted-foreground ${className}`}>Comparé au plan démarrant en {formatMonthShort(planStart)}</span>;
+  const corrections = entry.actual?.rebaseCorrections ?? [];
+  if (!planStart && corrections.length === 0) return null;
+  return (
+    <>
+      {planStart ? (
+        <span className={`text-xs font-normal text-muted-foreground ${className}`}>Comparé au plan démarrant en {formatMonthShort(planStart)}</span>
+      ) : null}
+      {corrections.length > 0 ? (
+        <span className={`text-xs font-normal text-muted-foreground ${className}`}>
+          Recalage corrigé à la main :{" "}
+          {corrections.map((c) => `${c.label} ${formatEuros(c.read)} → ${formatEuros(c.used)}`).join(" ; ")}
+        </span>
+      ) : null}
+    </>
+  );
 }
 
 export function History({ entries }: { entries: HistoryEntry[] }) {

@@ -182,7 +182,13 @@ export function SuiviView() {
               </p>
             </section>
           )}
-          <RebaseCard preview={planRebase(snapshot, plan)} startMonth={startMonth} loanLabels={loanLabels} />
+          <RebaseCard
+            preview={planRebase(snapshot, plan)}
+            startMonth={startMonth}
+            loanLabels={loanLabels}
+            loans={snapshot.loans}
+            undo={snapshot.rebaseUndo ?? null}
+          />
         </div>
       </div>
 

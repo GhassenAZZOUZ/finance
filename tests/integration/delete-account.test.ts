@@ -24,6 +24,7 @@ const USER_TABLES = [
   "bank_csv_rules",
   "monthly_actual_lines",
   "monthly_actual_deposits",
+  "plan_rebase_undo",
 ] as const;
 
 type Row = { id: string } & Record<string, unknown>;
@@ -65,6 +66,12 @@ async function seed(user: TestUser): Promise<void> {
   );
   await must(db.from("monthly_actual_deposits").insert({ monthly_actual_id: actual.id, pot: "emergency", planned: 100, amount: 50 }));
   await must(adminClient().from("reminder_log").insert({ user_id: user.id, month: "2027-01" }));
+  // Last: any write to the plan's tables expires it (#100).
+  await must(
+    adminClient()
+      .from("plan_rebase_undo")
+      .insert({ user_id: user.id, from_month: "2027-01", new_start_month: "2027-02", settings: {}, loans: [], goals: [], frozen_months: [] }),
+  );
 }
 
 async function countRows(table: string, userId: string): Promise<number> {

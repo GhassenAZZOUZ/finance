@@ -163,9 +163,24 @@ export interface MonthlyActual {
   goalBalances: { goalId: string; balance: Cents }[];
   /** Null for check-ins saved before D16 (compared with the current plan). */
   frozen: FrozenPlan | null;
+  /** Starting values corrected by hand when the plan was re-based from this check-in (#100). */
+  rebaseCorrections?: RebaseCorrection[];
 }
 
-export type MonthlyActualDraft = Omit<MonthlyActual, "id">;
+/** A re-base starting value corrected by hand in the preview (#100): what the check-in read, what was used. */
+export interface RebaseCorrection {
+  label: string;
+  read: Cents;
+  used: Cents;
+}
+
+/** The latest re-base, while it can still be undone (#100). */
+export interface RebaseUndo {
+  fromMonth: YearMonth;
+  newStartMonth: YearMonth;
+}
+
+export type MonthlyActualDraft = Omit<MonthlyActual, "id" | "rebaseCorrections">;
 
 /** Actual date an income line was paid for a month, when it differs from its usual payday (SPEC D29). */
 export interface IncomePayment {
@@ -197,4 +212,6 @@ export interface FinanceSnapshot {
   bankCsvMapping?: CsvMapping | null;
   /** Keyword rules learnt from bank imports, and each imported month's total per line (SPEC D31). */
   bankRules?: BankRule[];
+  /** The latest re-base while it can be undone (#100); null or omitted = nothing to undo. */
+  rebaseUndo?: RebaseUndo | null;
 }
