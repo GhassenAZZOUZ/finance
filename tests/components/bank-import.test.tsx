@@ -40,7 +40,7 @@ function renderImport(savedMapping: CsvMapping | null = null, rules: BankRule[] 
   const onApply = vi.fn();
   render(<BankImport month="2026-09" lines={LINES} savedMapping={savedMapping} rules={rules} onApply={onApply} />);
   // applyAccept: false lets a test pick a file the picker would hide (the component still checks it).
-  return { user: userEvent.setup({ applyAccept: false }), onApply };
+  return { user: userEvent.setup({ applyAccept: false, delay: null }), onApply };
 }
 const upload = (user: ReturnType<typeof userEvent.setup>, file: File) =>
   user.upload(screen.getByLabelText("Importer le relevé CSV de septembre 2026"), file);

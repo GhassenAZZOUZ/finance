@@ -230,7 +230,7 @@ describe("#98 — « Appliquer au plan »", () => {
   it("AC-02 — confirming saves the simulated values in one call and reloads the plan", async () => {
     const onApplied = vi.fn();
     render(<Simulator base={BASE} currentMonth="2027-01" onApplied={onApplied} />);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await retype(user, screen.getByLabelText("Remboursement anticipé (% du reste)"), "80");
     await retype(user, screen.getByLabelText("Courses (€ / mois)"), "350");
     await user.click(applyButton());
