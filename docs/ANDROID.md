@@ -52,6 +52,26 @@ with the root page, so a full page load of `/budget/` would show the dashboard.
 | Push phase | Create a Firebase project with the Android app `io.github.ghassenazzouz.boussole`; give its `google-services.json` and a service-account key as repository secrets (never committed). |
 | Release phase | Create the Play Console personal account (25 $, identity check) and an upload keystore; give the keystore and its passwords as repository secrets. Run the closed test (12 testers, 14 days) before production. |
 
+## Releasing to Google Play
+
+1. **Upload key** (once, on your computer, JDK installed):
+   `keytool -genkeypair -v -keystore upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000`.
+   Keep `upload.jks` and its passwords in your password manager; never commit them.
+2. **Repository secrets** (Settings → Secrets and variables → Actions):
+   `ANDROID_KEYSTORE_BASE64` (the output of `base64 -w0 upload.jks`), `ANDROID_KEYSTORE_PASSWORD`,
+   `ANDROID_KEY_ALIAS` (`upload`), `ANDROID_KEY_PASSWORD`.
+3. **Tag a release:** `git tag v1.0.0 && git push origin v1.0.0`. The **Android** workflow's
+   « Build the signed release bundle » job uploads `boussole-release-aab` (versionName from the tag,
+   versionCode from the run number).
+4. **Play Console:** create the app « Boussole », opt in to Play App Signing, upload the AAB to the
+   closed testing track first (personal accounts: 12 testers for 14 days before production).
+   - Privacy policy URL: https://ghassenazzouz.github.io/finance/confidentialite/
+   - Data safety: collects e-mail address and financial info (budget, loans, check-ins), for app
+     functionality only, encrypted in transit, not shared, not used for ads or analytics, deletable
+     by the user (« Mes données → Supprimer mon compte »).
+   - Content rating questionnaire, target audience 18+, screenshots (phone, 1080 × 1920) and the
+     512 × 512 icon (`public/icons/icon-512.png`).
+
 ## Next phases
 
 1. ~~Boussole icon and splash screen~~ (done: `scripts/android-assets.mjs`).
@@ -59,4 +79,5 @@ with the root page, so a full page load of `/budget/` would show the dashboard.
    sending notifications, the per-device e-mail / notification choice in « Mes données ».
 3. ~~Offline read-only view~~ (done).
 4. ~~Biometric lock after idle time~~ (done).
-5. Signed release bundle (AAB) on tags, privacy policy page, Data safety form, store listing.
+5. ~~Signed release bundle and privacy policy page~~ (done); store listing and closed test: owner,
+   see « Releasing to Google Play ».
