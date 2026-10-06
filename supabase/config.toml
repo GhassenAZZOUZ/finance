@@ -385,6 +385,10 @@ allow_dynamic_registration = false
 [functions.monthly-reminder]
 verify_jwt = false
 
+# Stripe webhook (issue #142): Stripe has no user JWT, the request signature is the guard.
+[functions.stripe-webhook]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
