@@ -5,13 +5,14 @@
  * month with its allocation bar, grouped by year under sticky headers naming the phase. A card opens
  * its full breakdown; runs of identical months are folded.
  */
-import { ChevronDown, ChevronLeft } from "lucide-react";
+import { ChevronDown, ChevronLeft, Lock } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode, useState } from "react";
 import { PHASE_STYLE } from "@/components/app/tones";
 import type { ComputedPlan } from "@/lib/domain/plan";
 import { HORIZON_MONTHS, type PlanMonth } from "@/lib/engine";
 import { formatEuros, formatMonthLong } from "@/lib/format";
+import { FREE_VISIBLE_MONTHS, openPaywall } from "@/lib/billing/paywall";
 import { cn } from "@/lib/utils";
 import { type PhaseKind, type PlanPhase, goalsName, primaryGoalName } from "../_dashboard/logic";
 import type { PlanMilestones } from "./milestones";
@@ -61,6 +62,7 @@ export function MobilePlan({
   milestones,
   phases,
   todayIndex,
+  free = false,
 }: {
   plan: ComputedPlan;
   /** The months shown (the first `rowCount`). */
@@ -69,6 +71,8 @@ export function MobilePlan({
   milestones: PlanMilestones;
   phases: PlanPhase[];
   todayIndex: number;
+  /** Free plan: 3 months shown, the longer ranges open the paywall (#140). */
+  free?: boolean;
 }) {
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
   const goals = goalsName(plan.result.kpis);
@@ -95,8 +99,27 @@ export function MobilePlan({
         </Link>
         <h1 className="font-heading text-[28px] leading-[1.15] font-medium tracking-[-0.01em]">Plan mois par mois</h1>
         <nav aria-label="Période affichée" className="flex gap-2">
+          {free ? (
+            <span aria-current="true" className="flex min-h-11 items-center rounded-full border border-primary bg-primary px-4 text-sm font-medium text-primary-foreground">
+              {FREE_VISIBLE_MONTHS} mois
+            </span>
+          ) : null}
           {RANGES.map((r) => {
             const active = r.count === rowCount;
+            if (free) {
+              return (
+                <button
+                  key={r.count}
+                  type="button"
+                  onClick={() => openPaywall("plan_limit")}
+                  aria-label={`${r.label} (Boussole Pro)`}
+                  className="flex min-h-11 items-center gap-1 rounded-full border border-input bg-card px-3.5 text-sm font-medium text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  <Lock aria-hidden className="size-3.5" />
+                  {r.label}
+                </button>
+              );
+            }
             return (
               <Link
                 key={r.count}

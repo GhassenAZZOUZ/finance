@@ -1,6 +1,7 @@
 import { AppLock } from "@/components/app/app-lock";
 import { FinanceGate, FinanceProvider } from "@/components/app/finance-provider";
 import { MobileHeader, MobileNav, Sidebar } from "@/components/app/nav";
+import { PaywallHost } from "@/components/app/paywall";
 import { TourProvider } from "@/components/app/tour";
 
 /**
@@ -34,6 +35,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
             </div>
           </div>
           <MobileNav />
+          <PaywallHost />
         </TourProvider>
       </AppLock>
     </FinanceProvider>

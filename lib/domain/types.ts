@@ -242,6 +242,8 @@ export interface FinanceSnapshot {
   bankRules?: BankRule[];
   /** Named bank accounts, each with its own CSV mapping (#115). */
   bankAccounts?: BankAccount[];
+  /** Boussole Pro (SPEC D35); false = Free plan limits apply (#139, #140). Omitted = not limited. */
+  isPro?: boolean;
   /** The latest re-base while it can be undone (#100); null or omitted = nothing to undo. */
   rebaseUndo?: RebaseUndo | null;
 }

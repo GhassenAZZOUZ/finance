@@ -1,6 +1,6 @@
 "use client";
 
-import { TriangleAlert } from "lucide-react";
+import { Lock, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFinance } from "@/components/app/finance-provider";
@@ -12,6 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { ComputedPlan } from "@/lib/domain/plan";
 import { HORIZON_MONTHS, monthsBetween } from "@/lib/engine";
 import { formatEuros, formatMonthLong, formatMonthShort } from "@/lib/format";
+import { FREE_VISIBLE_MONTHS, openPaywall } from "@/lib/billing/paywall";
 import { cn } from "@/lib/utils";
 import { type PlanPhase, goalsName, goalsPhrase, phaseLabel, planPhases, primaryGoalName } from "../_dashboard/logic";
 import { exceptionsByPlanIndex } from "./exceptions";
@@ -23,8 +24,11 @@ const TITLE = "Plan mois par mois";
 
 export function PlanView() {
   const { snapshot, plan } = useFinance();
-  const rowCount = parseRowCount(useSearchParams().get("mois"));
+  const asked = parseRowCount(useSearchParams().get("mois"));
   const isMobile = useIsMobile();
+  // Free plan: the next 3 months only, in the interface (owner decision 2026-10-07, #140).
+  const free = snapshot.isPro === false;
+  const rowCount = free ? Math.min(asked, FREE_VISIBLE_MONTHS) : asked;
   if (!plan) {
     return (
       <>
@@ -56,7 +60,7 @@ export function PlanView() {
     return (
       <>
         {negativeAlert}
-        <MobilePlan plan={plan} months={months} rowCount={rowCount} milestones={milestones} phases={phases} todayIndex={todayIndex} />
+        <MobilePlan plan={plan} months={months} rowCount={rowCount} milestones={milestones} phases={phases} todayIndex={todayIndex} free={free} />
       </>
     );
   }
@@ -66,7 +70,7 @@ export function PlanView() {
       <PageHeader
         title={TITLE}
         description={`Chaque mois, le disponible remplit ① ${goalsPhrase(plan.result.kpis)}, ② le fonds d’urgence, puis ③ se partage entre remboursement anticipé et épargne libre. Pour changer le résultat, modifiez le budget, les objectifs ou les crédits.`}
-        actions={<RangeControl rowCount={rowCount} />}
+        actions={<RangeControl rowCount={rowCount} free={free} />}
       />
 
       {negativeAlert}
@@ -86,7 +90,18 @@ export function PlanView() {
           primaryName={primaryGoalName(plan.result.kpis)}
           caption={`Plan mois par mois, ${months.length} mois à partir de ${formatMonthLong(plan.input.budget.startMonth)}, montants en euros`}
         />
-        {next ? (
+        {next && free ? (
+          <div className="flex justify-center border-t border-divider p-3.5">
+            <button
+              type="button"
+              onClick={() => openPaywall("plan_limit")}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] border border-input bg-card px-4.5 text-sm font-medium hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <Lock aria-hidden className="size-4" />
+              Afficher la suite (Boussole Pro)
+            </button>
+          </div>
+        ) : next ? (
           <div className="flex justify-center border-t border-divider p-3.5">
             <Link
               href={`/plan?mois=${next.count}`}
@@ -106,34 +121,53 @@ export function PlanView() {
  * 1 mois … 25 ans, kept in the URL (`?mois=`). Seven choices do not fit a phone's width: a select
  * there, the segmented links from `sm` (issue #76).
  */
-function RangeControl({ rowCount }: { rowCount: number }) {
+function RangeControl({ rowCount, free }: { rowCount: number; free: boolean }) {
   const router = useRouter();
+  const locked = (count: number) => free && count > FREE_VISIBLE_MONTHS;
   return (
     <>
       <label className="flex items-center gap-2 text-sm font-medium sm:hidden">
         Période affichée
         <select
           value={rowCount}
-          onChange={(e) => router.replace(`/plan?mois=${e.target.value}`, { scroll: false })}
+          onChange={(e) =>
+            locked(Number(e.target.value)) ? openPaywall("plan_limit") : router.replace(`/plan?mois=${e.target.value}`, { scroll: false })
+          }
           className="min-h-11 rounded-[10px] border border-input bg-card px-3 text-sm"
         >
           {ROW_COUNTS.map((r) => (
             <option key={r.count} value={r.count}>
               {r.label}
+              {locked(r.count) ? " · Pro" : ""}
             </option>
           ))}
         </select>
       </label>
-      <RangeLinks rowCount={rowCount} />
+      <RangeLinks rowCount={rowCount} free={free} />
     </>
   );
 }
 
-function RangeLinks({ rowCount }: { rowCount: number }) {
+function RangeLinks({ rowCount, free }: { rowCount: number; free: boolean }) {
   return (
     <nav aria-label="Période affichée" className="hidden overflow-hidden rounded-[10px] border border-input bg-card sm:inline-flex">
       {ROW_COUNTS.map((r) => {
         const active = r.count === rowCount;
+        // Free plan: the longer ranges open the paywall (#140).
+        if (free && r.count > FREE_VISIBLE_MONTHS) {
+          return (
+            <button
+              key={r.count}
+              type="button"
+              onClick={() => openPaywall("plan_limit")}
+              aria-label={`${r.label} (Boussole Pro)`}
+              className="flex min-h-11 items-center gap-1.5 px-3.5 text-sm font-medium text-muted-foreground hover:bg-secondary focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+            >
+              <Lock aria-hidden className="size-3.5" />
+              {r.label}
+            </button>
+          );
+        }
         return (
           <Link
             key={r.count}
