@@ -27,6 +27,9 @@ const USER_TABLES = [
   "plan_rebase_undo",
   "bank_accounts",
   "bank_statements",
+  "subscriptions",
+  "stripe_events",
+  "entitlements",
 ] as const;
 
 type Row = { id: string } & Record<string, unknown>;
@@ -82,6 +85,9 @@ async function seed(user: TestUser): Promise<void> {
     }),
   );
   await must(adminClient().from("reminder_log").insert({ user_id: user.id, month: "2027-01" }));
+  // Billing rows are written by the Stripe webhook (service role, #138).
+  await must(adminClient().from("subscriptions").insert({ user_id: user.id, stripe_customer_id: `cus_${user.id.slice(0, 8)}`, status: "active" }));
+  await must(adminClient().from("stripe_events").insert({ id: `evt_${user.id.slice(0, 8)}`, type: "customer.subscription.created", user_id: user.id }));
   // Last: any write to the plan's tables expires it (#100).
   await must(
     adminClient()
