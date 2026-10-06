@@ -288,10 +288,13 @@ jobs:
       - name: Push migrations
         run: supabase db push --linked --yes
 
-      # Edge Functions (issue #6: monthly reminder). Guarded by its own secret header, not a user JWT.
+      # Edge Functions: monthly reminder (issue #6, its own secret header) and Stripe webhook (#142,
+      # the request signature). Neither uses a user JWT.
       - name: Deploy Edge Functions
         # --use-api: bundled by Supabase, no Docker image pull (the runner hit the registry rate limit).
-        run: supabase functions deploy monthly-reminder --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
+        run: |
+          supabase functions deploy monthly-reminder --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
+          supabase functions deploy stripe-webhook --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
 
   deploy:
     name: Deploy to GitHub Pages
