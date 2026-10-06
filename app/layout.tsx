@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans, Newsreader } from "next/font/google";
+import { NativeBridge } from "@/components/app/native-bridge";
 import { ThemeSync } from "@/components/app/theme-toggle";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeSync />
+        <NativeBridge />
         {children}
       </body>
     </html>

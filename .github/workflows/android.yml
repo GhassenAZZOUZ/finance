@@ -1,0 +1,82 @@
+name: Android
+
+# The Android app (issue #84, SPEC D19): the same static export as the website, built without the
+# GitHub Pages base path and wrapped by Capacitor. A debug APK on pull requests that touch the app
+# shell, and on release tags (signing and the Play upload come with the store setup).
+on:
+  pull_request:
+    paths:
+      - android/**
+      - capacitor.config.ts
+      - lib/native/**
+      - components/app/native-bridge.tsx
+      - lib/supabase/client.ts
+      - package.json
+      - package-lock.json
+      - .github/workflows/android.yml
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    name: Build the Android app
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # The app is served from its own origin: no base path.
+      NEXT_PUBLIC_BASE_PATH: ""
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+    steps:
+      - name: Check repository variables
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::error::Set the repository variables NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # Capacitor 8 builds with JDK 21; the Android SDK is preinstalled on ubuntu-latest.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - run: npm ci
+
+      # next build (output: export) + flattened prefetch files into ./out, copied into android/.
+      - run: npm run build:android
+
+      # Only the publishable key may ship in the app; a secret key in the bundle fails the build.
+      - name: No secret in the app bundle
+        run: |
+          if grep -rlE "sb_secret_[A-Za-z0-9_-]{10,}" android/app/src/main/assets/public; then
+            echo "::error::A Supabase secret key is in the app bundle"
+            exit 1
+          fi
+
+      - name: Build the debug APK
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: boussole-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
