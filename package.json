@@ -23,6 +23,7 @@
     "@capacitor/android": "^8.5.2",
     "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.5.2",
+    "@capgo/capacitor-native-biometric": "^8.7.0",
     "@sentry/browser": "^11.1.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",

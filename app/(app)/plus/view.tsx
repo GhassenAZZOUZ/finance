@@ -4,6 +4,7 @@ import { Bell, CalendarCheck, CircleHelp, Download, FlaskConical, type LucideIco
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useId } from "react";
+import { LockSetting } from "@/components/app/app-lock";
 import { useFinance } from "@/components/app/finance-provider";
 import { DATA_HREF } from "@/components/app/nav";
 import { useSignOut } from "@/components/app/sign-out-button";
@@ -124,6 +125,7 @@ export function PlusView() {
           </span>
           <CompactThemeToggle labelledBy={themeLabelId} />
         </li>
+        <LockSetting className={ROW} />
         <li>
           <button type="button" onClick={tour.start} className={cn(ROW, ROW_FOCUS)}>
             <RowIcon icon={CircleHelp} />
