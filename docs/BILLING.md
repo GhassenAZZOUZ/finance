@@ -11,12 +11,29 @@ them.
 | `subscriptions`, `stripe_events`, view `entitlements` | `supabase/migrations/20261006120000_subscriptions.sql` | #138 US-1 |
 | `apply_stripe_event()` (one event, one transaction, idempotent) | `supabase/migrations/20261006130000_apply_stripe_event.sql` | #142 US-5 |
 | Edge Function `stripe-webhook` (signature, mapping) | `supabase/functions/stripe-webhook/` | #142 US-5 |
+| `plan_limits`, `pro_grants`, limit triggers | `supabase/migrations/20261007090000_free_limits.sql` | #139 US-2 |
 | Edge Function `create-checkout` (user JWT) and pages `/abonnement/`, `/abonnement/succes/`, `/abonnement/annule/` | `supabase/functions/create-checkout/`, `app/(app)/abonnement/` | #141 US-4 |
 
 ## Rights (SPEC D35)
 
-`is_pro` = `trialing` or `active`, or `past_due` during 7 days from the first failed payment
-(`billing_grace_days()`). No subscription = Free.
+`is_pro` = a Stripe subscription `trialing` or `active` (or `past_due` during 7 days from the first
+failed payment, `billing_grace_days()`), **or** a `pro_grants` row not expired. Otherwise Free.
+Every account that existed when the Free limits shipped got a grant `early_user` (owner decision
+2026-10-07). Grants are written by the service role only (dashboard SQL), e.g. a gift:
+`insert into public.pro_grants (user_id, reason) values ('<user id>', 'gift');`
+
+## Free limits (US-2)
+
+| Limit | Free | Where |
+|---|---|---|
+| Active loans | 1 | trigger on `loans` (insert, re-activation) |
+| Savings goals | 1 | trigger on `savings_goals` (insert) |
+| Check-in history shown | last 3 months | interface only (every check-in feeds the balances, D33) |
+| Plan horizon shown | 3 months | interface only (the plan is computed in the browser) |
+
+The numbers live in `plan_limits`. Beyond a database limit the insert is refused with SQLSTATE
+`PT402` (PostgREST answers **HTTP 402**) and the limit key as message (`loans_limit`,
+`goals_limit`); the app turns it into the paywall (`limitOf()` in `lib/errors.ts`, US-3).
 
 ## Webhook
 

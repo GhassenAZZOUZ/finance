@@ -37,6 +37,8 @@ begin
   -- The signup trigger has created the profile and the 15 budget lines at 0 €.
 
   update public.profiles set display_name = 'Démo' where user_id = demo_id;
+  -- The demo user has several loans: Pro (grant) so the Free limits (#139) do not refuse them.
+  insert into public.pro_grants (user_id, reason) values (demo_id, 'gift');
 
   update public.budget_lines as bl set amount = v.amount
   from (values
