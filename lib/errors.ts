@@ -31,6 +31,8 @@ export function reportError(error: unknown, context: string): void {
 /** Messages by `RepositoryError.code`: the repository's own codes, then Postgres / PostgREST ones. */
 const MESSAGES: Record<string, string> = {
   not_found: "Élément introuvable : il a peut-être déjà été supprimé. Rechargez la page.",
+  // The Android app shows its offline copy (#84): nothing can be changed until it reconnects.
+  offline: "Hors ligne : reconnectez-vous à Internet pour modifier vos données.",
   forbidden: "Cette action n’est pas autorisée.",
   // insufficient_privilege: RLS refused the row (usually an expired or foreign session).
   "42501": "Accès refusé : reconnectez-vous puis réessayez.",

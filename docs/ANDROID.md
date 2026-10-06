@@ -27,6 +27,10 @@ cd android && ./gradlew assembleDebug
   `io.github.ghassenazzouz.boussole://auth/confirm/…`, which reopens the app on its sign-in page
   (`components/app/native-bridge.tsx`).
 - **Back button:** back a page, or leaves the app from the first one.
+- **Offline read-only view** (`lib/native/offline-cache.ts`): each successful load is kept on the
+  phone, encrypted with a Keystore key, for the signed-in user only. Without network the pages show
+  it under « Hors ligne : vos données du … », every write is refused, and the data reloads as soon as
+  the phone is back online. Signing out deletes it.
 
 Keep navigation client-side (`next/link`, `router`): the app's local server answers any page path
 with the root page, so a full page load of `/budget/` would show the dashboard.
@@ -44,6 +48,6 @@ with the root page, so a full page load of `/budget/` would show the dashboard.
 1. Boussole icon and splash screen (from the #85 icon).
 2. Push reminders: FCM, a device-token table with RLS deleted with the account, the reminder job
    sending notifications, the per-device e-mail / notification choice in « Mes données ».
-3. Offline read-only view (last loaded plan and check-ins, encrypted on the device).
+3. ~~Offline read-only view~~ (done).
 4. Biometric lock after idle time.
 5. Signed release bundle (AAB) on tags, privacy policy page, Data safety form, store listing.
