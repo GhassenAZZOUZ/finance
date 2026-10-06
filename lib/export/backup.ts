@@ -23,8 +23,10 @@ export const BACKUP_FORMAT = "finance-plan-backup";
  *     budget, #72); `bankLineTotals` is gone (the bank import pre-fills those rows).
  * 12: check-ins gain `deposits` (savings deposits per pot, #73); with deposits their balances are
  *     computed, so `emergencySavings`, `freeSavings` and `goalBalances` are 0 / empty.
+ * 13: `bankAccounts` (named accounts, each with its CSV mapping) and check-ins' `statements` (the
+ *     summary of each bank statement added to the month, #115); still never a transaction.
  */
-export const BACKUP_VERSION = 12;
+export const BACKUP_VERSION = 13;
 
 /** Euros with exactly 2 decimals and a dot ("1234.50", "-0.05"), computed from integer cents. */
 export type DecimalEuros = string;
@@ -101,6 +103,8 @@ export interface Backup {
     bankCsvMapping: CsvMapping | null;
     /** Keyword → budget line (null = ignored) rules of the bank import (SPEC D31). */
     bankRules: { keyword: string; budgetLineId: string | null }[];
+    /** Named bank accounts and their CSV mapping (#115). */
+    bankAccounts: { id: string; name: string; mapping: CsvMapping | null }[];
     exceptions: { id: string; month: YearMonth; kind: string; label: string; amount: DecimalEuros }[];
     /** Active loans first (entry order), then archived ones. */
     loans: BackupLoan[];
@@ -139,6 +143,17 @@ export interface Backup {
         label: string;
         planned: DecimalEuros;
         actual: DecimalEuros;
+      }[];
+      /** Bank statements added to the month's rows (#115): account, file, fingerprint and totals only. */
+      statements: {
+        accountId: string | null;
+        accountName: string;
+        fileName: string;
+        fingerprint: string;
+        transactionCount: number;
+        totalIn: DecimalEuros;
+        totalOut: DecimalEuros;
+        lineTotals: { budgetLineId: string; actual: DecimalEuros }[];
       }[];
       frozen: {
         plannedDebt: DecimalEuros;
@@ -217,6 +232,7 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
       incomePayments: snapshot.incomePayments.map((p) => ({ month: p.month, budgetLineId: p.budgetLineId, paidOn: p.paidOn })),
       bankCsvMapping: snapshot.bankCsvMapping ?? null,
       bankRules: (snapshot.bankRules ?? []).map((r) => ({ keyword: r.keyword, budgetLineId: r.budgetLineId })),
+      bankAccounts: (snapshot.bankAccounts ?? []).map((a) => ({ id: a.id, name: a.name, mapping: a.mapping })),
       exceptions: snapshot.exceptions.map((e) => ({
         id: e.id,
         month: e.month,
@@ -246,6 +262,12 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
         goalBalances: a.goalBalances.map((b) => ({ goalId: b.goalId, balance: centsToDecimal(b.balance) })),
         deposits: (a.deposits ?? []).map((d) => ({ ...d, planned: centsToDecimal(d.planned), amount: centsToDecimal(d.amount) })),
         lines: a.lines.map((l) => ({ ...l, planned: centsToDecimal(l.planned), actual: centsToDecimal(l.actual) })),
+        statements: (a.statements ?? []).map((st) => ({
+          ...st,
+          totalIn: centsToDecimal(st.totalIn),
+          totalOut: centsToDecimal(st.totalOut),
+          lineTotals: st.lineTotals.map((t) => ({ budgetLineId: t.budgetLineId, actual: centsToDecimal(t.actual) })),
+        })),
         frozen: frozen(a.frozen),
       })),
     },

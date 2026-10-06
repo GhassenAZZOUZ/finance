@@ -16,7 +16,8 @@ import { type ActualForm, parseAmount, parseDeposit } from "@/lib/domain/validat
 import type { PotBalances } from "@/lib/domain/deposits";
 import type { CheckInRow } from "@/lib/domain/actual-lines";
 import { engineGoalId } from "@/lib/domain/plan";
-import type { Loan, MonthlyActual, SavingsGoal } from "@/lib/domain/types";
+import type { BankStatement, Loan, MonthlyActual, SavingsGoal } from "@/lib/domain/types";
+import { addLineTotals } from "@/lib/import/statements";
 import { amountInputValue, formatMonthLong, formatMonthShort } from "@/lib/format";
 
 /** Months open to a check-in, newest first: from `startMonth` to `currentMonth` (SPEC D6). */
@@ -63,19 +64,26 @@ function joinFrench(items: readonly string[]): string {
 }
 
 /**
- * The bank statement's totals per budget line into the form rows (#72): every budget line row gets
- * its total (0 without any operation); exceptions and « hors budget » rows are left as typed.
+ * Adds bank statements to the check-in (#115): their totals per budget line are added to the rows
+ * (empty budget-line rows become 0 first) and they are kept in the form, saved with the check-in.
  */
-export function applyLineTotals(
-  lines: readonly { key: string; actual: string }[],
-  rows: readonly CheckInRow[],
-  totals: readonly { budgetLineId: string; actual: Cents }[],
-): { key: string; actual: string }[] {
-  return lines.map((l) => {
-    const row = rows.find((r) => r.key === l.key);
-    if (row?.kind !== "line") return l;
-    return { ...l, actual: amountInputValue(totals.find((t) => t.budgetLineId === row.budgetLineId)?.actual ?? 0) };
-  });
+export function applyStatements(form: ActualForm, rows: readonly CheckInRow[], added: readonly BankStatement[]): ActualForm {
+  return {
+    ...form,
+    lines: added.reduce((lines, st) => addLineTotals(lines, rows, st.lineTotals, 1), form.lines ?? []),
+    statements: [...(form.statements ?? []), ...added],
+  };
+}
+
+/** Removes the statement at `index`, its exact amounts subtracted from the rows (#115, AC-02). */
+export function removeStatement(form: ActualForm, rows: readonly CheckInRow[], index: number): ActualForm {
+  const statement = form.statements?.[index];
+  if (!statement) return form;
+  return {
+    ...form,
+    lines: addLineTotals(form.lines ?? [], rows, statement.lineTotals, -1),
+    statements: (form.statements ?? []).filter((_, i) => i !== index),
+  };
 }
 
 /** The amount saved for a row of the month, when the check-in has it (the budget line or exception may be new). */
@@ -109,6 +117,7 @@ export function prefillForm(
     freeSavings: amountInputValue(actual?.freeSavings),
     loanBalances: loans.map((l) => ({ loanId: l.id, balance: amountInputValue(balances.get(l.id)) })),
     goalBalances: goals.map((g) => ({ goalId: g.id, balance: amountInputValue(goalBalances.get(g.id)) })),
+    statements: actual?.statements ?? [],
   };
 }
 

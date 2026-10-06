@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { type SaveActualState, saveActualAction } from "./actions";
 import { BankImport } from "./bank-import";
 import { type CheckInFormProps, SAVINGS_FIELDS, depositInputValue, goalFieldLabel, liveVerdict } from "./check-in-form";
-import { type PlannedValues, applyLineTotals, provisionalCheck } from "./logic";
+import { type PlannedValues, applyStatements, removeStatement, provisionalCheck } from "./logic";
 
 type StepId = "rows" | "savings" | "loans" | "review";
 
@@ -55,7 +55,7 @@ function stepOf(field: string): StepId {
 
 export type MobileCheckInProps = Pick<
   CheckInFormProps,
-  "values" | "existing" | "earlyMonth" | "budgetLines" | "bankCsvMapping" | "bankRules" | "planned" | "rows" | "loans" | "goals"
+  "values" | "existing" | "earlyMonth" | "budgetLines" | "bankCsvMapping" | "bankRules" | "bankAccounts" | "planned" | "rows" | "loans" | "goals"
 > & { month: YearMonth };
 
 export function MobileCheckIn({
@@ -66,6 +66,7 @@ export function MobileCheckIn({
   budgetLines = [],
   bankCsvMapping = null,
   bankRules = [],
+  bankAccounts = [],
   planned,
   rows = {},
   loans,
@@ -204,6 +205,7 @@ export function MobileCheckIn({
 
       <form action={action} noValidate className="flex min-h-0 flex-1 flex-col">
         <input type="hidden" name="month" value={month} />
+        <input type="hidden" name="statements" value={JSON.stringify(form.statements ?? [])} />
         <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
           {existing.includes(month) ? (
             <p className="mb-3 rounded-xl border border-warning-border bg-warning-bg px-3 py-2 text-sm text-warning">
@@ -221,9 +223,12 @@ export function MobileCheckIn({
               <BankImport
                 month={month}
                 lines={budgetLines}
-                savedMapping={bankCsvMapping}
+                accounts={bankAccounts}
+                legacyMapping={bankCsvMapping}
                 rules={bankRules}
-                onApply={(totals) => setForm((f) => ({ ...f, lines: applyLineTotals(f.lines ?? [], monthRows, totals) }))}
+                statements={form.statements ?? []}
+                onApply={(added) => setForm((f) => applyStatements(f, monthRows, added))}
+                onRemove={(index) => setForm((f) => removeStatement(f, monthRows, index))}
               />
             ) : null}
             <AllAsPlanned onClick={fillStep} />
