@@ -34,6 +34,12 @@ Icons and splash screens are drawn from `app/icon.svg`: after a logo change, run
   phone, encrypted with a Keystore key, for the signed-in user only. Without network the pages show
   it under « Hors ligne : vos données du … », every write is refused, and the data reloads as soon as
   the phone is back online. Signing out deletes it.
+- **Biometric lock** (`components/app/app-lock.tsx`): at start and when coming back after the chosen
+  time in the background (default 5 min; « Plus → Préférences → Verrouillage par empreinte »:
+  off, immediately, 1, 5 or 15 min), the pages are hidden behind « Boussole est verrouillée » until
+  the fingerprint or face is recognised; « Se déconnecter » is the way out. No lock on a phone
+  without biometrics. A convenience lock (it can be bypassed on a rooted phone): the data's
+  protection is the Keystore encryption.
 
 Keep navigation client-side (`next/link`, `router`): the app's local server answers any page path
 with the root page, so a full page load of `/budget/` would show the dashboard.
@@ -52,5 +58,5 @@ with the root page, so a full page load of `/budget/` would show the dashboard.
 2. Push reminders: FCM, a device-token table with RLS deleted with the account, the reminder job
    sending notifications, the per-device e-mail / notification choice in « Mes données ».
 3. ~~Offline read-only view~~ (done).
-4. Biometric lock after idle time.
+4. ~~Biometric lock after idle time~~ (done).
 5. Signed release bundle (AAB) on tags, privacy policy page, Data safety form, store listing.
