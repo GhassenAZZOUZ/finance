@@ -30,7 +30,11 @@ const USER_TABLES = [
   "subscriptions",
   "stripe_events",
   "entitlements",
+  "pro_grants",
 ] as const;
+
+/** Tables shared by every user (no `user_id`): configuration only. */
+const SHARED_TABLES = ["plan_limits"] as const;
 
 type Row = { id: string } & Record<string, unknown>;
 
@@ -123,7 +127,7 @@ describe("delete_my_account", () => {
     const res = await fetch(`${env.url}/rest/v1/`, { headers: { apikey: env.secretKey, Authorization: `Bearer ${env.secretKey}` } });
     const spec = (await res.json()) as { definitions?: Record<string, unknown> };
     const exposed = Object.keys(spec.definitions ?? {}).sort();
-    expect(exposed).toEqual([...USER_TABLES].sort());
+    expect(exposed).toEqual([...USER_TABLES, ...SHARED_TABLES].sort());
   });
 
   it("is refused without a session", async () => {

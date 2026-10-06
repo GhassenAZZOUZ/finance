@@ -25,7 +25,7 @@ async function isPro(user: TestUser): Promise<boolean | null> {
 }
 
 beforeEach(async () => {
-  [a, b] = await Promise.all([createTestUser("sub-a"), createTestUser("sub-b")]);
+  [a, b] = await Promise.all([createTestUser("sub-a", { plan: "free" }), createTestUser("sub-b", { plan: "free" })]);
 });
 afterEach(() => Promise.all([deleteTestUser(a), deleteTestUser(b)]));
 

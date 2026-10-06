@@ -50,7 +50,11 @@ export interface TestUser {
 }
 
 /** Creates a confirmed user and returns a client signed in as that user (fake data only). */
-export async function createTestUser(label: string): Promise<TestUser> {
+/**
+ * A confirmed throwaway user, signed in. Pro by default (a grant, #139), so the Free limits do not
+ * get in the way of other tests; limit tests ask for `plan: "free"`.
+ */
+export async function createTestUser(label: string, { plan = "pro" }: { plan?: "pro" | "free" } = {}): Promise<TestUser> {
   const email = `test-${label}-${randomUUID()}@example.test`;
   const password = randomUUID();
   const { data, error } = await adminClient().auth.admin.createUser({ email, password, email_confirm: true });
@@ -58,6 +62,10 @@ export async function createTestUser(label: string): Promise<TestUser> {
   const client = anonClient();
   const signIn = await client.auth.signInWithPassword({ email, password });
   if (signIn.error) throw signIn.error;
+  if (plan === "pro") {
+    const grant = await adminClient().from("pro_grants").insert({ user_id: data.user.id, reason: "gift" });
+    if (grant.error) throw new Error(grant.error.message);
+  }
   return { id: data.user.id, email, client };
 }
 

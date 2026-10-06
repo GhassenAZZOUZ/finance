@@ -55,6 +55,20 @@ const MESSAGES: Record<string, string> = {
 
 export const NETWORK_MESSAGE = "Connexion impossible : vérifiez votre réseau puis réessayez.";
 
+/** Free plan limits refused by the database (#139, SQLSTATE PT402 = HTTP 402, message = limit key). */
+export type LimitKey = "loans_limit" | "goals_limit";
+
+export const LIMIT_MESSAGES: Record<LimitKey, string> = {
+  loans_limit: "Le plan gratuit compte 1 crédit : passez à Boussole Pro pour en suivre davantage.",
+  goals_limit: "Le plan gratuit compte 1 objectif d’épargne : passez à Boussole Pro pour en ajouter d’autres.",
+};
+
+/** The Free limit an error is about, or null: what the paywall (US-3) needs. */
+export function limitOf(error: unknown): LimitKey | null {
+  if (!(error instanceof RepositoryError) || error.code !== "PT402") return null;
+  return error.message in LIMIT_MESSAGES ? (error.message as LimitKey) : null;
+}
+
 /** fetch() rejects with a TypeError when the network is down; supabase-js keeps that message. */
 function isNetworkError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : "";
@@ -66,6 +80,8 @@ function isNetworkError(error: unknown): boolean {
  * `fallback` (the generic « Réessayez ») only for unknown errors.
  */
 export function errorMessage(error: unknown, fallback: string, overrides: Record<string, string> = {}): string {
+  const limit = limitOf(error);
+  if (limit) return LIMIT_MESSAGES[limit];
   if (error instanceof RepositoryError && error.code) {
     const message = overrides[error.code] ?? MESSAGES[error.code];
     if (message) return message;

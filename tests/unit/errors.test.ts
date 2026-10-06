@@ -1,7 +1,7 @@
 /** Error reporting (tech-debt 1b): context label, pluggable reporters, French messages by code. */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RepositoryError } from "@/lib/data/repository";
-import { NETWORK_MESSAGE, addErrorReporter, errorMessage, reportError } from "@/lib/errors";
+import { LIMIT_MESSAGES, NETWORK_MESSAGE, addErrorReporter, errorMessage, limitOf, reportError } from "@/lib/errors";
 
 const FALLBACK = "Enregistrement impossible pour le moment. Réessayez.";
 
@@ -76,5 +76,20 @@ describe("errorMessage", () => {
     expect(errorMessage(new RepositoryError("Réponse vide de la base de données"), FALLBACK)).toBe(FALLBACK);
     expect(errorMessage(new Error("boom"), FALLBACK)).toBe(FALLBACK);
     expect(errorMessage("boom", FALLBACK)).toBe(FALLBACK);
+  });
+});
+
+describe("Free plan limits (#139)", () => {
+  it("names the limit of a PT402 refusal and explains it in French", () => {
+    const refused = new RepositoryError("loans_limit", "PT402");
+    expect(limitOf(refused)).toBe("loans_limit");
+    expect(errorMessage(refused, "fallback")).toBe(LIMIT_MESSAGES.loans_limit);
+    expect(limitOf(new RepositoryError("goals_limit", "PT402"))).toBe("goals_limit");
+  });
+
+  it("ignores other errors and unknown limit keys", () => {
+    expect(limitOf(new RepositoryError("loans_limit", "23514"))).toBeNull();
+    expect(limitOf(new RepositoryError("budgets_limit", "PT402"))).toBeNull();
+    expect(limitOf(new Error("loans_limit"))).toBeNull();
   });
 });

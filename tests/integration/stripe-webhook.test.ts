@@ -29,7 +29,7 @@ const row = async () =>
   (await adminClient().from("subscriptions").select("status, past_due_since, last_event_at, cancel_at_period_end").eq("user_id", a.id).single()).data;
 
 beforeEach(async () => {
-  a = await createTestUser("stripe");
+  a = await createTestUser("stripe", { plan: "free" });
   customer = `cus_${a.id.replace(/-/g, "").slice(0, 12)}`;
 });
 afterEach(() => deleteTestUser(a));
