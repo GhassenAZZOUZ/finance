@@ -92,8 +92,11 @@ declare
   v_limit integer;
   v_count integer;
 begin
-  if tg_table_name = 'loans' and new.archived_at is not null then
-    return new;
+  -- Nested: PL/pgSQL may evaluate both sides of an AND, and savings_goals has no archived_at.
+  if tg_table_name = 'loans' then
+    if new.archived_at is not null then
+      return new;
+    end if;
   end if;
   if public.has_pro(new.user_id) then
     return new;
