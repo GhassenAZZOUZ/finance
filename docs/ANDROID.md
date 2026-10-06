@@ -19,6 +19,9 @@ cd android && ./gradlew assembleDebug
 
 `NEXT_PUBLIC_BASE_PATH` must be empty for the app (it is when unset).
 
+Icons and splash screens are drawn from `app/icon.svg`: after a logo change, run
+`node scripts/android-assets.mjs` and commit `android/app/src/main/res`.
+
 ## What is native today (phase 1)
 
 - **Session in the Android Keystore** (`lib/native/platform.ts`), not the WebView's local storage;
@@ -41,7 +44,7 @@ with the root page, so a full page load of `/budget/` would show the dashboard.
 
 ## Next phases
 
-1. Boussole icon and splash screen (from the #85 icon).
+1. ~~Boussole icon and splash screen~~ (done: `scripts/android-assets.mjs`).
 2. Push reminders: FCM, a device-token table with RLS deleted with the account, the reminder job
    sending notifications, the per-device e-mail / notification choice in « Mes données ».
 3. Offline read-only view (last loaded plan and check-ins, encrypted on the device).

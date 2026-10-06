@@ -16,6 +16,7 @@
     "build:pages": "next build && node scripts/prepare-pages.mjs out",
     "test:components": "vitest run --project components --passWithNoTests",
     "test:e2e": "playwright test",
+    "android:assets": "node scripts/android-assets.mjs",
     "build:android": "next build && node scripts/prepare-pages.mjs out && cap sync android"
   },
   "dependencies": {
