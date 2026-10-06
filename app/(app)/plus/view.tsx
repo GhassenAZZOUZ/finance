@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, CalendarCheck, CircleHelp, Download, FlaskConical, type LucideIcon, Moon, Table2, Upload } from "lucide-react";
+import { Bell, CalendarCheck, CircleHelp, Download, FlaskConical, type LucideIcon, Moon, ShieldCheck, Table2, Upload } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useId } from "react";
@@ -28,6 +28,7 @@ const DATA: RowLink[] = [
   { href: DATA_HREF, label: "Exporter / sauvegarder", icon: Download },
   { href: "/import", label: "Importer le classeur", icon: Upload },
   { href: DATA_HREF, label: "Rappel mensuel", icon: Bell },
+  { href: "/confidentialite/", label: "Confidentialité", icon: ShieldCheck },
 ];
 
 interface RowLink {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { LoginForm } from "./login-form";
 
@@ -17,6 +18,11 @@ export default function LoginPage() {
       <Suspense>
         <LoginForm />
       </Suspense>
+      <p className="text-center text-[13px] text-muted-foreground">
+        <Link href="/confidentialite/" className="underline underline-offset-2">
+          Confidentialité
+        </Link>
+      </p>
     </main>
   );
 }
