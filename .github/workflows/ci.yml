@@ -295,6 +295,8 @@ jobs:
         run: |
           supabase functions deploy monthly-reminder --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
           supabase functions deploy stripe-webhook --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
+          # Called by the signed-in website: the user's JWT is verified (#141).
+          supabase functions deploy create-checkout --project-ref "$SUPABASE_PROJECT_REF" --use-api
 
   deploy:
     name: Deploy to GitHub Pages

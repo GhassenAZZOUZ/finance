@@ -1,4 +1,4 @@
-import { FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
 import { ArrowLink } from "@/components/app/nav";
 import { PageHeader } from "@/components/app/page-header";
@@ -14,6 +14,18 @@ export default function Page() {
   return (
     <>
       <PageHeader title="Mes données" description="Téléchargez une sauvegarde de vos saisies ou le plan calculé, importez votre classeur, ou supprimez votre compte." />
+      <Card className="w-full max-w-2xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles aria-hidden className="size-5 shrink-0" />
+            <h2>Abonnement</h2>
+          </CardTitle>
+          <CardDescription>Votre formule Boussole et, si vous le souhaitez, le passage à Boussole Pro.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ArrowLink href="/abonnement">Voir mon abonnement</ArrowLink>
+        </CardContent>
+      </Card>
       <ReminderCard />
       <ExportCard />
       <Card className="w-full max-w-2xl">
