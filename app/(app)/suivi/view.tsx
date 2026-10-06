@@ -18,6 +18,7 @@ import { currentDate, currentYearMonth, formatDate, formatMonthLong } from "@/li
 import { ActualVsPlannedCard } from "./actual-vs-planned";
 import { CheckInForm } from "./check-in-form";
 import { MobileCheckIn } from "./mobile-check-in";
+import { FREE_VISIBLE_MONTHS, openPaywall } from "@/lib/billing/paywall";
 import { History, HistoryList } from "./history";
 import { IncomePaymentsCard } from "./income-payments-card";
 import { LineActualsCard } from "./line-actuals-card";
@@ -111,7 +112,15 @@ export function SuiviView() {
     label: plan.result.loans[j]?.displayName ?? loan.name ?? `Crédit ${j + 1}`,
   }));
   const loanLabels = Object.fromEntries(loans.map((l) => [l.id, l.label]));
-  const history = buildHistory(plan.comparisons, snapshot.actuals);
+  const fullHistory = buildHistory(plan.comparisons, snapshot.actuals);
+  // Free plan: the last 3 months are shown; the older ones stay saved and keep feeding the
+  // computed balances (owner decision 2026-10-07, #140).
+  const free = snapshot.isPro === false;
+  const visibleFrom = addMonths(currentMonth, -(FREE_VISIBLE_MONTHS - 1));
+  const shown = (month: string) => !free || compareMonths(month, visibleFrom) >= 0;
+  const history = fullHistory.filter((e) => shown(e.comparison.month));
+  const hiddenMonths = fullHistory.length - history.length;
+  const shownActuals = snapshot.actuals.filter((a) => shown(a.month));
 
   // Phones: `?mois=` (Saisir, the home shortcut) opens the full-screen check-in flow (#110).
   const mobileMonth = isMobile && !notStarted ? parseMonthParam(monthParam, months) : null;
@@ -203,7 +212,19 @@ export function SuiviView() {
               <h2 id="suivi-history-title" className="text-[17px] font-semibold">
                 Historique
               </h2>
-              <HistoryList months={months} entries={history} currentMonth={currentMonth} />
+              <HistoryList months={months.filter(shown)} entries={history} currentMonth={currentMonth} />
+              {hiddenMonths > 0 ? (
+                <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+                  {hiddenMonths === 1 ? "1 mois plus ancien" : `${hiddenMonths} mois plus anciens`} : enregistrés, visibles avec Boussole Pro.
+                  <button
+                    type="button"
+                    onClick={() => openPaywall("history_limit")}
+                    className="min-h-11 font-medium text-link underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
+                  >
+                    Voir tout l’historique
+                  </button>
+                </p>
+              ) : null}
               <p className="rounded-[10px] bg-secondary px-3 py-2.5 text-[13px] leading-normal text-muted-foreground">
                 Écart dettes vert si ≤ +10 €, écart épargne vert si ≥ −10 €. Les deux verts : dans les temps ; les deux
                 rouges : en retard ; sinon mitigé.
@@ -222,8 +243,8 @@ export function SuiviView() {
 
       <ActualVsPlannedCard comparisons={plan.comparisons} />
 
-      {snapshot.actuals.some((a) => a.lines.length > 0) ? (
-        <LineActualsCard actuals={snapshot.actuals} />
+      {shownActuals.some((a) => a.lines.length > 0) ? (
+        <LineActualsCard actuals={shownActuals} />
       ) : null}
 
       {history.length > 0 ? (

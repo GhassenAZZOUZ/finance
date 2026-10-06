@@ -1,3 +1,5 @@
+import { openPaywall } from "@/lib/billing/paywall";
+import { limitOf } from "@/lib/errors";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { type FinanceRepository, RepositoryError } from "./repository";
 import { SupabaseFinanceRepository } from "./supabase-repository";
@@ -13,10 +15,31 @@ export function isOfflineMode(): boolean {
   return offline;
 }
 
-/** Repository bound to the browser session (RLS applies); read-only while offline. */
+/**
+ * Repository bound to the browser session (RLS applies); read-only while offline. A write refused
+ * for a Free limit (#139) opens the paywall (#140), then rejects as before for the form's message.
+ */
 export function getRepository(): FinanceRepository {
-  const repo = new SupabaseFinanceRepository(supabaseBrowser());
+  const repo = withPaywall(new SupabaseFinanceRepository(supabaseBrowser()));
   return offline ? readOnly(repo) : repo;
+}
+
+function withPaywall(repo: FinanceRepository): FinanceRepository {
+  return new Proxy(repo, {
+    get(target, name, receiver) {
+      const value = Reflect.get(target, name, receiver) as unknown;
+      if (typeof value !== "function") return value;
+      return (...args: unknown[]) => {
+        const result = (value as (...a: unknown[]) => unknown).apply(target, args);
+        if (!(result instanceof Promise)) return result;
+        return result.catch((error: unknown) => {
+          const limit = limitOf(error);
+          if (limit) openPaywall(limit);
+          throw error;
+        });
+      };
+    },
+  });
 }
 
 /** Every method but `load` rejects with the « offline » error. */
