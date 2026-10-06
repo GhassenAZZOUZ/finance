@@ -61,6 +61,10 @@ export async function createTestUser(label: string): Promise<TestUser> {
   return { id: data.user.id, email, client };
 }
 
+/** Deletes a test user and, by cascade, all their rows; a failed deletion fails the test (#138). */
 export async function deleteTestUser(user: TestUser | undefined): Promise<void> {
-  if (user) await adminClient().auth.admin.deleteUser(user.id);
+  if (!user) return;
+  const { error } = await adminClient().auth.admin.deleteUser(user.id);
+  // Already deleted by the test itself: fine.
+  if (error && error.status !== 404) throw error;
 }
