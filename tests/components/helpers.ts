@@ -38,6 +38,9 @@ export function createRepositoryMock(snapshot: FinanceSnapshot = makeSnapshot())
     setBankCsvMapping: vi.fn<FinanceRepository["setBankCsvMapping"]>(async () => {}),
     saveBankRules: vi.fn<FinanceRepository["saveBankRules"]>(async () => {}),
     deleteBankRule: vi.fn<FinanceRepository["deleteBankRule"]>(async () => {}),
+    createBankAccount: vi.fn<FinanceRepository["createBankAccount"]>(async (name, mapping) => ({ id: `account-${name}`, name, mapping })),
+    updateBankAccount: vi.fn<FinanceRepository["updateBankAccount"]>(async () => {}),
+    deleteBankAccount: vi.fn<FinanceRepository["deleteBankAccount"]>(async () => {}),
     deleteAccount: vi.fn<FinanceRepository["deleteAccount"]>(async () => {}),
   };
 }

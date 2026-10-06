@@ -6,7 +6,7 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { applyLineTotals, checkInMonths, prefillForm } from "@/app/(app)/suivi/logic";
+import { applyStatements, checkInMonths, prefillForm, removeStatement } from "@/app/(app)/suivi/logic";
 import { OTHER_EXPENSE_KEY, OTHER_INCOME_KEY, checkInRows } from "@/lib/domain/actual-lines";
 import { plannedDeposits } from "@/lib/domain/deposits";
 import { computePlan } from "@/lib/domain/plan";
@@ -180,6 +180,7 @@ describe("CheckInForm", () => {
     await waitFor(() => expect(mocks.repo?.saveActual).toHaveBeenCalledTimes(1));
     expect(mocks.repo?.saveActual).toHaveBeenCalledWith({
       month: CURRENT,
+      statements: [],
       income: 285_000,
       expenses: 249_000,
       lines: [
@@ -235,18 +236,47 @@ describe("CheckInForm", () => {
   });
 });
 
-describe("applyLineTotals (AC-06, #72)", () => {
-  it("puts the statement's total in every budget line row, 0 without operations, and leaves the others as typed", () => {
+describe("applyStatements / removeStatement (#72, #115)", () => {
+  const statement = (actual: number) => ({
+    accountId: "acc-1",
+    accountName: "Compte courant",
+    fileName: "releve.csv",
+    fingerprint: "0123456789abcdef",
+    transactionCount: 3,
+    totalIn: 0,
+    totalOut: actual,
+    lineTotals: [{ budgetLineId: "food", actual }],
+  });
+
+  it("adds each statement's total to its line, fills empty budget-line rows with 0, and leaves the others as typed", () => {
     const rows = ROWS(CURRENT);
-    const lines = rows.map((r) => ({ key: r.key, actual: r.key === "trip" ? "880" : "" }));
-    const applied = applyLineTotals(lines, rows, [{ budgetLineId: "food", actual: 41_230 }]);
-    expect(Object.fromEntries(applied.map((l) => [l.key, l.actual]))).toEqual({
+    const form = { ...prefillForm(CURRENT, undefined, LOANS, [], rows), lines: rows.map((r) => ({ key: r.key, actual: r.key === "trip" ? "880" : "" })) };
+    const once = applyStatements(form, rows, [statement(42_000)]);
+    expect(Object.fromEntries((once.lines ?? []).map((l) => [l.key, l.actual]))).toEqual({
       salary: "0,00",
       [OTHER_INCOME_KEY]: "",
       rent: "0,00",
-      food: "412,30",
+      food: "420,00",
       trip: "880",
       [OTHER_EXPENSE_KEY]: "",
     });
+    // AC-01: a second statement adds to « Courses »; the lines it has no transaction for keep their amount.
+    const twice = applyStatements({ ...once, lines: (once.lines ?? []).map((l) => (l.key === "rent" ? { ...l, actual: "850" } : l)) }, rows, [statement(8_000)]);
+    expect(twice.lines?.find((l) => l.key === "food")?.actual).toBe("500,00");
+    expect(twice.lines?.find((l) => l.key === "rent")?.actual).toBe("850");
+    expect(twice.statements).toHaveLength(2);
+
+    // AC-02: removing the first subtracts exactly its amounts.
+    const removed = removeStatement(twice, rows, 0);
+    expect(removed.lines?.find((l) => l.key === "food")?.actual).toBe("80,00");
+    expect(removed.lines?.find((l) => l.key === "rent")?.actual).toBe("850");
+    expect(removed.statements).toEqual([statement(8_000)]);
+  });
+
+  it("adds to a row typed by hand (owner decision)", () => {
+    const rows = ROWS(CURRENT);
+    const form = { ...prefillForm(CURRENT, undefined, LOANS, [], rows), lines: rows.map((r) => ({ key: r.key, actual: r.key === "food" ? "100" : "" })) };
+    expect(applyStatements(form, rows, [statement(2_550)]).lines?.find((l) => l.key === "food")?.actual).toBe("125,50");
   });
 });
+

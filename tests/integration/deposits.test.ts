@@ -91,6 +91,7 @@ describe("savings deposits", () => {
       p_goal_balances: [],
       p_lines: [],
       p_deposits: [{ pot: "goal", goal_id: goalId, goal_name: null, planned: 0, amount: 1 }],
+      p_statements: [],
     });
     expect(error).not.toBeNull();
     expect((await repo.load()).actuals.some((x) => x.month === "2027-05")).toBe(false);

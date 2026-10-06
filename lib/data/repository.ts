@@ -1,6 +1,7 @@
 import type { CsvMapping } from "@/lib/import/bank-csv";
 import type { BankRule } from "@/lib/import/bank-rules";
 import type {
+  BankAccount,
   BudgetException,
   BudgetExceptionDraft,
   BudgetLineDraft,
@@ -73,6 +74,12 @@ export interface FinanceRepository {
   /** Upserts the keyword rules learnt from a bank import (SPEC D31); its totals pre-fill the check-in rows (#72). */
   saveBankRules(rules: Omit<BankRule, "id">[]): Promise<void>;
   deleteBankRule(id: string): Promise<void>;
+  /** Adds a named bank account (#115), with the column mapping of its CSV when it needs one. */
+  createBankAccount(name: string, mapping: CsvMapping | null): Promise<BankAccount>;
+  /** Renames an account or saves its mapping (#115). */
+  updateBankAccount(id: string, patch: { name?: string; mapping?: CsvMapping | null }): Promise<void>;
+  /** Deletes an account; the check-ins keep their amounts and the statements its name (#115). */
+  deleteBankAccount(id: string): Promise<void>;
   /** Records (or clears, with null) the actual date an income line was paid for a month (SPEC D29). */
   setIncomePayment(month: string, budgetLineId: string, paidOn: string | null): Promise<void>;
   /** Deletes the signed-in user's account and every row of theirs, for good (SPEC D26). */

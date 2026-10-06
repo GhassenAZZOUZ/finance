@@ -5,6 +5,8 @@ import type { ActualLine } from "@/lib/domain/actual-lines";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { centsToEuros, eurosToCents } from "@/lib/engine";
 import type {
+  BankAccount,
+  BankStatement,
   BudgetCategory,
   BudgetException,
   BudgetExceptionDraft,
@@ -124,6 +126,23 @@ interface ActualRow {
   monthly_actual_goal_balances: { goal_id: string; balance: number }[];
   monthly_actual_lines: LineRowOfActual[];
   monthly_actual_deposits: DepositRow[];
+  bank_statements: StatementRow[];
+}
+interface StatementRow {
+  account_id: string | null;
+  account_name: string;
+  file_name: string;
+  fingerprint: string;
+  transaction_count: number;
+  total_in: number;
+  total_out: number;
+  line_totals: { budget_line_id: string; actual: number }[];
+  position: number;
+}
+interface BankAccountRow {
+  id: string;
+  name: string;
+  mapping: CsvMapping | null;
 }
 interface DepositRow {
   pot: SavingsDeposit["pot"];
@@ -258,7 +277,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   constructor(private readonly db: SupabaseClient) {}
 
   async load(): Promise<FinanceSnapshot> {
-    const [settings, lines, loans, actuals, exceptions, goals, profile, incomePayments, bankRules, rebaseUndo] = await Promise.all([
+    const [settings, lines, loans, actuals, exceptions, goals, profile, incomePayments, bankRules, rebaseUndo, bankAccounts] = await Promise.all([
       this.db.from("budget_settings").select(SETTINGS_COLUMNS).maybeSingle<SettingsRow>(),
       this.db
         .from("budget_lines")
@@ -274,7 +293,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       this.db
         .from("monthly_actuals")
         .select(
-          `id, month, income, expenses, emergency_savings, free_savings, planned_debt, planned_savings, planned_income, planned_expenses, plan_start_month, rebase_corrections, monthly_actual_loan_balances(loan_id, balance), monthly_actual_goal_balances(goal_id, balance), monthly_actual_lines(${ACTUAL_LINE_COLUMNS}), monthly_actual_deposits(pot, goal_id, goal_name, planned, amount, position)`,
+          `id, month, income, expenses, emergency_savings, free_savings, planned_debt, planned_savings, planned_income, planned_expenses, plan_start_month, rebase_corrections, monthly_actual_loan_balances(loan_id, balance), monthly_actual_goal_balances(goal_id, balance), monthly_actual_lines(${ACTUAL_LINE_COLUMNS}), monthly_actual_deposits(pot, goal_id, goal_name, planned, amount, position), bank_statements(account_id, account_name, file_name, fingerprint, transaction_count, total_in, total_out, line_totals, position)`,
         )
         .order("month")
         .returns<ActualRow[]>(),
@@ -296,6 +315,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         .returns<{ month: string; budget_line_id: string; paid_on: string }[]>(),
       this.db.from("bank_csv_rules").select("id, keyword, budget_line_id").order("keyword").returns<{ id: string; keyword: string; budget_line_id: string | null }[]>(),
       this.db.from("plan_rebase_undo").select("from_month, new_start_month").maybeSingle<{ from_month: string; new_start_month: string }>(),
+      this.db.from("bank_accounts").select("id, name, mapping").order("created_at").order("name").returns<BankAccountRow[]>(),
     ]);
     const undo = checkMaybe(rebaseUndo);
     const s = checkMaybe(settings);
@@ -336,6 +356,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       bankCsvMapping: checkMaybe(profile)?.bank_csv_mapping ?? null,
       rebaseUndo: undo ? { fromMonth: undo.from_month, newStartMonth: undo.new_start_month } : null,
       bankRules: check(bankRules).map((b): BankRule => ({ id: b.id, keyword: b.keyword, budgetLineId: b.budget_line_id })),
+      bankAccounts: check(bankAccounts).map((a): BankAccount => ({ id: a.id, name: a.name, mapping: a.mapping })),
       incomePayments: check(incomePayments).map((p) => ({ month: p.month, budgetLineId: p.budget_line_id, paidOn: p.paid_on })),
       goals: check(goals).map(toGoal),
       actuals: check(actuals).map(
@@ -355,6 +376,24 @@ export class SupabaseFinanceRepository implements FinanceRepository {
                 deposits: [...a.monthly_actual_deposits]
                   .sort((x, y) => x.position - y.position)
                   .map((d) => ({ pot: d.pot, goalId: d.goal_id, goalName: d.goal_name, planned: cents(d.planned), amount: cents(d.amount) })),
+              }
+            : {}),
+          ...(a.bank_statements.length > 0
+            ? {
+                statements: [...a.bank_statements]
+                  .sort((x, y) => x.position - y.position)
+                  .map(
+                    (st): BankStatement => ({
+                      accountId: st.account_id,
+                      accountName: st.account_name,
+                      fileName: st.file_name,
+                      fingerprint: st.fingerprint,
+                      transactionCount: st.transaction_count,
+                      totalIn: cents(st.total_in),
+                      totalOut: cents(st.total_out),
+                      lineTotals: st.line_totals.map((t) => ({ budgetLineId: t.budget_line_id, actual: cents(t.actual) })),
+                    }),
+                  ),
               }
             : {}),
           lines: [...a.monthly_actual_lines]
@@ -523,6 +562,21 @@ export class SupabaseFinanceRepository implements FinanceRepository {
           amount: centsToEuros(d.amount),
           position,
         })),
+        // Omitted (another caller): the saved statements are kept (#115).
+        p_statements:
+          draft.statements === undefined
+            ? null
+            : draft.statements.map((st, position) => ({
+                account_id: st.accountId,
+                account_name: st.accountName,
+                file_name: st.fileName,
+                fingerprint: st.fingerprint,
+                transaction_count: st.transactionCount,
+                total_in: centsToEuros(st.totalIn),
+                total_out: centsToEuros(st.totalOut),
+                line_totals: st.lineTotals.map((t) => ({ budget_line_id: t.budgetLineId, actual: centsToEuros(t.actual) })),
+                position,
+              })),
       }),
     );
   }
@@ -563,6 +617,26 @@ export class SupabaseFinanceRepository implements FinanceRepository {
 
   async deleteBankRule(id: string): Promise<void> {
     checkMaybe(await this.db.from("bank_csv_rules").delete().eq("id", id));
+  }
+
+  async createBankAccount(name: string, mapping: CsvMapping | null): Promise<BankAccount> {
+    const row = check(
+      await this.db.from("bank_accounts").insert({ name: name.trim(), mapping }).select("id, name, mapping").single<BankAccountRow>(),
+    );
+    return { id: row.id, name: row.name, mapping: row.mapping };
+  }
+
+  async updateBankAccount(id: string, patch: { name?: string; mapping?: CsvMapping | null }): Promise<void> {
+    const columns = {
+      ...(patch.name !== undefined ? { name: patch.name.trim() } : {}),
+      ...(patch.mapping !== undefined ? { mapping: patch.mapping } : {}),
+    };
+    const updated = check(await this.db.from("bank_accounts").update(columns).eq("id", id).select("id"));
+    if (updated.length === 0) throw new RepositoryError("Compte introuvable", "not_found");
+  }
+
+  async deleteBankAccount(id: string): Promise<void> {
+    checkMaybe(await this.db.from("bank_accounts").delete().eq("id", id));
   }
 
   async setIncomePayment(month: string, budgetLineId: string, paidOn: string | null): Promise<void> {

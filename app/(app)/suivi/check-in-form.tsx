@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { type CheckInRow, type RowSection } from "@/lib/domain/actual-lines";
 import { type ActualForm, parseAmount, parseDeposit } from "@/lib/domain/validation";
 import type { ActualStatus, Cents, YearMonth } from "@/lib/engine";
-import type { BudgetLine } from "@/lib/domain/types";
+import type { BankAccount, BudgetLine } from "@/lib/domain/types";
 import type { CsvMapping } from "@/lib/import/bank-csv";
 import type { BankRule } from "@/lib/import/bank-rules";
 import { amountInputValue, formatEuros, formatMonthLong } from "@/lib/format";
@@ -19,7 +19,7 @@ import { STATUS_LABEL } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { type SaveActualState, saveActualAction } from "./actions";
 import { BankImport } from "./bank-import";
-import { type PlannedValues, applyLineTotals, isDebtGapGood, isSavingsGapGood, provisionalCheck } from "./logic";
+import { type PlannedValues, applyStatements, removeStatement, isDebtGapGood, isSavingsGapGood, provisionalCheck } from "./logic";
 
 export interface CheckInFormProps {
   /** Newest first. */
@@ -45,6 +45,8 @@ export interface CheckInFormProps {
   budgetLines?: BudgetLine[];
   bankCsvMapping?: CsvMapping | null;
   bankRules?: BankRule[];
+  /** The user's named bank accounts, each with its own CSV mapping (#115). */
+  bankAccounts?: BankAccount[];
   planned: Record<YearMonth, PlannedValues | null>;
   /** Rows of each month (#72): budget lines, exceptions and « hors budget », same keys as `ActualForm.lines`. */
   rows?: Record<YearMonth, CheckInRow[]>;
@@ -94,6 +96,7 @@ export function CheckInForm({
   budgetLines = [],
   bankCsvMapping = null,
   bankRules = [],
+  bankAccounts = [],
   planned,
   rows = {},
   loans,
@@ -163,6 +166,7 @@ export function CheckInForm({
   return (
     <form action={action} noValidate className="flex flex-col gap-5.5">
       <input type="hidden" name="month" value={month} />
+      <input type="hidden" name="statements" value={JSON.stringify(form.statements ?? [])} />
 
       <div className="flex flex-col gap-3">
         <h2 id="suivi-month-title" className="text-[17px] font-semibold">
@@ -221,9 +225,12 @@ export function CheckInForm({
             key={month}
             month={month}
             lines={budgetLines}
-            savedMapping={bankCsvMapping}
+            accounts={bankAccounts}
+            legacyMapping={bankCsvMapping}
             rules={bankRules}
-            onApply={(totals) => setForm((f) => ({ ...f, lines: applyLineTotals(f.lines ?? [], monthRows, totals) }))}
+            statements={form.statements ?? []}
+            onApply={(added) => setForm((f) => applyStatements(f, monthRows, added))}
+            onRemove={(index) => setForm((f) => removeStatement(f, monthRows, index))}
           />
         ) : null}
         {ROW_SECTIONS.map(({ section, title }) => {

@@ -25,6 +25,8 @@ const USER_TABLES = [
   "monthly_actual_lines",
   "monthly_actual_deposits",
   "plan_rebase_undo",
+  "bank_accounts",
+  "bank_statements",
 ] as const;
 
 type Row = { id: string } & Record<string, unknown>;
@@ -65,6 +67,20 @@ async function seed(user: TestUser): Promise<void> {
     }),
   );
   await must(db.from("monthly_actual_deposits").insert({ monthly_actual_id: actual.id, pot: "emergency", planned: 100, amount: 50 }));
+  const account = await must(db.from("bank_accounts").insert({ name: "Revolut" }).select("id").single());
+  await must(
+    db.from("bank_statements").insert({
+      monthly_actual_id: actual.id,
+      account_id: account.id,
+      account_name: "Revolut",
+      file_name: "releve.csv",
+      fingerprint: "0123456789abcdef",
+      transaction_count: 3,
+      total_in: 10,
+      total_out: 20,
+      line_totals: [{ budget_line_id: line.id, actual: 20 }],
+    }),
+  );
   await must(adminClient().from("reminder_log").insert({ user_id: user.id, month: "2027-01" }));
   // Last: any write to the plan's tables expires it (#100).
   await must(

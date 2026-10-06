@@ -165,6 +165,34 @@ export interface MonthlyActual {
   frozen: FrozenPlan | null;
   /** Starting values corrected by hand when the plan was re-based from this check-in (#100). */
   rebaseCorrections?: RebaseCorrection[];
+  /**
+   * Bank statements added to this month's rows (#115): a summary each, never a transaction. Omitted
+   * in a draft: the saved ones are kept.
+   */
+  statements?: BankStatement[];
+}
+
+/** A named bank account (#115); its CSV column mapping is reused for its next statements. */
+export interface BankAccount {
+  id: string;
+  name: string;
+  /** Null: a Revolut account (recognised from its header) or not mapped yet. */
+  mapping: CsvMapping | null;
+}
+
+/** What one imported statement added to a month (#115, SPEC D30): enough to subtract it later. */
+export interface BankStatement {
+  /** Null once the account is deleted; `accountName` stays. */
+  accountId: string | null;
+  accountName: string;
+  fileName: string;
+  /** Hash of the month's transactions (date, label, amount), to refuse the same statement twice. */
+  fingerprint: string;
+  transactionCount: number;
+  totalIn: Cents;
+  totalOut: Cents;
+  /** Amount added to each budget line's row (income received, money spent; refunds lower it). */
+  lineTotals: { budgetLineId: string; actual: Cents }[];
 }
 
 /** A re-base starting value corrected by hand in the preview (#100): what the check-in read, what was used. */
@@ -212,6 +240,8 @@ export interface FinanceSnapshot {
   bankCsvMapping?: CsvMapping | null;
   /** Keyword rules learnt from bank imports, and each imported month's total per line (SPEC D31). */
   bankRules?: BankRule[];
+  /** Named bank accounts, each with its own CSV mapping (#115). */
+  bankAccounts?: BankAccount[];
   /** The latest re-base while it can be undone (#100); null or omitted = nothing to undo. */
   rebaseUndo?: RebaseUndo | null;
 }

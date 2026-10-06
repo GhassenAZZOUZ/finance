@@ -12,6 +12,7 @@ import { type ActualStatus, type YearMonth, compareActual } from "@/lib/engine";
 import { errorMessage, reportError } from "@/lib/errors";
 import { lastOpenMonth } from "@/lib/domain/payday";
 import { currentDate, currentYearMonth } from "@/lib/format";
+import { parseStatements } from "@/lib/import/statements";
 import { earlyLoanBalances } from "./logic";
 
 export type SaveActualState =
@@ -86,9 +87,24 @@ export async function saveActualAction(_prev: SaveActualState, formData: FormDat
       return { status: "error", message: "Certains champs sont à corriger.", errors: negative };
     }
 
+    // The month's bank statements (#115), when the form sends them: the user's accounts and lines only.
+    const statements = formData.has("statements")
+      ? parseStatements(formData.get("statements"), {
+          accountIds: new Set((snapshot.bankAccounts ?? []).map((a) => a.id)),
+          lineIds: new Set(snapshot.lines.map((l) => l.id)),
+        })
+      : undefined;
+    if (statements === null) {
+      return { status: "error", message: "Les relevés importés n’ont pas pu être lus. Rechargez la page.", errors: {} };
+    }
+
     // Freeze what the plan expects for that month (SPEC D16), keeping values already frozen.
     const existing = computed.actuals.find((a) => a.month === validated.value.month);
-    const draft = { ...validated.value, frozen: plan ? frozenFor(validated.value.month, plan, existing) : null };
+    const draft = {
+      ...validated.value,
+      frozen: plan ? frozenFor(validated.value.month, plan, existing) : null,
+      ...(statements ? { statements } : {}),
+    };
     await repo.saveActual(draft);
     const comparison = plan ? compareActual(toActualInput({ ...mine, frozen: draft.frozen }), plan.result, plan.input.budget) : null;
     notifyDataChanged();

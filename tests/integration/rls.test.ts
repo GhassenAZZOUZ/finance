@@ -19,6 +19,8 @@ const TABLES = [
   "bank_csv_rules",
   "monthly_actual_lines",
   "monthly_actual_deposits",
+  "bank_accounts",
+  "bank_statements",
 ] as const;
 type Table = (typeof TABLES)[number];
 
@@ -37,6 +39,8 @@ const KEY: Record<Table, string> = {
   bank_csv_rules: "id",
   monthly_actual_lines: "id",
   monthly_actual_deposits: "id",
+  bank_accounts: "id",
+  bank_statements: "id",
 };
 
 /** A harmless column to try to overwrite. */
@@ -54,6 +58,8 @@ const PATCH: Record<Table, Record<string, unknown>> = {
   bank_csv_rules: { keyword: "PIRATE" },
   monthly_actual_lines: { actual: 1 },
   monthly_actual_deposits: { amount: 1 },
+  bank_accounts: { name: "Piraté" },
+  bank_statements: { total_out: 1 },
 };
 
 let a: TestUser;
@@ -139,6 +145,24 @@ beforeAll(async () => {
       .select("id")
       .single(),
   );
+  const account = await must(a.client.from("bank_accounts").insert({ name: "Revolut" }).select("id").single());
+  const statement = await must(
+    a.client
+      .from("bank_statements")
+      .insert({
+        monthly_actual_id: actual.id,
+        account_id: account.id,
+        account_name: "Revolut",
+        file_name: "releve.csv",
+        fingerprint: "0123456789abcdef",
+        transaction_count: 3,
+        total_in: 10,
+        total_out: 20,
+        line_totals: [{ budget_line_id: line.id, actual: 20 }],
+      })
+      .select("id")
+      .single(),
+  );
   aLoanId = loan.id;
   aActualId = actual.id;
   aGoalId = goal.id;
@@ -156,6 +180,8 @@ beforeAll(async () => {
     bank_csv_rules: bankRule.id,
     monthly_actual_lines: actualLine.id,
     monthly_actual_deposits: deposit.id,
+    bank_accounts: account.id,
+    bank_statements: statement.id,
   });
 });
 
@@ -228,6 +254,18 @@ describe("forged writes", () => {
       income_payments: { user_id: a.id, month: "2027-03", budget_line_id: aRow.budget_lines, paid_on: "2027-02-27" },
       bank_csv_rules: { user_id: a.id, keyword: "FORGED", budget_line_id: aRow.budget_lines },
       monthly_actual_deposits: { user_id: a.id, monthly_actual_id: aActualId, pot: "free", planned: 0, amount: 1 },
+      bank_accounts: { user_id: a.id, name: "forged" },
+      bank_statements: {
+        user_id: a.id,
+        monthly_actual_id: aActualId,
+        account_name: "forged",
+        file_name: "forged.csv",
+        fingerprint: "0123456789abcdef",
+        transaction_count: 0,
+        total_in: 0,
+        total_out: 0,
+        line_totals: [],
+      },
       monthly_actual_lines: {
         user_id: a.id,
         monthly_actual_id: aActualId,

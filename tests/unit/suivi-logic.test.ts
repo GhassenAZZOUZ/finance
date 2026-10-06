@@ -48,6 +48,7 @@ describe("prefillForm", () => {
         { loanId: "b", balance: "" },
       ],
       goalBalances: [{ goalId: "p", balance: "" }],
+      statements: [],
     });
   });
 
@@ -65,6 +66,7 @@ describe("prefillForm", () => {
         { goalId: "p", balance: "100,00" },
         { goalId: "new", balance: "" },
       ],
+      statements: [],
     });
   });
 });

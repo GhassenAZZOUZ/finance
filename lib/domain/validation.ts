@@ -5,6 +5,7 @@
 import { type Cents, type YearMonth, compareMonths, isYearMonth } from "@/lib/engine";
 import {
   BUDGET_CATEGORIES,
+  type BankStatement,
   type BudgetCategory,
   type BudgetLineDraft,
   type BudgetExceptionDraft,
@@ -344,6 +345,8 @@ export interface ActualForm {
   loanBalances: { loanId: string; balance: string }[];
   /** One entry per savings goal, the primary one included (SPEC D23). */
   goalBalances?: { goalId: string; balance: string }[];
+  /** Bank statements added to the rows (#115), saved with the check-in. */
+  statements?: BankStatement[];
 }
 
 export function validateActual(

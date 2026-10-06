@@ -103,7 +103,7 @@ describe("saveActual", () => {
   });
 
   it("is not callable without a session", async () => {
-    const { error } = await anonClient().rpc("save_actual", { p_actual: {}, p_loan_balances: [], p_goal_balances: [], p_lines: [], p_deposits: [] });
+    const { error } = await anonClient().rpc("save_actual", { p_actual: {}, p_loan_balances: [], p_goal_balances: [], p_lines: [], p_deposits: [], p_statements: [] });
     expect(error?.code).toBe("42501");
   });
 });

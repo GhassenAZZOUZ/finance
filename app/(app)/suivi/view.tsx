@@ -129,6 +129,7 @@ export function SuiviView() {
         rows={rows}
         bankCsvMapping={snapshot.bankCsvMapping ?? null}
         bankRules={snapshot.bankRules ?? []}
+        bankAccounts={snapshot.bankAccounts ?? []}
         planned={planned}
         loans={loans}
         goals={goals.map((g) => ({ id: g.id, label: g.name }))}
@@ -171,6 +172,7 @@ export function SuiviView() {
                 rows={rows}
                 bankCsvMapping={snapshot.bankCsvMapping ?? null}
                 bankRules={snapshot.bankRules ?? []}
+                bankAccounts={snapshot.bankAccounts ?? []}
                 planned={planned}
                 loans={loans}
                 goals={goals.map((g) => ({ id: g.id, label: g.name }))}

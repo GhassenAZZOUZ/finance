@@ -82,6 +82,7 @@ describe("buildBackup", () => {
         goalBalances: [{ goalId: "goal-primary", balance: "100.00" }],
         deposits: [],
         lines: [],
+        statements: [],
         frozen: { plannedDebt: "0.01", plannedSavings: "0.02", plannedIncome: "0.03", plannedExpenses: "0.04", planStartMonth: "2026-01" },
       },
     ]);
@@ -89,7 +90,45 @@ describe("buildBackup", () => {
 
   it("is valid JSON with empty arrays for a new user", () => {
     const parsed = JSON.parse(serializeBackup(buildBackup(makeSnapshot(), NOW)));
-    expect(parsed.data).toEqual({ settings: null, budgetLines: [], incomePayments: [], bankCsvMapping: null, bankRules: [], exceptions: [], loans: [], goals: [], checkIns: [] });
+    expect(parsed.data).toEqual({ settings: null, budgetLines: [], incomePayments: [], bankCsvMapping: null, bankRules: [], bankAccounts: [], exceptions: [], loans: [], goals: [], checkIns: [] });
+  });
+
+  it("exports the bank accounts and each check-in's statement summaries, never a transaction (#115)", () => {
+    const snap = makeSnapshot({
+      ...full,
+      bankAccounts: [{ id: "acc-1", name: "Revolut", mapping: null }],
+      actuals: [
+        {
+          ...checkIn,
+          statements: [
+            {
+              accountId: "acc-1",
+              accountName: "Revolut",
+              fileName: "septembre.csv",
+              fingerprint: "0123456789abcdef",
+              transactionCount: 12,
+              totalIn: 260_000,
+              totalOut: 54_250,
+              lineTotals: [{ budgetLineId: "line-1", actual: 4_250 }],
+            },
+          ],
+        },
+      ],
+    });
+    const data = buildBackup(snap, NOW).data;
+    expect(data.bankAccounts).toEqual([{ id: "acc-1", name: "Revolut", mapping: null }]);
+    expect(data.checkIns[0]!.statements).toEqual([
+      {
+        accountId: "acc-1",
+        accountName: "Revolut",
+        fileName: "septembre.csv",
+        fingerprint: "0123456789abcdef",
+        transactionCount: 12,
+        totalIn: "2600.00",
+        totalOut: "542.50",
+        lineTotals: [{ budgetLineId: "line-1", actual: "42.50" }],
+      },
+    ]);
   });
 
   it("names the file after the local date", () => {
