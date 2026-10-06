@@ -22,6 +22,7 @@ vi.mock("@/lib/supabase/client", () => ({
 vi.mock("@/lib/data/client-store", () => ({
   getRepository: () => ({ load: mocks.load }),
   onDataChanged: () => () => {},
+  setOfflineMode: () => {},
 }));
 vi.mock("@/lib/errors", async (original) => ({ ...(await original<typeof import("@/lib/errors")>()), reportError: vi.fn() }));
 
