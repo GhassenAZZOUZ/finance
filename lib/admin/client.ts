@@ -36,6 +36,9 @@ export interface UserRow {
   cancelAtPeriodEnd: boolean;
   loans: number;
   goals: number;
+  stripeCustomerId: string | null;
+  grantReason: string | null;
+  grantExpiresAt: string | null;
 }
 
 export interface UserPage {
@@ -59,13 +62,18 @@ export const ACTION_LABELS: Record<string, string> = {
   "admins.add": "Admin ajouté",
   "admins.remove": "Admin retiré",
   "users.export": "Export de la liste des utilisateurs",
+  "plan.grant": "Pro offert",
+  "plan.revoke": "Pro offert retiré",
 };
 
 export const ADMIN_ERRORS: Record<string, string> = {
   user_not_found: "Aucun compte avec cette adresse e-mail.",
-  self: "Vous ne pouvez pas vous retirer vous-même.",
+  self: "Action impossible sur votre propre compte.",
   last_admin: "Il faut garder au moins un administrateur.",
   not_admin: "Ce compte n’est pas administrateur.",
+  past_date: "La date de fin est déjà passée.",
+  no_grant: "Ce compte n’a pas de Pro offert.",
+  already_pro: "Ce compte est déjà Pro.",
   invalid_request: "Demande invalide.",
   failed: "L’action a échoué. Réessayez dans un instant.",
   network: "Connexion impossible : vérifiez votre réseau.",

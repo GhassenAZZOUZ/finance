@@ -19,6 +19,9 @@ const row = (over: Partial<UserRow>): UserRow => ({
   cancelAtPeriodEnd: true,
   loans: 3,
   goals: 2,
+  stripeCustomerId: null,
+  grantReason: null,
+  grantExpiresAt: null,
   ...over,
 });
 
@@ -50,7 +53,7 @@ describe("UsersSection", () => {
     const alice = table.getByRole("row", { name: /alice@example.test/ });
     expect(alice.textContent).toContain("Pro payant");
     expect(alice.textContent).toContain("Actif, résiliation programmée");
-    expect(alice.textContent).toMatch(/32$/);
+    expect(alice.textContent).toMatch(/32Gérer$/);
     expect(alice.textContent).not.toMatch(/€/);
     expect(lastCall()).toEqual({ action: "users.list", search: "", plan: null, status: null, sort: "created", page: 1 });
   });

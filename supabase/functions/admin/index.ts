@@ -7,6 +7,7 @@
  */
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { claimsOf, deny, normalizeEmail, parseRequest, removalRefusal } from "./logic.ts";
+import { grantExpiry, grantRefusal, parsePlanRequest } from "./plan.ts";
 import { type AccountInput, type GrantInput, type SubscriptionInput, type UserRow, filterAndSort, page, parseListQuery, toCsv, userRows } from "./users.ts";
 
 const CORS = {
@@ -39,13 +40,13 @@ async function allUsers(db: SupabaseClient): Promise<UserRow[]> {
     if (data.users.length < 1000) break;
   }
   const [subs, grants, counts] = await Promise.all([
-    db.from("subscriptions").select("user_id, status, current_period_end, cancel_at_period_end, past_due_since"),
+    db.from("subscriptions").select("user_id, stripe_customer_id, status, current_period_end, cancel_at_period_end, past_due_since"),
     db.from("pro_grants").select("user_id, reason, expires_at"),
     db.rpc("admin_usage_counts", { p_users: accounts.map((a) => a.id) }),
   ]);
   for (const r of [subs, grants, counts]) if (r.error) throw r.error;
   const subscriptions = new Map<string, SubscriptionInput>(
-    (subs.data ?? []).map((s) => [s.user_id, { status: s.status, currentPeriodEnd: s.current_period_end, cancelAtPeriodEnd: s.cancel_at_period_end, pastDueSince: s.past_due_since }]),
+    (subs.data ?? []).map((s) => [s.user_id, { customerId: s.stripe_customer_id, status: s.status, currentPeriodEnd: s.current_period_end, cancelAtPeriodEnd: s.cancel_at_period_end, pastDueSince: s.past_due_since }]),
   );
   const grantMap = new Map<string, GrantInput>((grants.data ?? []).map((g) => [g.user_id, { reason: g.reason, expiresAt: g.expires_at }]));
   const countMap = new Map<string, { loans: number; goals: number }>(
@@ -130,6 +131,31 @@ Deno.serve(async (req) => {
         const filters = { search: query.search, plan: query.plan, status: query.status, sort: query.sort };
         await audit(db, adminId, "users.export", null, { count: rows.length, filters });
         return json({ csv: toCsv(rows), count: rows.length });
+      }
+
+      case "plan.grant": {
+        const plan = parsePlanRequest(request.body);
+        if (!plan || plan.action !== "plan.grant") return json({ error: "invalid_request" }, 400);
+        const target = (await allUsers(db)).find((u) => u.userId === plan.userId);
+        if (!target) return json({ error: "user_not_found" }, 404);
+        const why = grantRefusal(adminId, plan, target.plan !== "Free", new Date());
+        if (why) return json({ error: why, plan: target.plan }, 409);
+        // A new offer replaces the end date of an existing one (owner decision).
+        const expiresAt = plan.endsOn ? grantExpiry(plan.endsOn) : null;
+        const { error } = await db.from("pro_grants").upsert({ user_id: plan.userId, reason: "gift", granted_at: new Date().toISOString(), expires_at: expiresAt });
+        if (error) throw error;
+        await audit(db, adminId, "plan.grant", plan.userId, { reason: plan.reason, ends_on: plan.endsOn, previous_plan: target.plan });
+        return json({ granted: true, expiresAt });
+      }
+
+      case "plan.revoke": {
+        const plan = parsePlanRequest(request.body);
+        if (!plan) return json({ error: "invalid_request" }, 400);
+        const { data, error } = await db.from("pro_grants").delete().eq("user_id", plan.userId).select("reason");
+        if (error) throw error;
+        if (!data || data.length === 0) return json({ error: "no_grant" }, 404);
+        await audit(db, adminId, "plan.revoke", plan.userId, { reason: plan.reason || null, grant: data[0]!.reason });
+        return json({ revoked: true });
       }
 
       case "audit.list": {

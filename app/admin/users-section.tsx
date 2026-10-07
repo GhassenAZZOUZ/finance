@@ -3,8 +3,10 @@
 import { Download } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Sheet } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ADMIN_ERRORS, type PlanLabel, type UserPage, type UserRow, callAdmin } from "@/lib/admin/client";
+import { PlanPanel } from "./plan-panel";
 
 const PLANS: PlanLabel[] = ["Pro payant", "Essai", "Pro offert", "Free"];
 const STATUSES: { value: string; label: string }[] = [
@@ -38,6 +40,9 @@ export function UsersSection() {
   const [result, setResult] = useState<UserPage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [managed, setManaged] = useState<UserRow | null>(null);
+  // Bumped after a change in the « Gérer » panel: the list reloads.
+  const [version, setVersion] = useState(0);
 
   const query = useCallback(() => ({ search, plan: plan || null, status: status || null, sort }), [search, plan, status, sort]);
 
@@ -57,7 +62,7 @@ export function UsersSection() {
       live = false;
       clearTimeout(start);
     };
-  }, [query, pageNo]);
+  }, [query, pageNo, version]);
 
   async function exportCsv() {
     setExporting(true);
@@ -145,6 +150,9 @@ export function UsersSection() {
                 <TableHead>Fin de période</TableHead>
                 <TableHead className="text-right">Crédits</TableHead>
                 <TableHead className="text-right">Objectifs</TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -158,6 +166,11 @@ export function UsersSection() {
                   <TableCell className="tabular-nums">{day(r.currentPeriodEnd)}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.loans}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.goals}</TableCell>
+                  <TableCell>
+                    <Button type="button" variant="outline" className="min-h-10" onClick={() => setManaged(r)} aria-label={`Gérer ${r.email}`}>
+                      Gérer
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -177,6 +190,9 @@ export function UsersSection() {
           ) : null}
         </>
       )}
+      <Sheet open={managed !== null} title={managed ? `Gérer ${managed.email}` : ""} onClose={() => setManaged(null)}>
+        {managed ? <PlanPanel key={managed.userId} user={managed} onChanged={() => setVersion((v) => v + 1)} /> : null}
+      </Sheet>
     </section>
   );
 }
