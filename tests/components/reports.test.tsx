@@ -109,3 +109,22 @@ describe("ReportsView", () => {
     await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("Les étiquettes et les rapports sont réservés à Boussole Pro."));
   });
 });
+
+describe("ReportsView, explanations", () => {
+  it("points to the tags section while no line has a tag", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2027-03-15T10:00:00Z"));
+    mocks.repo = createRepositoryMock();
+    mocks.value = {
+      snapshot: makeSnapshot({
+        lines: [line("food", "variable", "Courses")],
+        actuals: [checkIn("2027-03", [row("food", "Courses", 40_000, 41_000)])],
+        isPro: true,
+      }),
+    };
+    render(<ReportsView />);
+    const tags = screen.getByRole("region", { name: "Dépenses par étiquette" });
+    expect(within(tags).getByText(/Aucune ligne n’a encore d’étiquette/)).toBeTruthy();
+    expect(within(tags).getByRole("link", { name: "Étiquettes des lignes" }).getAttribute("href")).toBe("#report-line-tags-title");
+  });
+});

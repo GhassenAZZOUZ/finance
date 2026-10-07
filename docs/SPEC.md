@@ -461,7 +461,7 @@ independent reference engine disagrees with Excel on any cell.
                               riskFreeRate, earlyRepaymentPct, expenseInflationRate, incomeGrowthRate,
                               emergencyRate, freeSavingsRate },
           budgetLines[] { id, category, label, amount, position, startMonth, endMonth, indexed,
-                          paydayDay, paydayPreviousMonth },
+                          paydayDay, paydayPreviousMonth, tag },
           incomePayments[] { month, budgetLineId, paidOn }   (D29),
           bankCsvMapping | null   (D30),
           bankRules[] { keyword, budgetLineId }, bankLineTotals[] { month, budgetLineId, actual }   (D31),
@@ -498,7 +498,8 @@ independent reference engine disagrees with Excel on any cell.
   `lines[] { kind, direction, category, budgetLineId, exceptionId, label, planned, actual }` (D32; older files: `[]`)
   and drops `bankLineTotals`; version 12 adds the check-ins' `deposits[]` (D33; with deposits the
   balances are computed and exported as 0 / empty; older files: `[]`, typed balances); version 13 adds
-  `bankAccounts[]` and the check-ins' `statements[]` (D30, #115; older files: `[]`).
+  `bankAccounts[]` and the check-ins' `statements[]` (D30, #115; older files: `[]`); version 14 adds the
+  budget lines' `tag` (D35, #145; older files: `null`).
 
 ### 10.2 Plan CSV, `finance-plan-YYYY-MM-DD.csv`
 

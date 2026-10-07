@@ -25,8 +25,9 @@ export const BACKUP_FORMAT = "finance-plan-backup";
  *     computed, so `emergencySavings`, `freeSavings` and `goalBalances` are 0 / empty.
  * 13: `bankAccounts` (named accounts, each with its CSV mapping) and check-ins' `statements` (the
  *     summary of each bank statement added to the month, #115); still never a transaction.
+ * 14: budget lines gain `tag` (Pro reports, #145); null without one.
  */
-export const BACKUP_VERSION = 13;
+export const BACKUP_VERSION = 14;
 
 /** Euros with exactly 2 decimals and a dot ("1234.50", "-0.05"), computed from integer cents. */
 export type DecimalEuros = string;
@@ -96,6 +97,8 @@ export interface Backup {
       /** Usual payday (SPEC D29); 1 and false for expense lines. */
       paydayDay: number;
       paydayPreviousMonth: boolean;
+      /** Pro (#145): the line's tag for the reports; null without one. */
+      tag: string | null;
     }[];
     /** Actual payment dates that differ from the usual payday (SPEC D29), by month. */
     incomePayments: { month: YearMonth; budgetLineId: string; paidOn: string }[];
@@ -228,6 +231,7 @@ export function buildBackup(snapshot: FinanceSnapshot, now: Date = new Date()): 
         indexed: l.indexed !== false,
         paydayDay: l.paydayDay ?? 1,
         paydayPreviousMonth: l.paydayPreviousMonth ?? false,
+        tag: l.tag ?? null,
       })),
       incomePayments: snapshot.incomePayments.map((p) => ({ month: p.month, budgetLineId: p.budgetLineId, paidOn: p.paidOn })),
       bankCsvMapping: snapshot.bankCsvMapping ?? null,
