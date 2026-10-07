@@ -31,10 +31,11 @@ const USER_TABLES = [
   "stripe_events",
   "entitlements",
   "pro_grants",
+  "admins",
 ] as const;
 
 /** Tables shared by every user (no `user_id`): configuration only. */
-const SHARED_TABLES = ["plan_limits"] as const;
+const SHARED_TABLES = ["plan_limits", "admin_audit"] as const;
 
 type Row = { id: string } & Record<string, unknown>;
 
@@ -89,6 +90,8 @@ async function seed(user: TestUser): Promise<void> {
     }),
   );
   await must(adminClient().from("reminder_log").insert({ user_id: user.id, month: "2027-01" }));
+  // Back-office (#156): an admin row goes with the account; the audit log keeps ids by design.
+  await must(adminClient().from("admins").insert({ user_id: user.id }));
   // Billing rows are written by the Stripe webhook (service role, #138).
   await must(adminClient().from("subscriptions").insert({ user_id: user.id, stripe_customer_id: `cus_${user.id.slice(0, 8)}`, status: "active" }));
   await must(adminClient().from("stripe_events").insert({ id: `evt_${user.id.slice(0, 8)}`, type: "customer.subscription.created", user_id: user.id }));
