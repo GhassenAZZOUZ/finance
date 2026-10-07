@@ -39,7 +39,9 @@ export function PlanView() {
   }
 
   const milestones = findMilestones(plan.input, plan.result);
-  const months = plan.result.months.slice(0, rowCount);
+  const todayStart = Math.max(0, monthsBetween(plan.input.budget.startMonth, plan.referenceMonth));
+  // Free plan: this month and the next two (#140, #145); Pro: from the plan start.
+  const months = free ? plan.result.months.slice(todayStart, todayStart + rowCount) : plan.result.months.slice(0, rowCount);
   const exceptions = exceptionsByPlanIndex(snapshot.exceptions, plan.input.budget.startMonth, plan.result.months.length);
   const phases = planPhases(plan.result.months);
   const todayIndex = monthsBetween(plan.input.budget.startMonth, plan.referenceMonth) + 1;
