@@ -1,11 +1,11 @@
 "use client";
 
 import { Download } from "lucide-react";
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ADMIN_ERRORS, type PlanLabel, type UserPage, type UserRow, callAdmin } from "@/lib/admin/client";
+import { ADMIN_ERRORS, type ListPreset, type PlanLabel, type UserPage, type UserRow, callAdmin } from "@/lib/admin/client";
 import { DeletePanel } from "./delete-panel";
 import { PlanPanel } from "./plan-panel";
 
@@ -31,7 +31,7 @@ function statusText(r: UserRow): string {
  * Back-office user list (issue #157, US-14): account and subscription information only, plus the
  * number of loans and goals. Search, filters, sort, 50 per page, CSV export (audited).
  */
-export function UsersSection({ selfEmail = null }: { selfEmail?: string | null }) {
+export function UsersSection({ selfEmail = null, preset = null }: { selfEmail?: string | null; preset?: ListPreset | null }) {
   const id = useId();
   const [search, setSearch] = useState("");
   const [plan, setPlan] = useState("");
@@ -45,6 +45,22 @@ export function UsersSection({ selfEmail = null }: { selfEmail?: string | null }
   // Bumped after a change in the « Gérer » panel: the list reloads.
   const [version, setVersion] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+
+  // A dashboard figure opens the list filtered on its accounts (US-17), search cleared.
+  const [appliedPreset, setAppliedPreset] = useState<ListPreset | null>(null);
+  if (preset && preset !== appliedPreset) {
+    setAppliedPreset(preset);
+    setSearch("");
+    setPlan(preset.plan);
+    setStatus(preset.status);
+    setPageNo(1);
+  }
+  useEffect(() => {
+    if (!preset) return;
+    heading.current?.scrollIntoView?.({ block: "start" });
+    heading.current?.focus();
+  }, [preset]);
 
   const query = useCallback(() => ({ search, plan: plan || null, status: status || null, sort }), [search, plan, status, sort]);
 
@@ -87,7 +103,7 @@ export function UsersSection({ selfEmail = null }: { selfEmail?: string | null }
   return (
     <section aria-labelledby={`${id}-title`} className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h2 id={`${id}-title`} className="text-[17px] font-semibold">
+        <h2 id={`${id}-title`} ref={heading} tabIndex={-1} className="text-[17px] font-semibold">
           Utilisateurs{result ? ` (${result.total})` : ""}
         </h2>
         <Button type="button" variant="outline" className="min-h-11" onClick={() => void exportCsv()} disabled={exporting}>

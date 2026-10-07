@@ -10,10 +10,11 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer@6.9.16";
 import { closeStripeAccount } from "../_shared/stripe-account.ts";
+import { type DashboardAccount, dashboardFigures } from "./dashboard.ts";
 import { deleteRefusal, deletionEmail, parseDeleteRequest } from "./delete.ts";
 import { claimsOf, deny, normalizeEmail, parseRequest, removalRefusal } from "./logic.ts";
 import { grantExpiry, grantRefusal, parsePlanRequest } from "./plan.ts";
-import { type AccountInput, type GrantInput, type SubscriptionInput, type UserRow, filterAndSort, page, parseListQuery, toCsv, userRows } from "./users.ts";
+import { type AccountInput, type GrantInput, type SubscriptionInput, type UserRow, filterAndSort, page, parseListQuery, planLabel, toCsv, userRows } from "./users.ts";
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -35,8 +36,7 @@ async function emails(db: SupabaseClient): Promise<Map<string, string>> {
   return map;
 }
 
-/** Every account with its plan and two counts (US-14). Never the financial tables' content. */
-async function allUsers(db: SupabaseClient): Promise<UserRow[]> {
+async function listAccounts(db: SupabaseClient): Promise<AccountInput[]> {
   const accounts: AccountInput[] = [];
   for (let p = 1; p <= 50; p++) {
     const { data, error } = await db.auth.admin.listUsers({ page: p, perPage: 1000 });
@@ -44,6 +44,12 @@ async function allUsers(db: SupabaseClient): Promise<UserRow[]> {
     for (const u of data.users) accounts.push({ id: u.id, email: u.email ?? null, createdAt: u.created_at, lastSignInAt: u.last_sign_in_at ?? null });
     if (data.users.length < 1000) break;
   }
+  return accounts;
+}
+
+/** Every account with its plan and two counts (US-14). Never the financial tables' content. */
+async function allUsers(db: SupabaseClient): Promise<UserRow[]> {
+  const accounts = await listAccounts(db);
   const [subs, grants, counts] = await Promise.all([
     db.from("subscriptions").select("user_id, stripe_customer_id, status, current_period_end, cancel_at_period_end, past_due_since"),
     db.from("pro_grants").select("user_id, reason, expires_at"),
@@ -82,6 +88,32 @@ async function sendDeletionEmail(to: string, subscriptionCancelled: boolean): Pr
     console.error("[admin] deletion e-mail not sent:", error instanceof Error ? error.message : String(error));
     return false;
   }
+}
+
+/** What the dashboard needs per account (US-17): dates, plan and price; no e-mail leaves this function. */
+async function dashboardAccounts(db: SupabaseClient): Promise<DashboardAccount[]> {
+  const accounts = await listAccounts(db);
+  const [subs, grants] = await Promise.all([
+    db.from("subscriptions").select("user_id, status, price_id, current_period_end, cancel_at_period_end, past_due_since, paying_since, ended_at"),
+    db.from("pro_grants").select("user_id, reason, expires_at"),
+  ]);
+  for (const r of [subs, grants]) if (r.error) throw r.error;
+  const subMap = new Map((subs.data ?? []).map((s) => [s.user_id, s]));
+  const grantMap = new Map<string, GrantInput>((grants.data ?? []).map((g) => [g.user_id, { reason: g.reason, expiresAt: g.expires_at }]));
+  const now = new Date();
+  return accounts.map((a) => {
+    const s = subMap.get(a.id);
+    const sub: SubscriptionInput | null = s ? { status: s.status, currentPeriodEnd: s.current_period_end, cancelAtPeriodEnd: s.cancel_at_period_end, pastDueSince: s.past_due_since } : null;
+    return {
+      createdAt: a.createdAt,
+      lastSignInAt: a.lastSignInAt,
+      plan: planLabel(sub, grantMap.get(a.id) ?? null, now),
+      status: s?.status ?? null,
+      priceId: s?.price_id ?? null,
+      payingSince: s?.paying_since ?? null,
+      endedAt: s?.ended_at ?? null,
+    };
+  });
 }
 
 Deno.serve(async (req) => {
@@ -139,6 +171,10 @@ Deno.serve(async (req) => {
         await audit(db, adminId, "admins.remove", request.userId);
         return json({ removed: true });
       }
+
+      case "dashboard":
+        // Counts only (AC-05); viewing is not audited.
+        return json(dashboardFigures(await dashboardAccounts(db), env("STRIPE_PRICE_YEARLY") || null, new Date()));
 
       case "users.list": {
         // Viewing is not audited (owner decision): only changes and exports.

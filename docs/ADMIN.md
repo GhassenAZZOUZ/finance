@@ -38,6 +38,15 @@ confirms first, and the new end date replaces the current one. « Retirer le Pro
 confirmation; a paying subscription stays. Nobody changes their own plan. Both actions are written to
 the audit log (reason, end date, previous plan). The user receives no e-mail.
 
+## Dashboard (US-17, #160)
+
+« Tableau de bord » at the top of the back-office: users (and active over 30 days), paying Pro
+subscribers, trials, offered Pro, the estimated monthly revenue, the accounts in the payment grace
+period (« Voir ces comptes » opens the list filtered on them), and for this month and the previous
+one (Paris time) the sign-ups, new paid subscriptions and cancellations. Counts only, computed by the
+server; each figure's definition is SPEC D37 (shared with the resale metrics, US-10). Viewing it is not
+audited.
+
 ## Delete an account (US-16, #159)
 
 At the owner's request (GDPR erasure), « Gérer » › « Supprimer le compte »: the admin types a
