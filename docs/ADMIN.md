@@ -19,6 +19,15 @@ Every action that changes something, and every export, is written to `admin_audi
 kept 12 months, ids only). Admins are added and removed in the back-office; nobody removes
 themselves or the last admin.
 
+## User list (US-14, #157)
+
+« Utilisateurs »: e-mail, sign-up, last sign-in, plan (Pro payant > Essai > Pro offert > Free),
+subscription status and period end, number of loans and goals. Partial e-mail search ignoring case,
+filters by plan and status (« résiliation programmée » included), sort by sign-up (default) or last
+sign-in, 50 per page. « Exporter en CSV » downloads the filtered list (`;`, UTF-8 with BOM, spreadsheet
+formulas neutralised); each export is written to the audit log with its filters and count. Viewing
+the list is not audited.
+
 ## First admin (owner, once)
 
 The repository is public, so no e-mail address is in a migration. In the Supabase dashboard →

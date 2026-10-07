@@ -52,6 +52,11 @@ describe("parseRequest (AC-06)", () => {
     });
   });
 
+  it("passes the list query of users.list / users.export on to parseListQuery", () => {
+    expect(parseRequest({ action: "users.list", search: "ali", page: 2 })).toEqual({ action: "users.list", body: { action: "users.list", search: "ali", page: 2 } });
+    expect(parseRequest({ action: "users.export" })?.action).toBe("users.export");
+  });
+
   it("refuses an unknown action or a malformed field", () => {
     expect(parseRequest({ action: "drop_everything" })).toBeNull();
     expect(parseRequest({ action: "admins.add", email: "not-an-email" })).toBeNull();

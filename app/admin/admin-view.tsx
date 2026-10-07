@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ACTION_LABELS, ADMIN_ERRORS, type AdminEntry, type AuditEntry, callAdmin } from "@/lib/admin/client";
 import { isNativeApp } from "@/lib/native/platform";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { UsersSection } from "./users-section";
 
 type Stage =
   | { kind: "loading" }
@@ -164,6 +165,7 @@ function BackOffice({ email }: { email: string | null }) {
         <h1 className="font-heading text-[32px] leading-tight font-medium">Back-office</h1>
         <p className="text-sm text-muted-foreground">Connecté en tant que {email}. Aucune donnée financière des utilisateurs n’est accessible ici.</p>
       </header>
+      <UsersSection />
       <Admins />
       <AuditLog />
     </div>
