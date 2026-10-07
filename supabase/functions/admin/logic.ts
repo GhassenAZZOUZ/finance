@@ -38,11 +38,11 @@ export function deny(claims: Claims | null, isAdmin: boolean, nowSeconds: number
   return null;
 }
 
-export const ACTIONS = ["whoami", "admins.list", "admins.add", "admins.remove", "audit.list", "users.list", "users.export", "plan.grant", "plan.revoke", "users.delete"] as const;
+export const ACTIONS = ["whoami", "admins.list", "admins.add", "admins.remove", "audit.list", "users.list", "users.export", "plan.grant", "plan.revoke", "users.delete", "dashboard"] as const;
 export type Action = (typeof ACTIONS)[number];
 
 export type Request =
-  | { action: "whoami" | "admins.list" | "audit.list" }
+  | { action: "whoami" | "admins.list" | "audit.list" | "dashboard" }
   | { action: "admins.add"; email: string }
   | { action: "admins.remove"; userId: string }
   // The list query is read by parseListQuery (users.ts): this file imports nothing (Deno and Node).
@@ -63,6 +63,7 @@ export function parseRequest(body: unknown): Request | null {
     case "whoami":
     case "admins.list":
     case "audit.list":
+    case "dashboard":
       return { action: b.action };
     case "admins.add": {
       const email = typeof b.email === "string" ? normalizeEmail(b.email) : "";

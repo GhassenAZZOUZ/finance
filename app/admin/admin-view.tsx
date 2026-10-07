@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ACTION_LABELS, ADMIN_ERRORS, type AdminEntry, type AuditEntry, callAdmin } from "@/lib/admin/client";
+import { ACTION_LABELS, ADMIN_ERRORS, type AdminEntry, type AuditEntry, type ListPreset, callAdmin } from "@/lib/admin/client";
 import { isNativeApp } from "@/lib/native/platform";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { DashboardSection } from "./dashboard-section";
 import { UsersSection } from "./users-section";
 
 type Stage =
@@ -158,6 +159,7 @@ function SecondFactor({ stage, onDone }: { stage: Extract<Stage, { kind: "enroll
 }
 
 function BackOffice({ email }: { email: string | null }) {
+  const [preset, setPreset] = useState<ListPreset | null>(null);
   return (
     <div className="flex flex-col gap-8">
       <header>
@@ -165,7 +167,8 @@ function BackOffice({ email }: { email: string | null }) {
         <h1 className="font-heading text-[32px] leading-tight font-medium">Back-office</h1>
         <p className="text-sm text-muted-foreground">Connecté en tant que {email}. Aucune donnée financière des utilisateurs n’est accessible ici.</p>
       </header>
-      <UsersSection selfEmail={email} />
+      <DashboardSection onShowList={(plan, status) => setPreset((p) => ({ plan, status, n: (p?.n ?? 0) + 1 }))} />
+      <UsersSection selfEmail={email} preset={preset} />
       <Admins />
       <AuditLog />
     </div>

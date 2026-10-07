@@ -48,6 +48,33 @@ export interface UserPage {
   pages: number;
 }
 
+/** The admin dashboard (#160, US-17): counts only; definitions in SPEC D37. */
+export interface MonthFigures {
+  month: string;
+  signups: number;
+  newSubscriptions: number;
+  cancellations: number;
+}
+export interface DashboardFigures {
+  users: number;
+  activeLast30Days: number;
+  paying: number;
+  trials: number;
+  offered: number;
+  inGrace: number;
+  mrrCents: number;
+  current: MonthFigures;
+  previous: MonthFigures;
+}
+
+/** A filter the dashboard applies to the user list (e.g. the grace-period figure). */
+export interface ListPreset {
+  plan: PlanLabel | "";
+  status: string;
+  /** Changes on every click, so the same preset applies again. */
+  n: number;
+}
+
 export interface AuditEntry {
   id: number;
   at: string;
