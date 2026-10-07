@@ -283,7 +283,9 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       this.db
         .from("budget_lines")
         .select("id, category, label, amount, position, start_month, end_month, indexed, payday_day, payday_previous_month, tag")
+        // Lines of different categories share positions: the id makes the order stable between loads.
         .order("position")
+        .order("id")
         .returns<LineRow[]>(),
       this.db
         .from("loans")
