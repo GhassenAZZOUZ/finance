@@ -60,7 +60,8 @@ describe("Plan, Free plan", () => {
   it("shows 3 months even when more are asked, and the longer ranges open the paywall", async () => {
     setup(false);
     render(<PlanView />);
-    expect(monthRows()).toHaveLength(3);
+    // This month and the next two, not the plan's first months (already past).
+    expect(monthRows().map((th) => th.textContent?.slice(0, 4).trim())).toEqual(["déc.", "janv", "févr"]);
     const user = userEvent.setup({ delay: null });
     await user.click(screen.getByRole("button", { name: "5 ans (Boussole Pro)" }));
     expect(opened).toHaveBeenLastCalledWith("plan_limit");

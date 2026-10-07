@@ -161,3 +161,24 @@ describe("Suivi row (#91, #92)", () => {
     expect(within(spending).getByRole("img").getAttribute("aria-label")).toMatch(/Plus gros dépassement : Courses, \+70,00\s€/);
   });
 });
+
+describe("Free plan (#145)", () => {
+  it("replaces the projections with one locked card; the key figures stay", async () => {
+    const { onPaywall } = await import("@/lib/billing/paywall");
+    const opened = vi.fn();
+    const off = onPaywall(opened);
+    const user = renderDashboard(makeSnapshot({ settings: SETTINGS, lines: LINES, isPro: false }));
+    expect(screen.queryByRole("tablist", { name: "Graphiques du plan" })).toBeNull();
+    const locked = screen.getByRole("region", { name: "Vos projections sur 2 ans" });
+    await user.click(within(locked).getByRole("button", { name: "Découvrir Boussole Pro" }));
+    expect(opened).toHaveBeenCalledWith("plan_limit");
+    expect(screen.getByRole("region", { name: "Chiffres clés" })).toBeTruthy();
+    off();
+  });
+
+  it("Pro keeps the charts", () => {
+    renderDashboard(makeSnapshot({ settings: SETTINGS, lines: LINES, isPro: true }));
+    expect(screen.getByRole("tablist", { name: "Graphiques du plan" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Vos projections sur 2 ans" })).toBeNull();
+  });
+});

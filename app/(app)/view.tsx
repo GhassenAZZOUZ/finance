@@ -20,6 +20,7 @@ import {
 import { PlanCharts } from "./_dashboard/plan-charts";
 import { IncomeUses } from "./_dashboard/income-uses";
 import { CheckInCharts } from "./_dashboard/check-in-charts";
+import { LockedProjections } from "./_dashboard/locked-projections";
 import { MobileHome } from "./_dashboard/mobile-home";
 import { NegativeBudgetNotice, MovingAlert } from "./_dashboard/notices";
 import { MarginTile, DebtTile, SavingsTile } from "./_dashboard/tiles";
@@ -40,10 +41,11 @@ export function DashboardView() {
       </>
     );
   }
-  return <Dashboard plan={plan} pending={pending} />;
+  return <Dashboard plan={plan} pending={pending} free={snapshot.isPro === false} />;
 }
 
-function Dashboard({ plan, pending }: { plan: ComputedPlan; pending: YearMonth[] }) {
+/** `free`: the projections are Pro (#145); the key figures and the check-ins stay. */
+function Dashboard({ plan, pending, free }: { plan: ComputedPlan; pending: YearMonth[]; free: boolean }) {
   const { kpis, months } = plan.result;
   const { budget } = plan.input;
   const refIndex = monthsBetween(budget.startMonth, plan.referenceMonth) + 1;
@@ -97,7 +99,7 @@ function Dashboard({ plan, pending }: { plan: ComputedPlan; pending: YearMonth[]
         <Roadmap plan={plan} refIndex={refIndex} />
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
-          <PlanCharts plan={plan} refIndex={refIndex} />
+          {free ? <LockedProjections /> : <PlanCharts plan={plan} refIndex={refIndex} />}
           <Goals plan={plan} current={ref} in12={months[refIndex - 1 + 12]} />
         </div>
 
@@ -110,7 +112,7 @@ function Dashboard({ plan, pending }: { plan: ComputedPlan; pending: YearMonth[]
           <RepaymentOrder plan={plan} />
         </div>
 
-        <IncomeUses plan={plan} refIndex={refIndex} />
+        {free ? null : <IncomeUses plan={plan} refIndex={refIndex} />}
 
         <CheckInCharts plan={plan} firstCheckInHref={oldestPending ? checkInHref(oldestPending) : "/suivi"} />
       </div>
