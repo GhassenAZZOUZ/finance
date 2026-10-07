@@ -38,13 +38,15 @@ export function deny(claims: Claims | null, isAdmin: boolean, nowSeconds: number
   return null;
 }
 
-export const ACTIONS = ["whoami", "admins.list", "admins.add", "admins.remove", "audit.list"] as const;
+export const ACTIONS = ["whoami", "admins.list", "admins.add", "admins.remove", "audit.list", "users.list", "users.export"] as const;
 export type Action = (typeof ACTIONS)[number];
 
 export type Request =
   | { action: "whoami" | "admins.list" | "audit.list" }
   | { action: "admins.add"; email: string }
-  | { action: "admins.remove"; userId: string };
+  | { action: "admins.remove"; userId: string }
+  // The list query is read by parseListQuery (users.ts): this file imports nothing (Deno and Node).
+  | { action: "users.list" | "users.export"; body: Record<string, unknown> };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -66,6 +68,9 @@ export function parseRequest(body: unknown): Request | null {
       const email = typeof b.email === "string" ? normalizeEmail(b.email) : "";
       return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) && email.length <= 320 ? { action: "admins.add", email } : null;
     }
+    case "users.list":
+    case "users.export":
+      return { action: b.action, body: b };
     case "admins.remove":
       return typeof b.userId === "string" && UUID.test(b.userId) ? { action: "admins.remove", userId: b.userId } : null;
     default:

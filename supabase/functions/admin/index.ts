@@ -7,6 +7,7 @@
  */
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { claimsOf, deny, normalizeEmail, parseRequest, removalRefusal } from "./logic.ts";
+import { type AccountInput, type GrantInput, type SubscriptionInput, type UserRow, filterAndSort, page, parseListQuery, toCsv, userRows } from "./users.ts";
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -26,6 +27,31 @@ async function emails(db: SupabaseClient): Promise<Map<string, string>> {
     if (data.users.length < 1000) break;
   }
   return map;
+}
+
+/** Every account with its plan and two counts (US-14). Never the financial tables' content. */
+async function allUsers(db: SupabaseClient): Promise<UserRow[]> {
+  const accounts: AccountInput[] = [];
+  for (let p = 1; p <= 50; p++) {
+    const { data, error } = await db.auth.admin.listUsers({ page: p, perPage: 1000 });
+    if (error) throw error;
+    for (const u of data.users) accounts.push({ id: u.id, email: u.email ?? null, createdAt: u.created_at, lastSignInAt: u.last_sign_in_at ?? null });
+    if (data.users.length < 1000) break;
+  }
+  const [subs, grants, counts] = await Promise.all([
+    db.from("subscriptions").select("user_id, status, current_period_end, cancel_at_period_end, past_due_since"),
+    db.from("pro_grants").select("user_id, reason, expires_at"),
+    db.rpc("admin_usage_counts", { p_users: accounts.map((a) => a.id) }),
+  ]);
+  for (const r of [subs, grants, counts]) if (r.error) throw r.error;
+  const subscriptions = new Map<string, SubscriptionInput>(
+    (subs.data ?? []).map((s) => [s.user_id, { status: s.status, currentPeriodEnd: s.current_period_end, cancelAtPeriodEnd: s.cancel_at_period_end, pastDueSince: s.past_due_since }]),
+  );
+  const grantMap = new Map<string, GrantInput>((grants.data ?? []).map((g) => [g.user_id, { reason: g.reason, expiresAt: g.expires_at }]));
+  const countMap = new Map<string, { loans: number; goals: number }>(
+    ((counts.data ?? []) as { user_id: string; loans: number; goals: number }[]).map((c) => [c.user_id, { loans: c.loans, goals: c.goals }]),
+  );
+  return userRows(accounts, subscriptions, grantMap, countMap, new Date());
 }
 
 async function audit(db: SupabaseClient, adminId: string, action: string, targetUser: string | null, details: Record<string, unknown> = {}) {
@@ -89,6 +115,21 @@ Deno.serve(async (req) => {
         if (error) throw error;
         await audit(db, adminId, "admins.remove", request.userId);
         return json({ removed: true });
+      }
+
+      case "users.list": {
+        // Viewing is not audited (owner decision): only changes and exports.
+        const query = parseListQuery(request.body);
+        const rows = filterAndSort(await allUsers(db), query);
+        return json(page(rows, query.page));
+      }
+
+      case "users.export": {
+        const query = parseListQuery(request.body);
+        const rows = filterAndSort(await allUsers(db), query);
+        const filters = { search: query.search, plan: query.plan, status: query.status, sort: query.sort };
+        await audit(db, adminId, "users.export", null, { count: rows.length, filters });
+        return json({ csv: toCsv(rows), count: rows.length });
       }
 
       case "audit.list": {

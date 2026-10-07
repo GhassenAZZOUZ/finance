@@ -23,6 +23,28 @@ export interface AdminEntry {
   addedAt: string;
 }
 
+export type PlanLabel = "Pro payant" | "Essai" | "Pro offert" | "Free";
+
+export interface UserRow {
+  userId: string;
+  email: string;
+  createdAt: string;
+  lastSignInAt: string | null;
+  plan: PlanLabel;
+  status: string | null;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  loans: number;
+  goals: number;
+}
+
+export interface UserPage {
+  rows: UserRow[];
+  total: number;
+  page: number;
+  pages: number;
+}
+
 export interface AuditEntry {
   id: number;
   at: string;
@@ -36,6 +58,7 @@ export interface AuditEntry {
 export const ACTION_LABELS: Record<string, string> = {
   "admins.add": "Admin ajouté",
   "admins.remove": "Admin retiré",
+  "users.export": "Export de la liste des utilisateurs",
 };
 
 export const ADMIN_ERRORS: Record<string, string> = {
