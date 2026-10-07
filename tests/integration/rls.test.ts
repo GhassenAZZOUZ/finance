@@ -46,7 +46,7 @@ const KEY: Record<Table, string> = {
 /** A harmless column to try to overwrite. */
 const PATCH: Record<Table, Record<string, unknown>> = {
   profiles: { display_name: "pirate" },
-  budget_settings: { moving_goal: 1 },
+  budget_settings: { emergency_target: 1 },
   budget_lines: { amount: 1 },
   budget_exceptions: { amount: 1 },
   loans: { principal: 1 },
@@ -85,7 +85,7 @@ beforeAll(async () => {
 
   // User A's data, created through A's own session (RLS applies to these writes too).
   await must(
-    a.client.from("budget_settings").insert({ start_month: "2027-01", moving_deadline_month: "2027-06", moving_goal: 4000 }),
+    a.client.from("budget_settings").insert({ start_month: "2027-01" }),
   );
   const line = await must(a.client.from("budget_lines").select("id").limit(1).single());
   const exception = await must(
@@ -97,7 +97,7 @@ beforeAll(async () => {
   const actual = await must(
     a.client
       .from("monthly_actuals")
-      .insert({ month: "2027-01", moving_savings: 100, emergency_savings: 0, free_savings: 0 })
+      .insert({ month: "2027-01", emergency_savings: 0, free_savings: 0 })
       .select("id")
       .single(),
   );
@@ -243,11 +243,11 @@ describe("forged writes", () => {
   it("cannot insert rows owned by another user, on any table", async () => {
     const forged: Record<Table, Record<string, unknown>> = {
       profiles: { user_id: a.id },
-      budget_settings: { user_id: a.id, start_month: "2027-01", moving_deadline_month: "2027-06" },
+      budget_settings: { user_id: a.id, start_month: "2027-01" },
       budget_lines: { user_id: a.id, category: "income", label: "forged", amount: 1 },
       budget_exceptions: { user_id: a.id, month: "2027-12", kind: "expense", label: "forged", amount: 1 },
       loans: { user_id: a.id, principal: 1, apr: 0.1, monthly_payment: 1 },
-      monthly_actuals: { user_id: a.id, month: "2027-02", moving_savings: 0, emergency_savings: 0, free_savings: 0 },
+      monthly_actuals: { user_id: a.id, month: "2027-02", emergency_savings: 0, free_savings: 0 },
       monthly_actual_loan_balances: { user_id: a.id, monthly_actual_id: aActualId, loan_id: aLoanId, balance: 1 },
       savings_goals: { user_id: a.id, name: "forged", target: 1, deadline_month: "2028-01", priority: 3 },
       monthly_actual_goal_balances: { user_id: a.id, monthly_actual_id: aActualId, goal_id: aGoalId, balance: 1 },
@@ -294,7 +294,7 @@ describe("forged writes", () => {
     const ownActual = await must(
       b.client
         .from("monthly_actuals")
-        .insert({ month: "2027-01", moving_savings: 0, emergency_savings: 0, free_savings: 0 })
+        .insert({ month: "2027-01", emergency_savings: 0, free_savings: 0 })
         .select("id")
         .single(),
     );
@@ -322,7 +322,7 @@ describe("forged writes", () => {
     const ownActual = await must(
       b.client
         .from("monthly_actuals")
-        .insert({ month: "2027-03", moving_savings: 0, emergency_savings: 0, free_savings: 0 })
+        .insert({ month: "2027-03", emergency_savings: 0, free_savings: 0 })
         .select("id")
         .single(),
     );
@@ -352,7 +352,7 @@ describe("constraints", () => {
       b.client.from("loans").insert({ principal: -1, apr: 0.05, monthly_payment: 10 }),
       b.client.from("loans").insert({ principal: 100, apr: 1.5, monthly_payment: 10 }),
       b.client.from("budget_lines").insert({ category: "income", label: "x", amount: -5 }),
-      b.client.from("monthly_actuals").insert({ month: "2027-13", moving_savings: 0, emergency_savings: 0, free_savings: 0 }),
+      b.client.from("monthly_actuals").insert({ month: "2027-13", emergency_savings: 0, free_savings: 0 }),
     ];
     for (const res of await Promise.all(bad)) expect(res.error).not.toBeNull();
   });

@@ -13,7 +13,7 @@ let off: TestUser; // reminder turned off → not reminded
 let noPlan: TestUser; // no budget yet → not reminded
 
 async function plan(user: TestUser) {
-  const { error } = await user.client.from("budget_settings").insert({ start_month: "2027-01", moving_deadline_month: "2027-06", moving_goal: 1000 });
+  const { error } = await user.client.from("budget_settings").insert({ start_month: "2027-01" });
   if (error) throw error;
 }
 
@@ -31,7 +31,7 @@ beforeAll(async () => {
     createTestUser("reminder-noplan"),
   ]);
   await Promise.all([plan(due), plan(done), plan(off)]);
-  const checkIn = await done.client.from("monthly_actuals").insert({ month: MONTH, moving_savings: 0, emergency_savings: 0, free_savings: 0 });
+  const checkIn = await done.client.from("monthly_actuals").insert({ month: MONTH, emergency_savings: 0, free_savings: 0 });
   if (checkIn.error) throw checkIn.error;
   const disable = await off.client.from("profiles").update({ reminder_enabled: false }).eq("user_id", off.id);
   if (disable.error) throw disable.error;
