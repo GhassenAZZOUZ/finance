@@ -28,6 +28,8 @@ export interface BudgetLine {
    */
   paydayDay?: number;
   paydayPreviousMonth?: boolean;
+  /** Pro (#145): one free tag to group the reports (« Logement »); omitted = none. */
+  tag?: string;
 }
 
 /** A line as edited in the form: no id yet for new lines. */

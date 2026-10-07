@@ -41,6 +41,7 @@ export function createRepositoryMock(snapshot: FinanceSnapshot = makeSnapshot())
     createBankAccount: vi.fn<FinanceRepository["createBankAccount"]>(async (name, mapping) => ({ id: `account-${name}`, name, mapping })),
     updateBankAccount: vi.fn<FinanceRepository["updateBankAccount"]>(async () => {}),
     deleteBankAccount: vi.fn<FinanceRepository["deleteBankAccount"]>(async () => {}),
+    setLineTag: vi.fn<FinanceRepository["setLineTag"]>(async () => {}),
     deleteAccount: vi.fn<FinanceRepository["deleteAccount"]>(async () => {}),
   };
 }

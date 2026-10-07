@@ -74,6 +74,7 @@ interface LineRow {
   indexed: boolean;
   payday_day: number;
   payday_previous_month: boolean;
+  tag: string | null;
 }
 interface LoanRow {
   id: string;
@@ -281,7 +282,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       this.db.from("budget_settings").select(SETTINGS_COLUMNS).maybeSingle<SettingsRow>(),
       this.db
         .from("budget_lines")
-        .select("id, category, label, amount, position, start_month, end_month, indexed, payday_day, payday_previous_month")
+        .select("id, category, label, amount, position, start_month, end_month, indexed, payday_day, payday_previous_month, tag")
         .order("position")
         .returns<LineRow[]>(),
       this.db
@@ -344,6 +345,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
           startMonth: l.start_month,
           endMonth: l.end_month,
           ...(l.indexed ? {} : { indexed: false }),
+          ...(l.tag ? { tag: l.tag } : {}),
           // Income lines only (SPEC D29); the default payday (1 of the same month) is left out.
           ...(l.category === "income" && (l.payday_day !== 1 || l.payday_previous_month)
             ? { paydayDay: l.payday_day, paydayPreviousMonth: l.payday_previous_month }
@@ -620,6 +622,12 @@ export class SupabaseFinanceRepository implements FinanceRepository {
 
   async deleteBankRule(id: string): Promise<void> {
     checkMaybe(await this.db.from("bank_csv_rules").delete().eq("id", id));
+  }
+
+  /** Pro (#145): the line's tag, or none with null; a Free account gets PT402 « tags_limit ». */
+  async setLineTag(id: string, tag: string | null): Promise<void> {
+    const updated = check(await this.db.from("budget_lines").update({ tag: tag?.trim() || null }).eq("id", id).select("id"));
+    if (updated.length === 0) throw new RepositoryError("Ligne introuvable", "not_found");
   }
 
   async createBankAccount(name: string, mapping: CsvMapping | null): Promise<BankAccount> {

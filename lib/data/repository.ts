@@ -74,6 +74,8 @@ export interface FinanceRepository {
   /** Upserts the keyword rules learnt from a bank import (SPEC D31); its totals pre-fill the check-in rows (#72). */
   saveBankRules(rules: Omit<BankRule, "id">[]): Promise<void>;
   deleteBankRule(id: string): Promise<void>;
+  /** Pro (#145): sets (or clears, with null) a budget line's tag for the reports. */
+  setLineTag(id: string, tag: string | null): Promise<void>;
   /** Adds a named bank account (#115), with the column mapping of its CSV when it needs one. */
   createBankAccount(name: string, mapping: CsvMapping | null): Promise<BankAccount>;
   /** Renames an account or saves its mapping (#115). */
