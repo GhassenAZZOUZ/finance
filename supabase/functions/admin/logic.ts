@@ -38,7 +38,7 @@ export function deny(claims: Claims | null, isAdmin: boolean, nowSeconds: number
   return null;
 }
 
-export const ACTIONS = ["whoami", "admins.list", "admins.add", "admins.remove", "audit.list", "users.list", "users.export", "plan.grant", "plan.revoke"] as const;
+export const ACTIONS = ["whoami", "admins.list", "admins.add", "admins.remove", "audit.list", "users.list", "users.export", "plan.grant", "plan.revoke", "users.delete"] as const;
 export type Action = (typeof ACTIONS)[number];
 
 export type Request =
@@ -46,7 +46,7 @@ export type Request =
   | { action: "admins.add"; email: string }
   | { action: "admins.remove"; userId: string }
   // The list query is read by parseListQuery (users.ts): this file imports nothing (Deno and Node).
-  | { action: "users.list" | "users.export" | "plan.grant" | "plan.revoke"; body: Record<string, unknown> };
+  | { action: "users.list" | "users.export" | "plan.grant" | "plan.revoke" | "users.delete"; body: Record<string, unknown> };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -72,6 +72,7 @@ export function parseRequest(body: unknown): Request | null {
     case "users.export":
     case "plan.grant":
     case "plan.revoke":
+    case "users.delete":
       return { action: b.action, body: b };
     case "admins.remove":
       return typeof b.userId === "string" && UUID.test(b.userId) ? { action: "admins.remove", userId: b.userId } : null;

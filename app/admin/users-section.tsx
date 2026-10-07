@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ADMIN_ERRORS, type PlanLabel, type UserPage, type UserRow, callAdmin } from "@/lib/admin/client";
+import { DeletePanel } from "./delete-panel";
 import { PlanPanel } from "./plan-panel";
 
 const PLANS: PlanLabel[] = ["Pro payant", "Essai", "Pro offert", "Free"];
@@ -30,7 +31,7 @@ function statusText(r: UserRow): string {
  * Back-office user list (issue #157, US-14): account and subscription information only, plus the
  * number of loans and goals. Search, filters, sort, 50 per page, CSV export (audited).
  */
-export function UsersSection() {
+export function UsersSection({ selfEmail = null }: { selfEmail?: string | null }) {
   const id = useId();
   const [search, setSearch] = useState("");
   const [plan, setPlan] = useState("");
@@ -43,6 +44,7 @@ export function UsersSection() {
   const [managed, setManaged] = useState<UserRow | null>(null);
   // Bumped after a change in the « Gérer » panel: the list reloads.
   const [version, setVersion] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const query = useCallback(() => ({ search, plan: plan || null, status: status || null, sort }), [search, plan, status, sort]);
 
@@ -128,6 +130,11 @@ export function UsersSection() {
           </select>
         </label>
       </div>
+      {notice ? (
+        <p role="status" className="text-sm text-good">
+          {notice}
+        </p>
+      ) : null}
       {error ? (
         <p role="alert" className="text-sm text-bad">
           {error}
@@ -191,7 +198,23 @@ export function UsersSection() {
         </>
       )}
       <Sheet open={managed !== null} title={managed ? `Gérer ${managed.email}` : ""} onClose={() => setManaged(null)}>
-        {managed ? <PlanPanel key={managed.userId} user={managed} onChanged={() => setVersion((v) => v + 1)} /> : null}
+        {managed ? (
+          <div className="flex flex-col gap-6">
+            <PlanPanel key={managed.userId} user={managed} onChanged={() => setVersion((v) => v + 1)} />
+            {/* Nobody deletes their own account here: « Supprimer mon compte » (US-16, AC-08). */}
+            {managed.email?.trim().toLowerCase() !== selfEmail?.trim().toLowerCase() ? (
+              <DeletePanel
+                key={`delete-${managed.userId}`}
+                user={managed}
+                onDeleted={(text) => {
+                  setManaged(null);
+                  setNotice(text);
+                  setVersion((v) => v + 1);
+                }}
+              />
+            ) : null}
+          </div>
+        ) : null}
       </Sheet>
     </section>
   );

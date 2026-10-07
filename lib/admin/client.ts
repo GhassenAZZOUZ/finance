@@ -64,6 +64,7 @@ export const ACTION_LABELS: Record<string, string> = {
   "users.export": "Export de la liste des utilisateurs",
   "plan.grant": "Pro offert",
   "plan.revoke": "Pro offert retiré",
+  "users.delete": "Compte supprimé",
 };
 
 export const ADMIN_ERRORS: Record<string, string> = {
@@ -74,6 +75,11 @@ export const ADMIN_ERRORS: Record<string, string> = {
   past_date: "La date de fin est déjà passée.",
   no_grant: "Ce compte n’a pas de Pro offert.",
   already_pro: "Ce compte est déjà Pro.",
+  target_admin: "Ce compte est administrateur : retirez-le d’abord des administrateurs.",
+  email_mismatch: "L’adresse saisie ne correspond pas à ce compte.",
+  stripe_error: "Stripe n’a pas pu résilier l’abonnement : le compte n’a pas été supprimé. Réessayez dans un instant.",
+  delete_failed_after_stripe: "L’abonnement est résilié mais le compte existe encore. Relancez la suppression pour la terminer.",
+  not_configured: "Stripe n’est pas configuré : la suppression d’un compte abonné est impossible pour l’instant.",
   invalid_request: "Demande invalide.",
   failed: "L’action a échoué. Réessayez dans un instant.",
   network: "Connexion impossible : vérifiez votre réseau.",

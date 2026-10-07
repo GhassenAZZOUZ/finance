@@ -165,7 +165,7 @@ function BackOffice({ email }: { email: string | null }) {
         <h1 className="font-heading text-[32px] leading-tight font-medium">Back-office</h1>
         <p className="text-sm text-muted-foreground">Connecté en tant que {email}. Aucune donnée financière des utilisateurs n’est accessible ici.</p>
       </header>
-      <UsersSection />
+      <UsersSection selfEmail={email} />
       <Admins />
       <AuditLog />
     </div>
