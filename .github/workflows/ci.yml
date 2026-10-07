@@ -299,6 +299,8 @@ jobs:
           supabase functions deploy create-checkout --project-ref "$SUPABASE_PROJECT_REF" --use-api
           # Back-office (#156): the user JWT is verified, then admin and TOTP are checked inside.
           supabase functions deploy admin --project-ref "$SUPABASE_PROJECT_REF" --use-api
+          # « Supprimer mon compte » with a Stripe subscription (#159): cancels it, then deletes.
+          supabase functions deploy delete-account --project-ref "$SUPABASE_PROJECT_REF" --use-api
 
   deploy:
     name: Deploy to GitHub Pages

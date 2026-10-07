@@ -2,10 +2,15 @@
  * Back-office (issue #156, US-13, epic #161): the single entry point of every admin action. Checks
  * the caller's JWT, that they are in `admins`, and that their session passed the TOTP code (aal2);
  * only then uses the service role. Every action that changes something is written to `admin_audit`.
- * Never reads the financial tables. Secrets: SUPABASE_URL, SUPABASE_ANON_KEY and
- * SUPABASE_SERVICE_ROLE_KEY are provided by Supabase. Deployed with JWT verification on.
+ * Never reads the financial tables. Secrets: STRIPE_SECRET_KEY (account deletion, US-16), SMTP_HOST,
+ * SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM (deletion e-mail, same as the monthly reminder);
+ * SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase. Deployed
+ * with JWT verification on.
  */
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import nodemailer from "npm:nodemailer@6.9.16";
+import { closeStripeAccount } from "../_shared/stripe-account.ts";
+import { deleteRefusal, deletionEmail, parseDeleteRequest } from "./delete.ts";
 import { claimsOf, deny, normalizeEmail, parseRequest, removalRefusal } from "./logic.ts";
 import { grantExpiry, grantRefusal, parsePlanRequest } from "./plan.ts";
 import { type AccountInput, type GrantInput, type SubscriptionInput, type UserRow, filterAndSort, page, parseListQuery, toCsv, userRows } from "./users.ts";
@@ -60,6 +65,23 @@ async function audit(db: SupabaseClient, adminId: string, action: string, target
   if (error) throw error;
   // 12-month retention (owner decision).
   await db.rpc("purge_admin_audit");
+}
+
+/** Sends the deletion e-mail; false when SMTP is not configured or the send fails (never blocks). */
+async function sendDeletionEmail(to: string, subscriptionCancelled: boolean): Promise<boolean> {
+  const env = (name: string) => Deno.env.get(name) ?? "";
+  const [host, port, user, pass, from] = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM"].map(env);
+  if (!host || !port || !user || !pass || !from) return false;
+  try {
+    const transport = nodemailer.createTransport({ host, port: Number(port), secure: Number(port) === 465, auth: { user, pass } });
+    const mail = deletionEmail(subscriptionCancelled);
+    await transport.sendMail({ from, to, subject: mail.subject, text: mail.text, html: mail.html });
+    return true;
+  } catch (error) {
+    // The address is not logged.
+    console.error("[admin] deletion e-mail not sent:", error instanceof Error ? error.message : String(error));
+    return false;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -156,6 +178,49 @@ Deno.serve(async (req) => {
         if (!data || data.length === 0) return json({ error: "no_grant" }, 404);
         await audit(db, adminId, "plan.revoke", plan.userId, { reason: plan.reason || null, grant: data[0]!.reason });
         return json({ revoked: true });
+      }
+
+      case "users.delete": {
+        const del = parseDeleteRequest(request.body);
+        if (!del) return json({ error: "invalid_request" }, 400);
+        const { data: found } = await db.auth.admin.getUserById(del.userId);
+        // Deleted meanwhile (by its owner or another admin): nothing to cancel, nothing audited.
+        if (!found?.user) return json({ error: "user_not_found" }, 404);
+        const { data: adminRows, error: adminError } = await db.from("admins").select("user_id");
+        if (adminError) throw adminError;
+        const why = deleteRefusal(adminId, del, found.user.email ?? null, (adminRows ?? []).map((a) => a.user_id));
+        if (why) return json({ error: why }, why === "email_mismatch" ? 400 : 409);
+
+        // Stripe first: if it fails, nothing is deleted (owner decision: no refund, customer kept).
+        const { data: sub, error: subError } = await db
+          .from("subscriptions")
+          .select("stripe_customer_id, stripe_subscription_id")
+          .eq("user_id", del.userId)
+          .maybeSingle<{ stripe_customer_id: string; stripe_subscription_id: string | null }>();
+        if (subError) throw subError;
+        let cancelled = false;
+        if (sub) {
+          const key = env("STRIPE_SECRET_KEY");
+          if (!key) return json({ error: "not_configured" }, 503);
+          const closed = await closeStripeAccount(fetch, key, { customerId: sub.stripe_customer_id, subscriptionId: sub.stripe_subscription_id }, new Date().toISOString().slice(0, 10));
+          if (!closed.ok) {
+            console.error("[admin] users.delete stripe", closed.step, closed.status);
+            return json({ error: "stripe_error" }, 502);
+          }
+          cancelled = closed.cancelled;
+        }
+
+        const { data: deleted, error: deleteError } = await db.rpc("delete_user_account", { p_user: del.userId });
+        if (deleteError) {
+          console.error("[admin] users.delete", deleteError.message);
+          // Running it again completes it: Stripe is not cancelled twice.
+          return json({ error: sub ? "delete_failed_after_stripe" : "failed" }, 500);
+        }
+        if (deleted !== true) return json({ error: "user_not_found" }, 404);
+        // The id and the request reference only: no e-mail of the deleted user.
+        await audit(db, adminId, "users.delete", del.userId, { request_ref: del.requestRef, subscription_cancelled: cancelled });
+        const emailSent = found.user.email ? await sendDeletionEmail(found.user.email, cancelled) : false;
+        return json({ deleted: true, subscriptionCancelled: cancelled, emailSent });
       }
 
       case "audit.list": {

@@ -38,6 +38,31 @@ confirms first, and the new end date replaces the current one. « Retirer le Pro
 confirmation; a paying subscription stays. Nobody changes their own plan. Both actions are written to
 the audit log (reason, end date, previous plan). The user receives no e-mail.
 
+## Delete an account (US-16, #159)
+
+At the owner's request (GDPR erasure), « Gérer » › « Supprimer le compte »: the admin types a
+reference of the request (e.g. the date and sender of the e-mail received, 1–200 characters) and the
+account's e-mail (case and surrounding spaces ignored); the server checks both again. In this order:
+
+1. Stripe (if the account has a customer): an active, trial or past-due subscription is cancelled
+   immediately, without refund nor final invoice; the customer is kept for accounting (invoices are
+   kept 10 years) and marked `account_deleted = <date>` in its metadata. If Stripe fails, nothing is
+   deleted.
+2. `delete_user_account()` (service role only) deletes the account exactly like « Supprimer mon
+   compte ». If it fails after Stripe, the admin sees it and runs the deletion again (Stripe is not
+   cancelled twice).
+3. The audit log records the account id, the request reference and whether a subscription was
+   cancelled, never the e-mail; the entry survives the deletion.
+4. The user receives « Votre compte Boussole a été supprimé » (same SMTP secrets as the monthly
+   reminder); if it cannot be sent, the admin is told.
+
+Nobody deletes their own account here (« Supprimer mon compte ») nor another admin's (remove them
+from the admins first). « Supprimer mon compte » also cancels Stripe the same way, through the
+`delete-account` Edge Function, when the user has a Stripe customer.
+
+The `admin` and `delete-account` functions read the project secrets `STRIPE_SECRET_KEY` and `SMTP_*`
+already set for Checkout (docs/BILLING.md) and the monthly reminder (README.md).
+
 ## First admin (owner, once)
 
 The repository is public, so no e-mail address is in a migration. In the Supabase dashboard →

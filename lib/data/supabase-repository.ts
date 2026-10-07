@@ -665,7 +665,17 @@ export class SupabaseFinanceRepository implements FinanceRepository {
   }
 
   async deleteAccount(): Promise<void> {
-    checkMaybe(await this.db.rpc("delete_my_account"));
+    // With a Stripe subscription, the `delete-account` Edge Function cancels it first (#159); if
+    // Stripe fails, nothing is deleted.
+    const sub = checkMaybe(await this.db.from("subscriptions").select("user_id").maybeSingle());
+    if (!sub) {
+      checkMaybe(await this.db.rpc("delete_my_account"));
+      return;
+    }
+    const { data, error } = await this.db.functions.invoke<{ deleted?: boolean }>("delete-account", { body: {} });
+    if (error || !data?.deleted) {
+      throw new RepositoryError("Votre abonnement n’a pas pu être résilié, votre compte n’a pas été supprimé. Réessayez dans un instant.", "stripe_error");
+    }
   }
 
   async orderGoals(ids: string[]): Promise<void> {

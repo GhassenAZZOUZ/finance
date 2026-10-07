@@ -111,16 +111,20 @@ async function countRows(table: string, userId: string): Promise<number> {
 
 let a: TestUser;
 let b: TestUser;
+let c: TestUser;
 
 beforeAll(async () => {
   a = await createTestUser("delete-a");
   b = await createTestUser("delete-b");
+  c = await createTestUser("delete-c");
   await seed(a);
   await seed(b);
+  await seed(c);
 });
 
 afterAll(async () => {
   await deleteTestUser(a).catch(() => {});
+  await deleteTestUser(c).catch(() => {});
   await deleteTestUser(b);
 });
 
@@ -158,5 +162,30 @@ describe("delete_my_account", () => {
     expect(await countRows("budget_settings", data.user!.id)).toBe(0);
     expect(await countRows("profiles", data.user!.id)).toBe(1);
     await adminClient().auth.admin.deleteUser(data.user!.id);
+  });
+});
+
+describe("delete_user_account (back-office, #159)", () => {
+  it("is refused to a user, even for another account, and to anonymous callers", async () => {
+    expect((await b.client.rpc("delete_user_account", { p_user: c.id })).error).not.toBeNull();
+    expect((await anonClient().rpc("delete_user_account", { p_user: c.id })).error).not.toBeNull();
+    // delete_my_account() takes no target: an id in the body is refused, never used.
+    expect((await b.client.rpc("delete_my_account", { p_user: c.id })).error).not.toBeNull();
+    for (const table of USER_TABLES) expect(await countRows(table, c.id), table).toBeGreaterThan(0);
+  });
+
+  it("deletes every row of the target, as « Supprimer mon compte », and nothing of another user", async () => {
+    const before = Object.fromEntries(await Promise.all(USER_TABLES.map(async (t) => [t, await countRows(t, b.id)] as const)));
+    expect(await must(adminClient().rpc("delete_user_account", { p_user: c.id }))).toBe(true);
+    const { data } = await adminClient().auth.admin.getUserById(c.id);
+    expect(data.user).toBeNull();
+    for (const table of USER_TABLES) {
+      expect(await countRows(table, c.id), table).toBe(0);
+      expect(await countRows(table, b.id), table).toBe(before[table]);
+    }
+  });
+
+  it("answers false for an account already deleted", async () => {
+    expect(await must(adminClient().rpc("delete_user_account", { p_user: c.id }))).toBe(false);
   });
 });
