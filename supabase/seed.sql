@@ -13,6 +13,7 @@ declare
   debt_a_id uuid := '00000000-0000-4000-8000-0000000000a5';
   debt_b_id uuid := '00000000-0000-4000-8000-0000000000a6';
   actual_id uuid;
+  goal_id uuid := '00000000-0000-4000-8000-0000000000b1';
   -- Dates relative to today, so the demo always has a started plan and an enterable month.
   start_month text := to_char(date_trunc('month', now()) - interval '2 months', 'YYYY-MM');
   deadline_month text := to_char(date_trunc('month', now()) + interval '3 months', 'YYYY-MM');
@@ -50,9 +51,11 @@ begin
   where bl.user_id = demo_id and bl.category = v.category and bl.position = v.position;
 
   insert into public.budget_settings (
-    user_id, start_month, moving_goal, moving_deadline_month, moving_already_saved,
-    emergency_target, emergency_existing, risk_free_rate, early_repayment_pct
-  ) values (demo_id, start_month, 4000, deadline_month, 500, 4000, 800, 0.024, 0.6);
+    user_id, start_month, emergency_target, emergency_existing, risk_free_rate, early_repayment_pct
+  ) values (demo_id, start_month, 4000, 800, 0.024, 0.6);
+  -- The primary goal (the spreadsheet's moving fund, SPEC D23).
+  insert into public.savings_goals (id, user_id, name, target, deadline_month, already_saved, priority)
+  values (goal_id, demo_id, 'Déménagement', 4000, deadline_month, 500, 1);
 
   insert into public.loans (id, user_id, name, type, principal, apr, monthly_payment, position) values
     (auto_id,      demo_id, 'Prêt auto',       'Prêt affecté',      8200, 0.049,  245.30, 0),
@@ -63,9 +66,11 @@ begin
     (debt_b_id,    demo_id, 'Dette perso B',   'Dette personnelle',  250, 0,       50.00, 5);
 
   -- One check-in for the first plan month, exactly on plan (golden 'suivi_actuals' scenario, month 1).
-  insert into public.monthly_actuals (user_id, month, income, expenses, moving_savings, emergency_savings, free_savings)
-  values (demo_id, start_month, 2900, 1725, 943.55, 800, 0)
+  insert into public.monthly_actuals (user_id, month, income, expenses, emergency_savings, free_savings)
+  values (demo_id, start_month, 2900, 1725, 800, 0)
   returning id into actual_id;
+  insert into public.monthly_actual_goal_balances (user_id, monthly_actual_id, goal_id, balance)
+  values (demo_id, actual_id, goal_id, 943.55);
   insert into public.monthly_actual_loan_balances (user_id, monthly_actual_id, loan_id, balance) values
     (demo_id, actual_id, auto_id, 7988.18),
     (demo_id, actual_id, revolving_id, 1806.74),

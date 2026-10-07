@@ -47,11 +47,11 @@ async function must<T = Row>(p: PromiseLike<{ data: unknown; error: { message: s
 /** Fills every table for `user` (through their own session, except the service-only reminder log). */
 async function seed(user: TestUser): Promise<void> {
   const db = user.client;
-  await must(db.from("budget_settings").insert({ start_month: "2027-01", moving_deadline_month: "2027-06", moving_goal: 4000 }));
+  await must(db.from("budget_settings").insert({ start_month: "2027-01" }));
   await must(db.from("budget_exceptions").insert({ month: "2027-12", kind: "income", label: "Prime", amount: 500 }));
   const loan = await must(db.from("loans").insert({ name: "Prêt test", principal: 1000, apr: 0.05, monthly_payment: 100 }).select("id").single());
   const actual = await must(
-    db.from("monthly_actuals").insert({ month: "2027-01", moving_savings: 100, emergency_savings: 0, free_savings: 0 }).select("id").single(),
+    db.from("monthly_actuals").insert({ month: "2027-01", emergency_savings: 0, free_savings: 0 }).select("id").single(),
   );
   await must(db.from("monthly_actual_loan_balances").insert({ monthly_actual_id: actual.id, loan_id: loan.id, balance: 900 }));
   const goal = await must(

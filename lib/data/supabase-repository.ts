@@ -39,7 +39,7 @@ interface SettingsRow {
   emergency_rate: number;
   free_savings_rate: number;
 }
-// budget_settings.moving_* and monthly_actuals.moving_savings are no longer read nor written (tech-debt 6).
+// The old moving-fund columns were dropped (tech-debt 6.2): goals live in savings_goals.
 const SETTINGS_COLUMNS =
   "start_month, emergency_target, emergency_existing, free_savings_existing, risk_free_rate, early_repayment_pct, expense_inflation_rate, income_growth_rate, emergency_rate, free_savings_rate";
 interface GoalRow {
