@@ -28,7 +28,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
               <main
                 id="contenu"
                 tabIndex={-1}
-                className="mx-auto flex w-full max-w-[96rem] flex-1 flex-col gap-4 px-4 pt-5 pb-28 outline-none md:gap-6 md:px-8 md:pt-10 md:pb-14 xl:px-12"
+                className="mx-auto flex w-full max-w-[96rem] flex-1 flex-col gap-4 px-4 pt-5 pb-28 outline-none md:gap-6 md:px-8 md:pt-10 md:pb-14 xl:px-12 print:p-0"
               >
                 <FinanceGate>{children}</FinanceGate>
               </main>

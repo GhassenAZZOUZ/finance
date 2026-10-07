@@ -1,6 +1,7 @@
 "use client";
 
 import { Lock, TriangleAlert } from "lucide-react";
+import Link from "next/link";
 import { useId, useState } from "react";
 import { useFinance } from "@/components/app/finance-provider";
 import { PageHeader } from "@/components/app/page-header";
@@ -11,7 +12,7 @@ import { getRepository, notifyDataChanged } from "@/lib/data/client-store";
 import { NO_TAG, type LineReport, REPORT_MONTHS, lineReports, reportMonths, tagTotals, tagsInUse } from "@/lib/domain/reports";
 import type { BudgetLine } from "@/lib/domain/types";
 import { errorMessage, reportError } from "@/lib/errors";
-import { currentYearMonth, formatEuros, formatMonthShort } from "@/lib/format";
+import { currentYearMonth, formatEuros, formatMonthLong, formatMonthShort } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const ALL = "__all__";
@@ -103,8 +104,34 @@ export function ReportsView() {
         </>
       )}
 
+      <MonthlyReports months={snapshot.actuals.map((a) => a.month)} />
+
       <LineTags lines={snapshot.lines} tags={tags} />
     </>
+  );
+}
+
+/** One printable report per check-in (newest first), saved as PDF from the browser. */
+function MonthlyReports({ months }: { months: string[] }) {
+  if (months.length === 0) return null;
+  return (
+    <section aria-labelledby="report-months-title" className="flex max-w-3xl flex-col gap-3">
+      <h2 id="report-months-title" className="text-[17px] font-semibold">
+        Rapport mensuel (PDF)
+      </h2>
+      <ul className="flex flex-wrap gap-2">
+        {[...months].sort().reverse().map((m) => (
+          <li key={m}>
+            <Link
+              href={`/rapports/mois/?mois=${m}`}
+              className="inline-flex min-h-11 items-center rounded-[10px] border border-input bg-card px-3.5 text-sm font-medium first-letter:uppercase hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              {formatMonthLong(m)}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
