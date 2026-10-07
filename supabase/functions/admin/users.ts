@@ -18,6 +18,7 @@ export interface AccountInput {
   lastSignInAt: string | null;
 }
 export interface SubscriptionInput {
+  customerId?: string | null;
   status: string;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
@@ -40,6 +41,10 @@ export interface UserRow {
   cancelAtPeriodEnd: boolean;
   loans: number;
   goals: number;
+  /** For the « Gérer » panel (#158): the Stripe customer and the offered Pro, if any. */
+  stripeCustomerId: string | null;
+  grantReason: string | null;
+  grantExpiresAt: string | null;
 }
 
 /** One label, by priority: paying Pro > trial > offered Pro > Free (owner decision). */
@@ -73,6 +78,9 @@ export function userRows(
       cancelAtPeriodEnd: sub?.cancelAtPeriodEnd ?? false,
       loans: counts.get(a.id)?.loans ?? 0,
       goals: counts.get(a.id)?.goals ?? 0,
+      stripeCustomerId: sub?.customerId ?? null,
+      grantReason: grants.get(a.id)?.reason ?? null,
+      grantExpiresAt: grants.get(a.id)?.expiresAt ?? null,
     };
   });
 }

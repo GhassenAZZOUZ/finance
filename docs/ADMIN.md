@@ -28,6 +28,16 @@ sign-in, 50 per page. « Exporter en CSV » downloads the filtered list (`;`, UT
 formulas neutralised); each export is written to the audit log with its filters and count. Viewing
 the list is not audited.
 
+## Offer or remove Pro (US-15, #158)
+
+« Gérer » on a row opens the account's plan: the offered Pro (at launch or by an admin, end date) and
+a link to the customer in Stripe (a Stripe subscription is never changed from the back-office).
+« Offrir Pro » needs a reason (1–200 characters); the end date is optional and included until 23:59
+Paris time; a past date is refused. On an account already Pro (paying, trial or offered) the admin
+confirms first, and the new end date replaces the current one. « Retirer le Pro offert » asks for a
+confirmation; a paying subscription stays. Nobody changes their own plan. Both actions are written to
+the audit log (reason, end date, previous plan). The user receives no e-mail.
+
 ## First admin (owner, once)
 
 The repository is public, so no e-mail address is in a migration. In the Supabase dashboard →
