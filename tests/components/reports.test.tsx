@@ -79,7 +79,12 @@ describe("ReportsView", () => {
     expect(within(lines).getAllByRole("columnheader")).toHaveLength(15);
     expect(within(lines).getByRole("row", { name: /Courses/ }).textContent).toContain("dépassement récurrent");
     const months = within(screen.getByRole("region", { name: "Rapport mensuel (PDF)" })).getAllByRole("link");
-    expect(months.map((l) => l.getAttribute("href"))).toEqual(["/rapports/mois/?mois=2027-03", "/rapports/mois/?mois=2027-02", "/rapports/mois/?mois=2027-01"]);
+    // Next.js keeps the trailing slash in the build (trailingSlash) but not in tests.
+    expect(months.map((l) => l.getAttribute("href")?.replace("/rapports/mois/", "/rapports/mois"))).toEqual([
+      "/rapports/mois?mois=2027-03",
+      "/rapports/mois?mois=2027-02",
+      "/rapports/mois?mois=2027-01",
+    ]);
   });
 
   it("filters the lines by tag", async () => {
