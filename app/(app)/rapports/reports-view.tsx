@@ -70,6 +70,7 @@ export function ReportsView() {
                 <TriangleAlert aria-hidden className="size-4" />
                 Dépassements récurrents
               </p>
+              <p>Les lignes hors budget au moins 3 mois sur 12 : le budget ou l’habitude est peut-être à revoir.</p>
               <ul className="list-disc pl-5">
                 {recurring.map((r) => (
                   <li key={r.key}>
@@ -80,13 +81,19 @@ export function ReportsView() {
             </section>
           ) : null}
 
-          <TagTotalsTable reports={all} />
+          <TagTotalsTable reports={all} tagged={tags.length > 0} />
 
           <section aria-labelledby="report-lines-title" className="flex min-w-0 flex-col gap-3">
             <div className="flex flex-wrap items-end justify-between gap-3">
-              <h2 id="report-lines-title" className="text-[17px] font-semibold">
-                Par ligne
-              </h2>
+              <div className="flex flex-col gap-1">
+                <h2 id="report-lines-title" className="text-[17px] font-semibold">
+                  Par ligne
+                </h2>
+                <p className="max-w-2xl text-sm text-muted-foreground">
+                  Le montant réel de chaque ligne, mois par mois. En rouge : plus de 10 € au-dessus du budget (ou en dessous, pour un
+                  revenu). « — » : mois sans suivi.
+                </p>
+              </div>
               <label htmlFor={filterId} className="flex items-center gap-2 text-sm font-medium">
                 Étiquette
                 <select id={filterId} value={filter} onChange={(e) => setFilter(e.target.value)} className="min-h-11 rounded-[10px] border border-input bg-card px-3 text-sm">
@@ -135,7 +142,7 @@ function MonthlyReports({ months }: { months: string[] }) {
   );
 }
 
-function TagTotalsTable({ reports }: { reports: LineReport[] }) {
+function TagTotalsTable({ reports, tagged }: { reports: LineReport[]; tagged: boolean }) {
   const totals = tagTotals(reports);
   if (totals.length === 0) return null;
   return (
@@ -143,6 +150,19 @@ function TagTotalsTable({ reports }: { reports: LineReport[] }) {
       <h2 id="report-tags-title" className="text-[17px] font-semibold">
         Dépenses par étiquette
       </h2>
+      <p className="max-w-3xl text-sm text-muted-foreground">
+        Vos lignes de dépenses regroupées par domaine (Logement, Alimentation…) et additionnées sur les mois suivis : ce que vous aviez
+        prévu, ce que vous avez dépensé, et l’écart. Un écart en rouge signale un domaine où vous dépensez plus que prévu.
+      </p>
+      {tagged ? null : (
+        <p className="max-w-3xl rounded-xl border border-dashed border-input px-3 py-2 text-sm text-muted-foreground">
+          Aucune ligne n’a encore d’étiquette : tout est dans « Sans étiquette ». Donnez une étiquette à vos lignes dans{" "}
+          <a href="#report-line-tags-title" className="font-medium text-link underline underline-offset-2">
+            Étiquettes des lignes
+          </a>
+          , plus bas.
+        </p>
+      )}
       <Table label="Dépenses par étiquette sur 12 mois">
         <TableHeader>
           <TableRow>

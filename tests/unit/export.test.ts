@@ -202,3 +202,19 @@ describe("#35 AC-10 — savings interest in the plan CSV", () => {
     expect(cell("2026-12")).toBe(csvAmount(december.savingsInterest, "fr"));
   });
 });
+
+describe("backup version 14 (#145)", () => {
+  it("exports each budget line's tag, null without one", () => {
+    const snap = makeSnapshot({
+      ...full,
+      lines: [
+        { id: "l1", category: "fixed", label: "Loyer", amount: 85_000, position: 0, startMonth: null, endMonth: null, tag: "Logement" },
+        { id: "l2", category: "variable", label: "Courses", amount: 40_000, position: 0, startMonth: null, endMonth: null },
+      ],
+    });
+    expect(buildBackup(snap, NOW).data.budgetLines.map((l) => [l.label, l.tag])).toEqual([
+      ["Loyer", "Logement"],
+      ["Courses", null],
+    ]);
+  });
+});
