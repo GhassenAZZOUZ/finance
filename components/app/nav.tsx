@@ -122,7 +122,7 @@ export function Sidebar() {
   const pending = usePendingCheckIns();
   const oldest = pending[0];
   return (
-    <aside className="sticky top-0 hidden h-dvh w-62 shrink-0 flex-col gap-8 overflow-y-auto border-r border-sidebar-border bg-sidebar px-4.5 py-7 text-sidebar-foreground md:flex">
+    <aside className="sticky top-0 hidden h-dvh w-62 shrink-0 flex-col gap-8 overflow-y-auto border-r border-sidebar-border bg-sidebar px-4.5 py-7 text-sidebar-foreground md:flex print:hidden">
       <div className="flex items-center gap-2.5 px-2">
         <BrandMark />
         <span className="font-heading text-xl leading-tight font-semibold text-foreground">Boussole</span>
@@ -202,7 +202,7 @@ export function MobileHeader() {
   const plan = useOptionalFinance()?.plan;
   if (pathname !== "/") return null;
   return (
-    <header className="flex h-15 items-center gap-2.5 px-4 md:hidden">
+    <header className="flex h-15 items-center gap-2.5 px-4 md:hidden print:hidden">
       <BrandMark />
       <span className="font-heading text-xl font-semibold">Boussole</span>
       {/* The reference month and its rank in the plan (#109). */}
@@ -345,7 +345,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Navigation principale"
-      className="fixed inset-x-0 bottom-0 z-40 border-t bg-card px-1 pt-1.5 pb-[max(env(safe-area-inset-bottom),6px)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t bg-card px-1 pt-1.5 pb-[max(env(safe-area-inset-bottom),6px)] md:hidden print:hidden"
     >
       <ul className="grid grid-cols-5">
         {MOBILE_TABS_START.map((tab) => (
