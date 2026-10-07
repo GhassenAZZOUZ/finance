@@ -46,10 +46,9 @@ describe("admins and audit log (AC-05, AC-08, AC-09)", () => {
   it("keeps entries 12 months: the purge removes only the older ones", async () => {
     const db = adminClient();
     const old = new Date(Date.now() - 400 * 86_400_000).toISOString();
-    await db.from("admin_audit").insert([
-      { admin_id: a.id, action: "admins.add", at: old },
-      { admin_id: a.id, action: "admins.remove" },
-    ]);
+    // Two inserts: in a bulk insert a missing key is sent as null (`at` would be null).
+    expect((await db.from("admin_audit").insert({ admin_id: a.id, action: "admins.add", at: old })).error).toBeNull();
+    expect((await db.from("admin_audit").insert({ admin_id: a.id, action: "admins.remove" })).error).toBeNull();
     const { data: purged } = await db.rpc("purge_admin_audit");
     expect(purged).toBeGreaterThanOrEqual(1);
     const { data } = await db.from("admin_audit").select("action, at").eq("admin_id", a.id);
