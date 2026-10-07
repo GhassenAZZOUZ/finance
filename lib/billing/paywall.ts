@@ -17,6 +17,10 @@ export const PAYWALL_COPY: Record<PaywallReason, { title: string; text: string }
     title: "Plusieurs objectifs d’épargne",
     text: "Le plan gratuit compte 1 objectif d’épargne. Avec Boussole Pro, ajoutez-en autant que nécessaire.",
   },
+  tags_limit: {
+    title: "Vos rapports par étiquette",
+    text: "Avec Boussole Pro, étiquetez vos lignes (Logement, Loisirs…) et suivez le réel contre le budget sur 12 mois.",
+  },
   history_limit: {
     title: "Tout votre historique",
     text: "Le plan gratuit affiche les 3 derniers mois de suivi. Avec Boussole Pro, retrouvez tous vos mois (ils restent enregistrés).",

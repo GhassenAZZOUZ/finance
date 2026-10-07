@@ -56,11 +56,12 @@ const MESSAGES: Record<string, string> = {
 export const NETWORK_MESSAGE = "Connexion impossible : vérifiez votre réseau puis réessayez.";
 
 /** Free plan limits refused by the database (#139, SQLSTATE PT402 = HTTP 402, message = limit key). */
-export type LimitKey = "loans_limit" | "goals_limit";
+export type LimitKey = "loans_limit" | "goals_limit" | "tags_limit";
 
 export const LIMIT_MESSAGES: Record<LimitKey, string> = {
   loans_limit: "Le plan gratuit compte 1 crédit : passez à Boussole Pro pour en suivre davantage.",
   goals_limit: "Le plan gratuit compte 1 objectif d’épargne : passez à Boussole Pro pour en ajouter d’autres.",
+  tags_limit: "Les étiquettes et les rapports sont réservés à Boussole Pro.",
 };
 
 /** The Free limit an error is about, or null: what the paywall (US-3) needs. */

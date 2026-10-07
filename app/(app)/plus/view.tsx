@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, CalendarCheck, CircleHelp, Download, FlaskConical, type LucideIcon, Moon, ShieldCheck, Sparkles, Table2, Upload } from "lucide-react";
+import { BarChart3, Bell, CalendarCheck, CircleHelp, Download, FlaskConical, type LucideIcon, Moon, ShieldCheck, Sparkles, Table2, Upload } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useId } from "react";
@@ -22,6 +22,7 @@ const TOOLS: RowLink[] = [
   { href: "/plan", label: "Plan mois par mois", icon: Table2 },
   { href: "/simuler", label: "Et si… ?", hint: "simuler un changement", icon: FlaskConical },
   { href: "/suivi#suivi-history-title", label: "Historique du suivi", icon: CalendarCheck },
+  { href: "/rapports", label: "Rapports", hint: "réel vs budget sur 12 mois", icon: BarChart3 },
 ];
 
 const DATA: RowLink[] = [

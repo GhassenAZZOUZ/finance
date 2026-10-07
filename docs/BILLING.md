@@ -29,7 +29,10 @@ Every account that existed when the Free limits shipped got a grant `early_user`
 | Active loans | 1 | trigger on `loans` (insert, re-activation) |
 | Savings goals | 1 | trigger on `savings_goals` (insert) |
 | Check-in history shown | last 3 months | interface only (every check-in feeds the balances, D33) |
-| Plan horizon shown | 3 months | interface only (the plan is computed in the browser) |
+| Plan horizon shown | 3 months from this month | interface only (the plan is computed in the browser) |
+| Dashboard projections | locked card | interface only (#145) |
+| Tags on budget lines | Pro only | trigger on `budget_lines.tag` (`tags_limit`) |
+| Reports (`/rapports/`) | Pro only | interface only (computed in the browser from the check-ins) |
 
 The numbers live in `plan_limits`. Beyond a database limit the insert is refused with SQLSTATE
 `PT402` (PostgREST answers **HTTP 402**) and the limit key as message (`loans_limit`,

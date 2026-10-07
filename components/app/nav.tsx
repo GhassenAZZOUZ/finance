@@ -2,6 +2,7 @@
 
 import {
   ArrowRight,
+  BarChart3,
   CalendarCheck,
   ChevronUp,
   CreditCard,
@@ -35,6 +36,7 @@ export const NAV_ITEMS = [
   { href: "/plan", label: "Plan", icon: Table2 },
   { href: "/suivi", label: "Suivi", icon: CalendarCheck },
   { href: "/simuler", label: "Et si… ?", icon: FlaskConical },
+  { href: "/rapports", label: "Rapports", icon: BarChart3 },
 ] as const;
 
 /** Export / backup page, reached from the account area (not a main tab). */
