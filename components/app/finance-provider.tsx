@@ -9,6 +9,7 @@ import { errorMessage, reportError } from "@/lib/errors";
 import { formatDate } from "@/lib/format";
 import { clearOfflineSnapshot, readOfflineSnapshot, saveOfflineSnapshot } from "@/lib/native/offline-cache";
 import { isNativeApp } from "@/lib/native/platform";
+import { PaymentBanner } from "./payment-banner";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 
@@ -140,9 +141,13 @@ export function FinanceGate({ children }: { children: ReactNode }) {
       </div>
     );
   }
+  // A failed payment (#144): a banner above every page until it is settled.
+  const problem = state.snapshot.paymentProblem;
+  const banner = problem ? <PaymentBanner problem={problem} /> : null;
   if (state.offlineSince) {
     return (
       <>
+        {banner}
         <div
           role="status"
           className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-warning-border bg-warning-bg px-3 py-2 text-sm text-warning"
@@ -156,7 +161,14 @@ export function FinanceGate({ children }: { children: ReactNode }) {
       </>
     );
   }
-  return children;
+  return banner ? (
+    <>
+      {banner}
+      {children}
+    </>
+  ) : (
+    children
+  );
 }
 
 /** « 06/10/2026 à 08:30 », in the phone's time zone. */

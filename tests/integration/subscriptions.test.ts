@@ -48,10 +48,34 @@ describe("entitlements.is_pro", () => {
   });
 
   it("past_due keeps Pro during the grace period only, even when the period end is far away", async () => {
-    await subscribe(a, { status: "past_due", past_due_since: iso(-2 * DAY), current_period_end: iso(28 * DAY) });
+    await subscribe(a, { status: "past_due", paying_since: iso(-40 * DAY), past_due_since: iso(-2 * DAY), current_period_end: iso(28 * DAY) });
     expect(await isPro(a)).toBe(true);
-    await subscribe(a, { status: "past_due", past_due_since: iso(-8 * DAY), current_period_end: iso(22 * DAY) });
+    await subscribe(a, { status: "past_due", paying_since: iso(-40 * DAY), past_due_since: iso(-8 * DAY), current_period_end: iso(22 * DAY) });
     expect(await isPro(a)).toBe(false);
+  });
+
+  it("a trial ending with a declined card has no grace period (#144, owner decision)", async () => {
+    await subscribe(a, { status: "past_due", paying_since: null, past_due_since: iso(-1 * DAY), current_period_end: iso(29 * DAY) });
+    expect(await isPro(a)).toBe(false);
+  });
+
+  it("tells the banner about a failed payment: grace with its end, then lapsed (#144)", async () => {
+    const banner = async () =>
+      (await a.client.from("entitlements").select("payment_problem, grace_ends_at, payment_url").single()).data as {
+        payment_problem: string | null;
+        grace_ends_at: string | null;
+        payment_url: string | null;
+      };
+    const since = iso(-2 * DAY);
+    await subscribe(a, { status: "past_due", paying_since: iso(-40 * DAY), past_due_since: since, payment_url: "https://invoice.stripe.com/i/test" });
+    const grace = await banner();
+    expect(grace.payment_problem).toBe("grace");
+    expect(new Date(grace.grace_ends_at!).getTime()).toBe(new Date(since).getTime() + 7 * DAY);
+    expect(grace.payment_url).toBe("https://invoice.stripe.com/i/test");
+    await subscribe(a, { status: "past_due", paying_since: iso(-40 * DAY), past_due_since: iso(-8 * DAY) });
+    expect((await banner()).payment_problem).toBe("lapsed");
+    await subscribe(a, { status: "active", past_due_since: null, payment_url: null });
+    expect(await banner()).toEqual({ payment_problem: null, grace_ends_at: null, payment_url: null });
   });
 
   it("an active subscription cancelled at period end stays Pro", async () => {
@@ -60,10 +84,10 @@ describe("entitlements.is_pro", () => {
     expect(data).toEqual({ is_pro: true, cancel_at_period_end: true });
   });
 
-  it("subscription_is_pro: the grace period ends exactly 7 days after past_due_since", async () => {
+  it("subscription_has_pro: the grace period ends exactly 7 days after past_due_since", async () => {
     const since = "2027-01-10T12:00:00Z";
     const at = async (p_at: string) =>
-      (await a.client.rpc("subscription_is_pro", { p_status: "past_due", p_past_due_since: since, p_at })).data;
+      (await a.client.rpc("subscription_has_pro", { p_status: "past_due", p_past_due_since: since, p_paying_since: "2026-12-01T00:00:00Z", p_at })).data;
     expect(await at("2027-01-17T11:59:59Z")).toBe(true);
     expect(await at("2027-01-17T12:00:00Z")).toBe(false);
   });

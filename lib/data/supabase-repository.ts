@@ -20,6 +20,7 @@ import type {
   MonthlyActual,
   RebaseCorrection,
   MonthlyActualDraft,
+  PaymentProblem,
   SavingsGoal,
   SavingsGoalDraft,
 } from "@/lib/domain/types";
@@ -196,6 +197,13 @@ function check<T>(result: Result<T>): T {
   return data;
 }
 
+/** The banner's failed-payment state from `entitlements` (#144); null without one. */
+function paymentProblem(
+  e: { payment_problem: "grace" | "lapsed" | null; grace_ends_at: string | null; payment_url: string | null } | null,
+): PaymentProblem | null {
+  return e?.payment_problem ? { kind: e.payment_problem, graceEndsAt: e.grace_ends_at, paymentUrl: e.payment_url } : null;
+}
+
 function toLoan(r: LoanRow): Loan {
   return {
     id: r.id,
@@ -319,7 +327,10 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       this.db.from("bank_csv_rules").select("id, keyword, budget_line_id").order("keyword").returns<{ id: string; keyword: string; budget_line_id: string | null }[]>(),
       this.db.from("plan_rebase_undo").select("from_month, new_start_month").maybeSingle<{ from_month: string; new_start_month: string }>(),
       this.db.from("bank_accounts").select("id, name, mapping").order("created_at").order("name").returns<BankAccountRow[]>(),
-      this.db.from("entitlements").select("is_pro").maybeSingle<{ is_pro: boolean }>(),
+      this.db
+        .from("entitlements")
+        .select("is_pro, payment_problem, grace_ends_at, payment_url")
+        .maybeSingle<{ is_pro: boolean; payment_problem: "grace" | "lapsed" | null; grace_ends_at: string | null; payment_url: string | null }>(),
     ]);
     const undo = checkMaybe(rebaseUndo);
     const s = checkMaybe(settings);
@@ -364,6 +375,7 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       bankAccounts: check(bankAccounts).map((a): BankAccount => ({ id: a.id, name: a.name, mapping: a.mapping })),
       // No row: never subscribed and no grant, so Free (SPEC D35).
       isPro: checkMaybe(entitlement)?.is_pro ?? false,
+      paymentProblem: paymentProblem(checkMaybe(entitlement)),
       incomePayments: check(incomePayments).map((p) => ({ month: p.month, budgetLineId: p.budget_line_id, paidOn: p.paid_on })),
       goals: check(goals).map(toGoal),
       actuals: check(actuals).map(

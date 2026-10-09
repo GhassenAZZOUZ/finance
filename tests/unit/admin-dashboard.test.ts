@@ -36,7 +36,7 @@ describe("dashboardFigures", () => {
   });
 
   it("counts past_due in grace as paying and in grace, not past the grace (AC-03, same labels as the list)", () => {
-    const label = (since: string) => planLabel({ status: "past_due", currentPeriodEnd: null, cancelAtPeriodEnd: false, pastDueSince: since }, null, NOW);
+    const label = (since: string) => planLabel({ status: "past_due", currentPeriodEnd: null, cancelAtPeriodEnd: false, pastDueSince: since, payingSince: "2027-01-01T00:00:00Z" }, null, NOW);
     const accounts = [
       account({ plan: label("2027-03-12T00:00:00Z"), status: "past_due" }),
       account({ plan: label("2027-03-14T00:00:00Z"), status: "past_due" }),

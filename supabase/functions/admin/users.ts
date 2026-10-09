@@ -23,6 +23,8 @@ export interface SubscriptionInput {
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
   pastDueSince: string | null;
+  /** When it became paid (#160); null for a trial never paid, which gets no grace period (#144). */
+  payingSince: string | null;
 }
 export interface GrantInput {
   reason: string;
@@ -47,10 +49,10 @@ export interface UserRow {
   grantExpiresAt: string | null;
 }
 
-/** One label, by priority: paying Pro > trial > offered Pro > Free (owner decision). */
+/** One label, by priority: paying Pro > trial > offered Pro > Free (owner decision); same rule as `entitlements`. */
 export function planLabel(sub: SubscriptionInput | null, grant: GrantInput | null, now: Date): PlanLabel {
   if (sub) {
-    const inGrace = sub.status === "past_due" && (!sub.pastDueSince || now.getTime() < new Date(sub.pastDueSince).getTime() + GRACE_DAYS * 86_400_000);
+    const inGrace = sub.status === "past_due" && sub.payingSince !== null && (!sub.pastDueSince || now.getTime() < new Date(sub.pastDueSince).getTime() + GRACE_DAYS * 86_400_000);
     if (sub.status === "active" || inGrace) return "Pro payant";
     if (sub.status === "trialing") return "Essai";
   }

@@ -222,6 +222,13 @@ export interface IncomePayment {
 }
 
 /** Everything the pages need for one user. */
+export interface PaymentProblem {
+  kind: "grace" | "lapsed";
+  /** ISO timestamp; null when lapsed without a grace period (trial never paid). */
+  graceEndsAt: string | null;
+  paymentUrl: string | null;
+}
+
 export interface FinanceSnapshot {
   settings: BudgetSettings | null;
   lines: BudgetLine[];
@@ -246,6 +253,11 @@ export interface FinanceSnapshot {
   bankAccounts?: BankAccount[];
   /** Boussole Pro (SPEC D35); false = Free plan limits apply (#139, #140). Omitted = not limited. */
   isPro?: boolean;
+  /**
+   * A failed Stripe payment (#144, SPEC D35): « grace » = still Pro until `graceEndsAt`, « lapsed » =
+   * no longer Pro by this subscription. `paymentUrl` is Stripe's page to pay the invoice. Omitted = none.
+   */
+  paymentProblem?: PaymentProblem | null;
   /** The latest re-base while it can be undone (#100); null or omitted = nothing to undo. */
   rebaseUndo?: RebaseUndo | null;
 }
