@@ -1,6 +1,6 @@
 /** Stripe webhook rules (issue #142, US-5): signature check and event mapping. Invented data only. */
 import { describe, expect, it } from "vitest";
-import { eventAction, hmacSha256Hex, subscriptionChange, verifyStripeSignature } from "@/supabase/functions/stripe-webhook/logic";
+import { dunningEmail, eventAction, graceEndDay, hmacSha256Hex, subscriptionChange, verifyStripeSignature } from "@/supabase/functions/stripe-webhook/logic";
 
 const SECRET = "whsec_test_secret";
 const NOW = 1_800_000_000;
@@ -81,7 +81,16 @@ describe("eventAction", () => {
   });
 
   it("invoice.payment_failed starts the grace period of the customer", () => {
-    expect(eventAction(event("invoice.payment_failed", { customer: "cus_1" }))).toEqual({ kind: "payment_failed", customerId: "cus_1" });
+    expect(eventAction(event("invoice.payment_failed", { customer: "cus_1" }))).toEqual({ kind: "payment_failed", customerId: "cus_1", paymentUrl: null });
+  });
+
+  it("keeps Stripe's https payment page of the invoice, nothing else (#144)", () => {
+    expect(eventAction(event("invoice.payment_failed", { customer: "cus_1", hosted_invoice_url: "https://invoice.stripe.com/i/acct/x" }))).toEqual({
+      kind: "payment_failed",
+      customerId: "cus_1",
+      paymentUrl: "https://invoice.stripe.com/i/acct/x",
+    });
+    expect(eventAction(event("invoice.payment_failed", { customer: "cus_1", hosted_invoice_url: "http://evil.test" }))).toMatchObject({ paymentUrl: null });
   });
 
   it("acknowledges and ignores the other events and malformed ones", () => {
@@ -89,5 +98,30 @@ describe("eventAction", () => {
     expect(eventAction(event("customer.subscription.trial_will_end", subscription())).kind).toBe("ignored");
     expect(eventAction({ type: "customer.subscription.updated" }).kind).toBe("ignored");
     expect(eventAction(event("invoice.payment_failed", {})).kind).toBe("ignored");
+  });
+});
+
+describe("dunning e-mail (#144)", () => {
+  it("gives the day the 7-day grace period ends, Paris time", () => {
+    expect(graceEndDay("2027-02-15T10:00:00Z")).toBe("22 février 2027");
+    // 23:30 UTC on 21 February is already the 22nd in Paris.
+    expect(graceEndDay("2027-02-14T23:30:00Z")).toBe("22 février 2027");
+  });
+
+  it("tells a paying subscriber the grace end and links to Stripe's payment page; no card data", () => {
+    const mail = dunningEmail({ paidBefore: true, pastDueSince: "2027-02-15T10:00:00Z", paymentUrl: "https://invoice.stripe.com/i/x", appUrl: "https://app.test/" });
+    expect(mail.subject).toBe("Votre paiement Boussole Pro a échoué");
+    expect(mail.text).toContain("Votre accès Pro reste actif jusqu’au 22 février 2027.");
+    expect(mail.text).toContain("Régler le paiement : https://invoice.stripe.com/i/x");
+    expect(mail.html).toContain('<a href="https://invoice.stripe.com/i/x">Régler le paiement</a>');
+    expect(mail.text).not.toMatch(/\d{4} ?\d{4} ?\d{4}|carte/i);
+  });
+
+  it("tells a trial ending unpaid it is Free now, and falls back to the subscription page without a link", () => {
+    const mail = dunningEmail({ paidBefore: false, pastDueSince: "2027-02-15T10:00:00Z", paymentUrl: null, appUrl: "https://app.test/" });
+    expect(mail.subject).toBe("Votre essai Boussole Pro est terminé : paiement non abouti");
+    expect(mail.text).toContain("votre compte est repassé en Free");
+    expect(mail.text).not.toContain("reste actif");
+    expect(mail.text).toContain("Régler le paiement : https://app.test/abonnement/");
   });
 });

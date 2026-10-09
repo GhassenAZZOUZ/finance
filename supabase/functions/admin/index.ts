@@ -51,13 +51,13 @@ async function listAccounts(db: SupabaseClient): Promise<AccountInput[]> {
 async function allUsers(db: SupabaseClient): Promise<UserRow[]> {
   const accounts = await listAccounts(db);
   const [subs, grants, counts] = await Promise.all([
-    db.from("subscriptions").select("user_id, stripe_customer_id, status, current_period_end, cancel_at_period_end, past_due_since"),
+    db.from("subscriptions").select("user_id, stripe_customer_id, status, current_period_end, cancel_at_period_end, past_due_since, paying_since"),
     db.from("pro_grants").select("user_id, reason, expires_at"),
     db.rpc("admin_usage_counts", { p_users: accounts.map((a) => a.id) }),
   ]);
   for (const r of [subs, grants, counts]) if (r.error) throw r.error;
   const subscriptions = new Map<string, SubscriptionInput>(
-    (subs.data ?? []).map((s) => [s.user_id, { customerId: s.stripe_customer_id, status: s.status, currentPeriodEnd: s.current_period_end, cancelAtPeriodEnd: s.cancel_at_period_end, pastDueSince: s.past_due_since }]),
+    (subs.data ?? []).map((s) => [s.user_id, { customerId: s.stripe_customer_id, status: s.status, currentPeriodEnd: s.current_period_end, cancelAtPeriodEnd: s.cancel_at_period_end, pastDueSince: s.past_due_since, payingSince: s.paying_since }]),
   );
   const grantMap = new Map<string, GrantInput>((grants.data ?? []).map((g) => [g.user_id, { reason: g.reason, expiresAt: g.expires_at }]));
   const countMap = new Map<string, { loans: number; goals: number }>(
@@ -103,7 +103,7 @@ async function dashboardAccounts(db: SupabaseClient): Promise<DashboardAccount[]
   const now = new Date();
   return accounts.map((a) => {
     const s = subMap.get(a.id);
-    const sub: SubscriptionInput | null = s ? { status: s.status, currentPeriodEnd: s.current_period_end, cancelAtPeriodEnd: s.cancel_at_period_end, pastDueSince: s.past_due_since } : null;
+    const sub: SubscriptionInput | null = s ? { status: s.status, currentPeriodEnd: s.current_period_end, cancelAtPeriodEnd: s.cancel_at_period_end, pastDueSince: s.past_due_since, payingSince: s.paying_since } : null;
     return {
       createdAt: a.createdAt,
       lastSignInAt: a.lastSignInAt,

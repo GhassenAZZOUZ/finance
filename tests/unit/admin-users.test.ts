@@ -5,11 +5,12 @@ import { PAGE_SIZE, type UserRow, filterAndSort, page, parseListQuery, planLabel
 const NOW = new Date("2027-03-15T12:00:00Z");
 const DAY = 86_400_000;
 const iso = (offset: number) => new Date(NOW.getTime() + offset).toISOString();
-const sub = (status: string, over: Partial<{ currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean; pastDueSince: string | null }> = {}) => ({
+const sub = (status: string, over: Partial<{ currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean; pastDueSince: string | null; payingSince: string | null }> = {}) => ({
   status,
   currentPeriodEnd: null,
   cancelAtPeriodEnd: false,
   pastDueSince: null,
+  payingSince: "2026-12-01T00:00:00Z",
   ...over,
 });
 
@@ -24,6 +25,8 @@ describe("planLabel (paying > trial > offered > Free)", () => {
   it("counts past_due as paying during the grace period only; an expired grant is Free", () => {
     expect(planLabel(sub("past_due", { pastDueSince: iso(-2 * DAY) }), null, NOW)).toBe("Pro payant");
     expect(planLabel(sub("past_due", { pastDueSince: iso(-8 * DAY) }), null, NOW)).toBe("Free");
+    // A trial ending with a declined card gets no grace period (#144).
+    expect(planLabel(sub("past_due", { pastDueSince: iso(-1 * DAY), payingSince: null }), null, NOW)).toBe("Free");
     expect(planLabel(null, { reason: "gift", expiresAt: iso(-1000) }, NOW)).toBe("Free");
   });
 });

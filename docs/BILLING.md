@@ -17,7 +17,9 @@ them.
 ## Rights (SPEC D35)
 
 `is_pro` = a Stripe subscription `trialing` or `active` (or `past_due` during 7 days from the first
-failed payment, `billing_grace_days()`), **or** a `pro_grants` row not expired. Otherwise Free.
+failed payment, `billing_grace_days()`, **only if it was paid before**: a trial ending with a declined
+card is Free at once, #144), **or** a `pro_grants` row not expired. Otherwise Free
+(`subscription_has_pro()`).
 Every account that existed when the Free limits shipped got a grant `early_user` (owner decision
 2026-10-07). Grants are written by the service role only (dashboard SQL), e.g. a gift:
 `insert into public.pro_grants (user_id, reason) values ('<user id>', 'gift');`
@@ -50,6 +52,21 @@ The numbers live in `plan_limits`. Beyond a database limit the insert is refused
   known for the Stripe customer. An unknown customer is acknowledged and ignored.
 - Responses: 400 bad signature or payload (Stripe stops), 500 not applied (Stripe retries), 200 otherwise.
 
+## Failed payment (US-7, #144; owner decisions 2026-10-09)
+
+- `invoice.payment_failed` starts the 7-day grace period at the first failure, keeps the invoice's
+  Stripe payment page (`hosted_invoice_url`, which also handles 3-D Secure) and, the first time only,
+  sends **one** dunning e-mail from Boussole (same SMTP secrets as the monthly reminder, plus
+  `APP_URL`): « Votre paiement Boussole Pro a échoué », with the grace end date and the « Régler le
+  paiement » link; for a trial ending unpaid, that the account is Free now. A replay, a later retry or
+  a failure older than a recovered payment sends nothing. A send failure is logged, never retried.
+- A banner « Paiement échoué » is shown above every page, not dismissible, until the payment is
+  settled: Pro until the grace end, then « repassé en Free ». In the Android app it has no payment
+  link (Google Play rules) and says to pay from the website.
+- Paid again (`customer.subscription.updated` → `active`): the banner and the grace fields go.
+- After Stripe's last retry the subscription is **cancelled** (`customer.subscription.deleted`): Free,
+  no banner, and the user can subscribe again through Checkout.
+
 ## Checkout (US-4)
 
 - Plans: **4,99 €/month** and **39 €/year**, **14-day trial** on a user's first subscription only
@@ -74,4 +91,9 @@ The numbers live in `plan_limits`. Beyond a database limit the insert is refused
 4. Products → add « Boussole Pro » with two recurring prices (4,99 € monthly, 39 € yearly), then:
    `supabase secrets set STRIPE_SECRET_KEY=sk_test_… STRIPE_PRICE_MONTHLY=price_… STRIPE_PRICE_YEARLY=price_… APP_URL=https://ghassenazzouz.github.io/finance --project-ref <project-ref>`.
    Until then « S’abonner » answers « Le paiement n’est pas encore ouvert ».
-5. Later stories add the Customer Portal (US-6) and Smart Retries (US-7).
+5. Failed payments (US-7): Settings → Billing → Subscriptions and emails → **Smart Retries** on
+   (default window), and « If all retries for a payment fail »: **cancel the subscription**. Turn off
+   Stripe's own « failed payment » customer e-mails (Boussole sends its own). Set the SMTP secrets of
+   the reminder on the project if not done (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`,
+   `SMTP_FROM`). Test with the card `4000 0000 0000 0341` (attaches, then declines).
+6. A later story adds the Customer Portal (US-6).

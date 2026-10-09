@@ -53,13 +53,49 @@ describe("apply_stripe_event", () => {
 
   it("starts the grace period at the first failure, keeps it while past_due, clears it once paid", async () => {
     await apply(eventId(), "customer.subscription.created", "2027-01-01T10:00:00Z", sub("active", { userId: a.id }));
-    expect(await apply(eventId(), "invoice.payment_failed", "2027-02-15T10:00:00Z", { kind: "payment_failed", customerId: customer })).toBe("applied");
+    expect(await apply(eventId(), "invoice.payment_failed", "2027-02-15T10:00:00Z", { kind: "payment_failed", customerId: customer })).toBe("dunning");
     expect(new Date((await row())!.past_due_since).toISOString()).toBe("2027-02-15T10:00:00.000Z");
     await apply(eventId(), "customer.subscription.updated", "2027-02-15T10:00:01Z", sub("past_due"));
     await apply(eventId(), "invoice.payment_failed", "2027-02-18T10:00:00Z", { kind: "payment_failed", customerId: customer });
     expect(new Date((await row())!.past_due_since).toISOString()).toBe("2027-02-15T10:00:00.000Z");
     await apply(eventId(), "customer.subscription.updated", "2027-02-19T10:00:00Z", sub("active"));
     expect((await row())?.past_due_since).toBeNull();
+  });
+
+  it("asks for the dunning e-mail once per unpaid period: not on a replay nor on a later retry (#144)", async () => {
+    const failed = (url?: string) => ({ kind: "payment_failed", customerId: customer, paymentUrl: url });
+    await apply(eventId(), "customer.subscription.created", "2027-01-01T10:00:00Z", sub("active", { userId: a.id }));
+    const first = eventId();
+    expect(await apply(first, "invoice.payment_failed", "2027-02-15T10:00:00Z", failed("https://invoice.stripe.com/i/one"))).toBe("dunning");
+    expect(await apply(first, "invoice.payment_failed", "2027-02-15T10:00:00Z", failed())).toBe("duplicate");
+    await apply(eventId(), "customer.subscription.updated", "2027-02-15T10:00:01Z", sub("past_due"));
+    expect(await apply(eventId(), "invoice.payment_failed", "2027-02-18T10:00:00Z", failed("https://invoice.stripe.com/i/two"))).toBe("applied");
+    const { data } = await adminClient().from("subscriptions").select("payment_url, past_due_since").eq("user_id", a.id).single();
+    expect(data?.payment_url).toBe("https://invoice.stripe.com/i/two");
+    expect(new Date(data!.past_due_since).toISOString()).toBe("2027-02-15T10:00:00.000Z");
+    // Paid again: everything is cleared, and the next failure is a new unpaid period.
+    await apply(eventId(), "customer.subscription.updated", "2027-02-19T10:00:00Z", sub("active"));
+    const cleared = (await adminClient().from("subscriptions").select("payment_url, past_due_since, payment_failed_at").eq("user_id", a.id).single()).data;
+    expect(cleared).toEqual({ payment_url: null, past_due_since: null, payment_failed_at: null });
+    expect(await apply(eventId(), "invoice.payment_failed", "2027-03-15T10:00:00Z", failed())).toBe("dunning");
+  });
+
+  it("ignores a late failure after a recovered payment, but not a failure arriving before its past_due event", async () => {
+    await apply(eventId(), "customer.subscription.created", "2027-01-01T10:00:00Z", sub("active", { userId: a.id }));
+    await apply(eventId(), "customer.subscription.updated", "2027-02-20T10:00:00Z", sub("active"));
+    expect(await apply(eventId(), "invoice.payment_failed", "2027-02-15T10:00:00Z", { kind: "payment_failed", customerId: customer })).toBe("stale");
+    expect((await row())?.past_due_since).toBeNull();
+    // Stripe sends both at once: the subscription event, a second older, may come after the failure.
+    expect(await apply(eventId(), "invoice.payment_failed", "2027-03-15T10:00:01Z", { kind: "payment_failed", customerId: customer })).toBe("dunning");
+    await apply(eventId(), "customer.subscription.updated", "2027-03-15T10:00:00Z", sub("past_due"));
+    expect((await row())?.status).toBe("past_due");
+    expect(new Date((await row())!.past_due_since).toISOString()).toBe("2027-03-15T10:00:01.000Z");
+  });
+
+  it("drops a payment link that is not https", async () => {
+    await apply(eventId(), "customer.subscription.created", "2027-01-01T10:00:00Z", sub("active", { userId: a.id }));
+    await apply(eventId(), "invoice.payment_failed", "2027-02-15T10:00:00Z", { kind: "payment_failed", customerId: customer, paymentUrl: "javascript:alert(1)" });
+    expect((await adminClient().from("subscriptions").select("payment_url").eq("user_id", a.id).single()).data?.payment_url).toBeNull();
   });
 
   it("records cancellation at period end, then the end of the subscription", async () => {

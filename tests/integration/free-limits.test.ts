@@ -72,7 +72,7 @@ describe("Pro is never blocked", () => {
     const u = await user("free");
     await adminClient()
       .from("subscriptions")
-      .insert({ user_id: u.id, stripe_customer_id: `cus_${u.id.slice(0, 8)}`, status: "past_due", past_due_since: new Date(Date.now() - 86_400_000).toISOString() });
+      .insert({ user_id: u.id, stripe_customer_id: `cus_${u.id.slice(0, 8)}`, status: "past_due", paying_since: new Date(Date.now() - 40 * 86_400_000).toISOString(), past_due_since: new Date(Date.now() - 86_400_000).toISOString() });
     expect((await loan(u, "A")).error).toBeNull();
     expect((await loan(u, "B")).error).toBeNull();
   });

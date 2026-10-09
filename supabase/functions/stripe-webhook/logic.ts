@@ -60,7 +60,8 @@ export interface SubscriptionChange {
 
 export type EventAction =
   | { kind: "subscription"; change: SubscriptionChange }
-  | { kind: "payment_failed"; customerId: string }
+  /** paymentUrl: Stripe's page to pay the unpaid invoice (also handles 3-D Secure), #144. */
+  | { kind: "payment_failed"; customerId: string; paymentUrl: string | null }
   | { kind: "ignored" };
 
 export const HANDLED_EVENTS = [
@@ -113,7 +114,46 @@ export function eventAction(event: Obj): EventAction {
   }
   if (type === "invoice.payment_failed") {
     const customerId = ref(object.customer);
-    return customerId ? { kind: "payment_failed", customerId } : { kind: "ignored" };
+    const url = str(object.hosted_invoice_url);
+    return customerId ? { kind: "payment_failed", customerId, paymentUrl: url && url.startsWith("https://") ? url : null } : { kind: "ignored" };
   }
   return { kind: "ignored" };
+}
+
+const GRACE_DAYS = 7;
+const longDate = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" });
+
+/** The day the grace period started at `pastDueSince` ends (same time, 7 days later), Paris. */
+export function graceEndDay(pastDueSince: string): string {
+  return longDate.format(new Date(new Date(pastDueSince).getTime() + GRACE_DAYS * 86_400_000));
+}
+
+/**
+ * The one dunning e-mail of an unpaid period (issue #144, owner decision 2026-10-09: Boussole sends
+ * it, once, at the first failure). A paid subscription keeps Pro during the grace period; a trial
+ * ending unpaid is Free at once. No card data: only the link to Stripe's payment page.
+ */
+export function dunningEmail(input: { paidBefore: boolean; pastDueSince: string; paymentUrl: string | null; appUrl: string }): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const link = input.paymentUrl ?? `${input.appUrl.replace(/\/+$/, "")}/abonnement/`;
+  const lines = input.paidBefore
+    ? [
+        "Bonjour,",
+        "Le paiement de votre abonnement Boussole Pro n’a pas abouti.",
+        `Votre accès Pro reste actif jusqu’au ${graceEndDay(input.pastDueSince)}. Réglez le paiement d’ici là pour le garder sans interruption.`,
+      ]
+    : [
+        "Bonjour,",
+        "Votre essai Boussole Pro est terminé, mais le premier paiement n’a pas abouti : votre compte est repassé en Free. Vos données sont conservées.",
+        "Réglez le paiement pour retrouver Pro.",
+      ];
+  const after = "Sans règlement, l’abonnement sera résilié automatiquement après les nouvelles tentatives de paiement.";
+  return {
+    subject: input.paidBefore ? "Votre paiement Boussole Pro a échoué" : "Votre essai Boussole Pro est terminé : paiement non abouti",
+    text: [...lines, `Régler le paiement : ${link}`, after].join("\n\n"),
+    html: [...lines.map((l) => `<p>${l}</p>`), `<p><a href="${link}">Régler le paiement</a></p>`, `<p style="color:#666;font-size:12px">${after}</p>`].join("\n"),
+  };
 }
